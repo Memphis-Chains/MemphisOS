@@ -26,6 +26,7 @@
     "format:check": "prettier --check .",
     "test": "npm run test:ts",
     "test:ts": "vitest run",
+    "test:ops-artifacts": "vitest run tests/ops/incident-bundle-exporter.test.ts tests/ops/incident-bundle-manifest-verify.test.ts",
     "test:chaos": "vitest run tests/unit/wal-chaos-gate.test.ts",
     "test:rust": "bash -lc 'command -v cargo >/dev/null 2>&1 || source $HOME/.cargo/env; cargo test --workspace'",
     "build:rust": "bash -lc 'command -v cargo >/dev/null 2>&1 || source $HOME/.cargo/env; cargo build --workspace'",
