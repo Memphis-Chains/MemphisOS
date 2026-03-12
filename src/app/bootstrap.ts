@@ -15,8 +15,14 @@ import { EXIT_CODES, MemphisExitError } from '../infra/runtime/exit-codes.js';
 import { enforceSafeModeNoEgress, safeModeEnabled } from '../infra/runtime/safe-mode.js';
 import { writeSecurityCriticalEvent } from '../infra/runtime/security-critical.js';
 import {
+  evaluateRevocationCacheStartup,
+  evaluateTrustRootStartup,
+} from '../infra/runtime/startup-guards.js';
+import {
+  setStartupRevocationCacheStatus,
   setStartupQueueResumeStatus,
   setStartupSafeModeNetworkStatus,
+  setStartupTrustRootStatus,
 } from '../infra/runtime/startup-state.js';
 import { verifyChainIntegrity } from '../infra/storage/chain-adapter.js';
 import type {
@@ -38,6 +44,47 @@ export async function bootstrap(): Promise<void> {
 
   const config = loadConfig();
   startAlertSuppressionFlushLoop(process.env);
+
+  const trustRootStatus = evaluateTrustRootStartup(process.env);
+  setStartupTrustRootStatus(trustRootStatus);
+  if (trustRootStatus.enabled && !trustRootStatus.valid) {
+    const reason = trustRootStatus.reason ?? 'trust root validation failed';
+    await writeSecurityCriticalEvent(
+      {
+        event: 'TrustRootRejected',
+        reason,
+        details: {
+          path: trustRootStatus.path,
+        },
+      },
+      process.env,
+    );
+    if (inStrictMode(process.env)) {
+      throw new MemphisExitError(
+        EXIT_CODES.ERR_TRUST_ROOT,
+        `trust root rejected in strict mode: ${reason}`,
+      );
+    }
+  }
+
+  const revocationCacheStatus = evaluateRevocationCacheStartup(process.env);
+  setStartupRevocationCacheStatus(revocationCacheStatus);
+  if (revocationCacheStatus.enabled && revocationCacheStatus.stale) {
+    const reason = revocationCacheStatus.reason ?? 'revocation cache is stale';
+    await writeSecurityCriticalEvent(
+      {
+        event: 'StaleRevocationCache',
+        reason,
+        severity: 'high',
+        details: {
+          maxStaleMs: revocationCacheStatus.maxStaleMs,
+          lastSyncMs: revocationCacheStatus.lastSyncMs,
+          ageMs: revocationCacheStatus.ageMs,
+        },
+      },
+      process.env,
+    );
+  }
 
   if (!safeModeEnabled(process.env)) {
     setStartupSafeModeNetworkStatus({

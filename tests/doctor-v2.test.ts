@@ -83,4 +83,51 @@ describe('doctor v2', () => {
       else process.env.MEMPHIS_QUEUE_RESUME_POLICY = prevPolicy;
     }
   });
+
+  it('warns when no alert transport is configured', async () => {
+    const prevPagerDuty = process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+    const prevOpsGenie = process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY;
+    const prevPagerDutyEndpoint = process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT;
+    const prevOpsGenieEndpoint = process.env.MEMPHIS_ALERT_OPSGENIE_ENDPOINT;
+    delete process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+    delete process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY;
+    delete process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT;
+    delete process.env.MEMPHIS_ALERT_OPSGENIE_ENDPOINT;
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((c) => c.id === 't4-alert-transport-config');
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('warn');
+      expect(check?.detail).toContain('no external alert transport configured');
+    } finally {
+      if (prevPagerDuty === undefined) delete process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+      else process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY = prevPagerDuty;
+      if (prevOpsGenie === undefined) delete process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY;
+      else process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY = prevOpsGenie;
+      if (prevPagerDutyEndpoint === undefined) delete process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT;
+      else process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT = prevPagerDutyEndpoint;
+      if (prevOpsGenieEndpoint === undefined) delete process.env.MEMPHIS_ALERT_OPSGENIE_ENDPOINT;
+      else process.env.MEMPHIS_ALERT_OPSGENIE_ENDPOINT = prevOpsGenieEndpoint;
+    }
+  });
+
+  it('fails when alert endpoint is set without key', async () => {
+    const prevPagerDuty = process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+    const prevPagerDutyEndpoint = process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT;
+    delete process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+    process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT = 'https://events.pagerduty.com/v2/enqueue';
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((c) => c.id === 't4-alert-transport-config');
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('fail');
+      expect(check?.ok).toBe(false);
+      expect(check?.detail).toContain('inconsistent alert config');
+    } finally {
+      if (prevPagerDuty === undefined) delete process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+      else process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY = prevPagerDuty;
+      if (prevPagerDutyEndpoint === undefined) delete process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT;
+      else process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT = prevPagerDutyEndpoint;
+    }
+  });
 });

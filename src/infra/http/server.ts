@@ -34,8 +34,10 @@ import { computeHealthSummary } from '../ops/health-summary.js';
 import { verifyAdminActionSignature } from '../runtime/admin-signature.js';
 import { writeDualApprovalChainEvent } from '../runtime/dual-approval-events.js';
 import {
+  getStartupRevocationCacheStatus,
   getStartupQueueResumeStatus,
   getStartupSafeModeNetworkStatus,
+  getStartupTrustRootStatus,
 } from '../runtime/startup-state.js';
 import { getChainAdapterStatus } from '../storage/chain-adapter.js';
 import { NapiChainAdapter } from '../storage/rust-chain-adapter.js';
@@ -226,6 +228,8 @@ export function createHttpServer(
         : 'safe mode disabled',
       checkedAt: new Date().toISOString(),
     };
+    const startupTrustRoot = getStartupTrustRootStatus();
+    const startupRevocationCache = getStartupRevocationCacheStatus();
 
     return {
       service: 'memphis-v5',
@@ -243,6 +247,8 @@ export function createHttpServer(
       startup: {
         queueResume: startupQueueResume,
         safeModeNetwork: startupSafeModeNetwork,
+        trustRoot: startupTrustRoot,
+        revocationCache: startupRevocationCache,
       },
       dualApproval,
       timestamp: new Date().toISOString(),
