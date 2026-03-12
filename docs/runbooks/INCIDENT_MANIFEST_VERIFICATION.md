@@ -83,6 +83,7 @@ Verification must report:
 - `checks.keyFingerprintMatch=true`
 - `checks.keyIdMatch=true` (when expected key id is set)
 - `checks.manifestEncrypted=true` and `checks.bundleEncrypted=true` when encrypted companions are used
+- `chainEvent.written=true` (immutable `incident_manifest.verification` linkage)
 
 ## 4. Handoff Package
 
@@ -92,6 +93,7 @@ Attach these artifacts to incident records:
 - `incident-bundle.manifest.json`
 - optional encrypted companions: `incident-bundle.json.enc`, `incident-bundle.manifest.json.enc`
 - verifier JSON output (`ok=true` proof)
+- system chain event reference (`chainEvent.index` + `chainEvent.hash`)
 - command transcript and timestamp of execution
 
 Do not attach private signing keys.

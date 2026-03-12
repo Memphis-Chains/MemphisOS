@@ -192,6 +192,10 @@ Updated: 2026-03-12
   - encrypted `.enc` companions generated for bundle + manifest (off-host transfer ready)
   - verifier can validate encrypted manifests/bundles with `--decryption-passphrase` and checks encrypted-path integrity
   - retention pruning now removes orphaned encrypted companions with their base artifacts.
+- Added immutable audit linkage for incident verification:
+  - `ops:verify-incident-manifest` now appends `incident_manifest.verification` events to the `system` chain
+  - verifier output now carries `chainEvent` metadata (`index`, `hash`) for incident handoff traceability
+  - integration coverage validates chain event emission and payload linkage.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -202,6 +206,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add immutable audit linkage from manifest verification results into system chain events.
-2. Add signed key-bundle provenance support (bundle signature + trust-root verification).
-3. Add policy controls for mandatory encrypted incident handoff in financial mode (`requireEncryptedArtifacts=true`).
+1. Add signed key-bundle provenance support (bundle signature + trust-root verification).
+2. Add policy controls for mandatory encrypted incident handoff in financial mode (`requireEncryptedArtifacts=true`).
+3. Add verifier policy mode for strict chain-link enforcement + retry/backoff on append failures.

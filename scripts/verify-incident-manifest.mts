@@ -1,4 +1,4 @@
-import { createPublicKey, verify as verifyDetached } from 'node:crypto';
+import { randomUUID, createPublicKey, verify as verifyDetached } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 
@@ -8,6 +8,7 @@ import {
   parseEncryptedBlob,
   sha256Hex,
 } from './lib/encrypted-blob.mts';
+import { appendBlock, type AppendBlockResult } from '../src/infra/storage/chain-adapter.js';
 
 interface BundleDescriptor {
   path: string;
@@ -68,6 +69,14 @@ interface VerifyOutput {
     keyIdMatch: boolean;
   };
   errors: string[];
+  chainEvent?: {
+    attempted: boolean;
+    written: boolean;
+    chain: 'system';
+    index?: number;
+    hash?: string;
+    error?: string;
+  };
 }
 
 function parseArg(flag: string): string | null {
@@ -501,10 +510,62 @@ function verifySignature(options: {
   }
 }
 
-function main(): void {
+async function writeVerificationChainEvent(options: {
+  manifestPath: string;
+  bundlePath: string;
+  expectedKeyId: string | null;
+  checks: VerifyOutput['checks'];
+  errors: string[];
+  ok: boolean;
+}): Promise<VerifyOutput['chainEvent']> {
+  const eventId = randomUUID();
+  const taskId = `incident-manifest-verify:${sha256Hex(options.manifestPath).slice(0, 16)}`;
+  const payload = {
+    type: 'system_event',
+    event: 'incident_manifest.verification',
+    schemaVersion: 1,
+    eventId,
+    timestamp: new Date().toISOString(),
+    correlation: {
+      taskId,
+      runId: eventId,
+      agentId: 'ops.verify-incident-manifest',
+      toolCallId: null,
+    },
+    payload: {
+      manifestPath: options.manifestPath,
+      bundlePath: options.bundlePath,
+      expectedKeyId: options.expectedKeyId,
+      ok: options.ok,
+      checks: options.checks,
+      errors: options.errors,
+    },
+  } as const;
+
+  try {
+    const appended: AppendBlockResult = await appendBlock('system', payload, process.env);
+    return {
+      attempted: true,
+      written: true,
+      chain: 'system',
+      index: appended.index,
+      hash: appended.hash,
+    };
+  } catch (error) {
+    return {
+      attempted: true,
+      written: false,
+      chain: 'system',
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function main(): Promise<void> {
   const manifestPath = resolveManifestPath();
   const requireSignature = hasFlag('--require-signature');
   const decryptionPassphrase = resolveDecryptionPassphrase();
+  const skipChainEvent = hasFlag('--skip-chain-event');
   const expectedKeyId = parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
   const checks: VerifyOutput['checks'] = {
     schemaValid: false,
@@ -563,19 +624,39 @@ function main(): void {
     });
   }
 
+  const verificationOk = errors.length === 0;
+  const chainEvent = skipChainEvent
+    ? {
+        attempted: false,
+        written: false,
+        chain: 'system' as const,
+      }
+    : await writeVerificationChainEvent({
+        manifestPath,
+        bundlePath,
+        expectedKeyId,
+        checks,
+        errors,
+        ok: verificationOk,
+      });
+  if (!skipChainEvent && chainEvent && !chainEvent.written) {
+    errors.push(`failed to append incident verification chain event: ${chainEvent.error ?? 'unknown_error'}`);
+  }
+
   const result: VerifyOutput = {
     ok: errors.length === 0,
     manifestPath,
     bundlePath,
     checks,
     errors,
+    chainEvent,
   };
   console.log(JSON.stringify(result, null, 2));
   if (!result.ok) process.exit(1);
 }
 
 try {
-  main();
+  await main();
 } catch (error) {
   console.error(
     JSON.stringify(
