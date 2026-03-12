@@ -431,17 +431,22 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
   const opsGenieEndpoint = (process.env.MEMPHIS_ALERT_OPSGENIE_ENDPOINT ?? '').trim();
   const pagerDutyConfigured = pagerDutyKey.length > 0;
   const opsGenieConfigured = opsGenieKey.length > 0;
+  const pagerDutyKeyFormatOk = /^[A-Za-z0-9]{32}$/.test(pagerDutyKey);
+  const opsGenieKeyFormatOk =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      opsGenieKey,
+    );
   const alertTransportCount =
     (pagerDutyConfigured ? 1 : 0) + (opsGenieConfigured ? 1 : 0);
   const invalidAlertConfig =
     (!pagerDutyConfigured && pagerDutyEndpoint.length > 0) ||
     (!opsGenieConfigured && opsGenieEndpoint.length > 0);
-  const weakAlertKey =
-    (pagerDutyConfigured && pagerDutyKey.length < 16) ||
-    (opsGenieConfigured && opsGenieKey.length < 16);
+  const invalidAlertKeys: string[] = [];
+  if (pagerDutyConfigured && !pagerDutyKeyFormatOk) invalidAlertKeys.push('pagerduty');
+  if (opsGenieConfigured && !opsGenieKeyFormatOk) invalidAlertKeys.push('opsgenie');
   const alertConfigLevel = invalidAlertConfig
     ? 'fail'
-    : alertTransportCount === 0 || weakAlertKey
+    : alertTransportCount === 0 || invalidAlertKeys.length > 0
       ? 'warn'
       : 'pass';
   const alertConfigOk = !invalidAlertConfig;
@@ -449,8 +454,8 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
     ? `inconsistent alert config (endpoint without key): pagerdutyEndpoint=${pagerDutyEndpoint.length > 0}, opsgenieEndpoint=${opsGenieEndpoint.length > 0}`
     : alertTransportCount === 0
       ? 'no external alert transport configured'
-      : weakAlertKey
-        ? `configured transports=${alertTransportCount}, key length check failed`
+      : invalidAlertKeys.length > 0
+        ? `configured transports=${alertTransportCount}, invalid key format: ${invalidAlertKeys.join(',')}`
         : `configured transports=${alertTransportCount}`;
 
   checks.push({

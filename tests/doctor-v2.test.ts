@@ -130,4 +130,24 @@ describe('doctor v2', () => {
       else process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT = prevPagerDutyEndpoint;
     }
   });
+
+  it('warns when configured alert key format is invalid', async () => {
+    const prevPagerDuty = process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+    const prevOpsGenie = process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY;
+    process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY = 'short-key';
+    delete process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY;
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((c) => c.id === 't4-alert-transport-config');
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('warn');
+      expect(check?.detail).toContain('invalid key format');
+      expect(check?.detail).toContain('pagerduty');
+    } finally {
+      if (prevPagerDuty === undefined) delete process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY;
+      else process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY = prevPagerDuty;
+      if (prevOpsGenie === undefined) delete process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY;
+      else process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY = prevOpsGenie;
+    }
+  });
 });
