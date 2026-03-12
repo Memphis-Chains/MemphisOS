@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { runStartupSecurityGuards } from '../../src/app/bootstrap.js';
 import { stopAlertRuntimeForTests } from '../../src/infra/logging/alert-runtime.js';
 import { resolveEmergencyLogCandidates } from '../../src/infra/runtime/emergency-log.js';
+import { EXIT_CODES } from '../../src/infra/runtime/exit-codes.js';
 
 const tempDirs: string[] = [];
 
@@ -147,5 +148,31 @@ describe('startup security alerts', () => {
       },
     );
     expect(matched).toBeDefined();
+  });
+
+  it('throws ERR_TRUST_ROOT in strict mode when trust-root validation fails', async () => {
+    const workspace = makeTempDir('memphis-startup-alert-strict-trust-');
+    const trustRootPath = join(workspace, 'missing-trust-root.json');
+
+    await withEnv(
+      {
+        MEMPHIS_STRICT_MODE: 'true',
+        MEMPHIS_TRUST_ROOT_REQUIRED: 'true',
+        MEMPHIS_TRUST_ROOT_PATH: trustRootPath,
+        MEMPHIS_REVOCATION_CACHE_REQUIRED: 'false',
+      },
+      async () => {
+        stopAlertRuntimeForTests();
+        await expect(
+          runStartupSecurityGuards(process.env, {
+            writeSecurityEvent: async () => ({
+              wroteChain: false,
+              wroteSyslog: false,
+              wroteEmergency: false,
+            }),
+          }),
+        ).rejects.toMatchObject({ exitCode: EXIT_CODES.ERR_TRUST_ROOT });
+      },
+    );
   });
 });
