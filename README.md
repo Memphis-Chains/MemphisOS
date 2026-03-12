@@ -112,6 +112,10 @@ npm run -s ops:export-incident-bundle -- \
   --out data/incident-bundle.json \
   --manifest-out data/incident-bundle.manifest.json \
   --signing-key-path /secure/path/incident-signing-key.pem
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json \
+  --public-key-path /secure/path/incident-signing-public.pem \
+  --require-signature
 ```
 
 `ops:export-incident-bundle` defaults:
@@ -119,6 +123,12 @@ npm run -s ops:export-incident-bundle -- \
 - sensitive fields in status/audit payloads are redacted (`[REDACTED]`)
 - bundle history is pruned by retention policy (`--retention-count`, `--retention-days`)
 - optional forensic manifest is written when `--manifest-out` (or `--signing-key-path`) is provided
+
+`ops:verify-incident-manifest` checks:
+
+- manifest schema validity (`schemaVersion=1`)
+- bundle path existence + hash + byte-size integrity
+- optional Ed25519 signature verification with fingerprint + payload hash checks
 
 ## Security Notes
 

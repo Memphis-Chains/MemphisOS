@@ -35,7 +35,8 @@
     "ops:protect-main": "./scripts/enforce-branch-protection.sh",
     "ops:verify-main-protection": "./scripts/verify-branch-protection.sh",
     "ops:drill-guards": "tsx scripts/drill-guard-failures.mts",
-    "ops:export-incident-bundle": "tsx scripts/export-incident-bundle.mts"
+    "ops:export-incident-bundle": "tsx scripts/export-incident-bundle.mts",
+    "ops:verify-incident-manifest": "tsx scripts/verify-incident-manifest.mts"
   },
   "keywords": [
     "memphisos",

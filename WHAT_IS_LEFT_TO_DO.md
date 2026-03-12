@@ -166,6 +166,11 @@ Updated: 2026-03-12
   - retention/rotation pruning now cleans old `incident-bundle-*` artifacts and paired manifests
   - optional signed manifest output supported via `--manifest-out` + `--signing-key-path`
   - integration coverage added for redaction, pruning, and signature verification.
+- Added incident manifest verification command:
+  - `npm run -s ops:verify-incident-manifest`
+  - verifies schema, bundle hash/size integrity, and optional Ed25519 signature validity
+  - supports strict signed-bundle enforcement with `--require-signature`
+  - integration coverage added in `tests/ops/incident-bundle-manifest-verify.test.ts`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -176,6 +181,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add manifest verification helper (`ops:verify-incident-manifest`) for operators to validate signature + bundle hash post-export.
-2. Add manifest/signature checks into CI ops tests (fixture-driven positive/negative cases).
-3. Add secure key-source support for manifest signing (file path + env-injected key material + key-id metadata).
+1. Add CI ops regression stage for incident bundle/manifest workflow (export + verify signed + tamper-fail case).
+2. Add secure key-source support for manifest signing (file path + env-injected key material + key-id metadata).
+3. Add manifest verification runbook focused on incident handoff and evidence packaging.
