@@ -1,4 +1,5 @@
 import { ProviderPolicy } from './provider-policy.js';
+import { TaskExecutor, type TaskExecutionRequest } from './task-executor.js';
 import type { LLMProvider } from '../../core/contracts/llm-provider.js';
 import { AppError } from '../../core/errors.js';
 import type {
@@ -15,6 +16,7 @@ export type OrchestratorDeps = {
   fallbackProvider?: ProviderName;
   maxRetries?: number;
   providerCooldownMs?: number;
+  rawEnv?: NodeJS.ProcessEnv;
 };
 
 function sleep(ms: number): Promise<void> {
@@ -34,6 +36,8 @@ export class OrchestrationService {
   private readonly providers = new Map<ProviderName, LLMProvider>();
   private readonly maxRetries: number;
   private readonly providerPolicy: ProviderPolicy;
+  private readonly rawEnv: NodeJS.ProcessEnv;
+  private readonly taskExecutor: TaskExecutor;
 
   constructor(private readonly deps: OrchestratorDeps) {
     for (const provider of deps.providers) {
@@ -41,6 +45,8 @@ export class OrchestrationService {
     }
     this.maxRetries = deps.maxRetries ?? 2;
     this.providerPolicy = new ProviderPolicy(deps.providerCooldownMs ?? 30_000);
+    this.rawEnv = deps.rawEnv ?? process.env;
+    this.taskExecutor = new TaskExecutor({ rawEnv: this.rawEnv });
   }
 
   private pickAutoProvider(strategy: 'default' | 'latency-aware'): ProviderName {
@@ -137,16 +143,21 @@ export class OrchestrationService {
       : new AppError('INTERNAL_ERROR', 'Unknown generate error', 500);
   }
 
-  public async generate(
-    input: GenerateInput & { provider?: 'auto' | ProviderName },
-  ): Promise<GenerateResult> {
-    if ((process.env.MEMPHIS_SAFE_MODE ?? '').toLowerCase() === 'true') {
+  public async generate(input: TaskExecutionRequest): Promise<GenerateResult> {
+    if ((this.rawEnv.MEMPHIS_SAFE_MODE ?? '').toLowerCase() === 'true') {
       throw new AppError(
         'PERMISSION_DENIED',
         'forbidden in safe mode: generation is disabled',
         403,
       );
     }
+
+    return this.taskExecutor.execute(input, async () => this.generateWithProviders(input));
+  }
+
+  private async generateWithProviders(
+    input: GenerateInput & { provider?: 'auto' | ProviderName },
+  ): Promise<GenerateResult> {
     let primary: LLMProvider | undefined;
     const trace: ProviderTraceAttempt[] = [];
 

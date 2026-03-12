@@ -81,6 +81,12 @@ export async function registerChatRoutes(
         sessionId: payload.sessionId,
         options: payload.options,
         strategy: payload.strategy,
+        execution: {
+          taskId: queueTicket?.taskId ?? request.id,
+          runId: queueTicket?.taskId,
+          source: 'http.chat.generate',
+          enableReplayDedupe: Boolean(queueTicket?.taskId),
+        },
       });
     } catch (error) {
       if (queueTicket) {

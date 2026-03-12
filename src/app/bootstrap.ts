@@ -190,6 +190,12 @@ async function redispatchRecoveredTask(
     sessionId: queuedInput.sessionId,
     options: queuedInput.options,
     strategy: queuedInput.strategy,
+    execution: {
+      taskId: task.taskId,
+      runId: task.taskId,
+      source: 'queue.redispatch',
+      enableReplayDedupe: true,
+    },
   });
 
   const requestIdFromMetadata =
