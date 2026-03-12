@@ -119,6 +119,12 @@ npm run -s ops:verify-incident-manifest -- \
   --public-key-path /secure/path/incident-signing-public.pem \
   --expected-key-id incident-key-v1 \
   --require-signature
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json.enc \
+  --decryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE" \
+  --public-key-path /secure/path/incident-signing-public.pem \
+  --expected-key-id incident-key-v1 \
+  --require-signature
 ```
 
 `ops:export-incident-bundle` defaults:
@@ -128,11 +134,14 @@ npm run -s ops:verify-incident-manifest -- \
 - optional forensic manifest is written when `--manifest-out` or any signing key source is provided
 - signing key sources: `--signing-key-path`, `--signing-key-pem`, `--signing-key-pem-base64` (or matching env vars)
 - optional signer metadata: `--signing-key-id` / `MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID`
+- encrypted-at-rest companion artifacts: `--encryption-passphrase`, `--encryption-passphrase-base64`, `--encryption-passphrase-file` (or matching env vars)
+- optional encrypted output overrides: `--encrypted-bundle-out`, `--encrypted-manifest-out`
 
 `ops:verify-incident-manifest` checks:
 
 - manifest schema validity (`schemaVersion=1`)
 - bundle path existence + hash + byte-size integrity
+- encrypted manifest/bundle companions are supported with `--decryption-passphrase` (or matching env vars)
 - optional Ed25519 signature verification with fingerprint + payload hash + `keyId` expectation checks
 - detached key registry mode supported via `--public-key-bundle-path` (`schemaVersion:1`, `keys:[{keyId,publicKeyPem}]`)
 

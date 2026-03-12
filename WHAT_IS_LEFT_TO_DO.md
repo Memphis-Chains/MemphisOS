@@ -187,6 +187,11 @@ Updated: 2026-03-12
   - verifier supports `--public-key-bundle-path` registry (`schemaVersion:1`, `keys:[{keyId,publicKeyPem}]`)
   - key lookup bound to manifest/expected `keyId`; missing entry fails closed
   - coverage added for detached-bundle success and missing-key failure paths.
+- Added encrypted-at-rest incident artifact companions:
+  - exporter supports passphrase sources (`--encryption-passphrase`, `--encryption-passphrase-base64`, `--encryption-passphrase-file`)
+  - encrypted `.enc` companions generated for bundle + manifest (off-host transfer ready)
+  - verifier can validate encrypted manifests/bundles with `--decryption-passphrase` and checks encrypted-path integrity
+  - retention pruning now removes orphaned encrypted companions with their base artifacts.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -197,6 +202,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add encrypted-at-rest storage option for exported incident bundles/manifests before off-host transfer.
-2. Add immutable audit linkage from manifest verification results into system chain events.
-3. Add signed key-bundle provenance support (bundle signature + trust-root verification).
+1. Add immutable audit linkage from manifest verification results into system chain events.
+2. Add signed key-bundle provenance support (bundle signature + trust-root verification).
+3. Add policy controls for mandatory encrypted incident handoff in financial mode (`requireEncryptedArtifacts=true`).

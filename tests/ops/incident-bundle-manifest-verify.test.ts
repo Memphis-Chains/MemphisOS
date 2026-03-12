@@ -447,4 +447,118 @@ describe('incident manifest verifier', () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.errors.some((item) => item.includes('public key bundle missing keyId'))).toBe(true);
   });
+
+  it('verifies encrypted manifest + bundle companions with decryption passphrase', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-encrypted-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const encryptedManifestPath = `${manifestPath}.enc`;
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const verifyKeyPath = path.join(dir, 'signing-public.pem');
+    const keyId = 'encrypted-key-v1';
+    const passphrase = 'incident-transfer-passphrase';
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const pair = generateKeyPairSync('ed25519');
+    writeFileSync(
+      signingKeyPath,
+      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+    writeFileSync(
+      verifyKeyPath,
+      pair.publicKey.export({ format: 'pem', type: 'spki' }).toString(),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--signing-key-path',
+        signingKeyPath,
+        '--signing-key-id',
+        keyId,
+        '--encryption-passphrase',
+        passphrase,
+      ]);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      encryptedManifestPath,
+      '--decryption-passphrase',
+      passphrase,
+      '--public-key-path',
+      verifyKeyPath,
+      '--expected-key-id',
+      keyId,
+      '--require-signature',
+    ]);
+    expect(verifyResult.status).toBe(0);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: {
+        manifestEncrypted: boolean;
+        bundleEncrypted: boolean;
+        signatureVerified: boolean;
+      };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.checks.manifestEncrypted).toBe(true);
+    expect(parsed.checks.bundleEncrypted).toBe(true);
+    expect(parsed.checks.signatureVerified).toBe(true);
+    expect(parsed.errors).toEqual([]);
+  });
+
+  it('fails encrypted manifest verification when decryption passphrase is missing', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-encrypted-no-passphrase-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const encryptedManifestPath = `${manifestPath}.enc`;
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--encryption-passphrase',
+        'missing-passphrase-test',
+      ]);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      encryptedManifestPath,
+    ]);
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as { ok: boolean; errors: string[] };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors.some((item) => item.includes('manifest is encrypted'))).toBe(true);
+  });
 });

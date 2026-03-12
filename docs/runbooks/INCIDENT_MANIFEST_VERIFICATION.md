@@ -25,6 +25,15 @@ Alternative key sources:
 - `--signing-key-pem-base64`
 - env vars: `MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM` / `MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM_BASE64`
 
+Optional encrypted-at-rest companions for transfer:
+
+```bash
+npm run -s ops:export-incident-bundle -- \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --encryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE"
+```
+
 ## 3. Verify Evidence Integrity
 
 ```bash
@@ -54,6 +63,17 @@ Bundle schema:
 }
 ```
 
+Encrypted manifest/bundle verification mode:
+
+```bash
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json.enc \
+  --decryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE" \
+  --public-key-path /secure/path/incident-signing-public.pem \
+  --expected-key-id incident-key-v1 \
+  --require-signature
+```
+
 Verification must report:
 
 - `ok=true`
@@ -62,6 +82,7 @@ Verification must report:
 - `checks.signatureVerified=true`
 - `checks.keyFingerprintMatch=true`
 - `checks.keyIdMatch=true` (when expected key id is set)
+- `checks.manifestEncrypted=true` and `checks.bundleEncrypted=true` when encrypted companions are used
 
 ## 4. Handoff Package
 
@@ -69,6 +90,7 @@ Attach these artifacts to incident records:
 
 - `incident-bundle.json`
 - `incident-bundle.manifest.json`
+- optional encrypted companions: `incident-bundle.json.enc`, `incident-bundle.manifest.json.enc`
 - verifier JSON output (`ok=true` proof)
 - command transcript and timestamp of execution
 
