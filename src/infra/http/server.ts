@@ -33,6 +33,7 @@ import { writeSecurityAudit } from '../logging/security-audit.js';
 import { computeHealthSummary } from '../ops/health-summary.js';
 import { verifyAdminActionSignature } from '../runtime/admin-signature.js';
 import { writeDualApprovalChainEvent } from '../runtime/dual-approval-events.js';
+import { getStartupQueueResumeStatus } from '../runtime/startup-state.js';
 import { getChainAdapterStatus } from '../storage/chain-adapter.js';
 import { NapiChainAdapter } from '../storage/rust-chain-adapter.js';
 import {
@@ -209,6 +210,7 @@ export function createHttpServer(
     const vaultAdapter = getRustVaultAdapterStatus(process.env);
     const queue = repos?.taskQueue?.snapshot() ?? null;
     const dualApproval = repos?.dualApprovalRepository?.countByState() ?? null;
+    const startupQueueResume = getStartupQueueResumeStatus();
 
     return {
       service: 'memphis-v5',
@@ -223,6 +225,9 @@ export function createHttpServer(
         vault: vaultAdapter,
       },
       queue,
+      startup: {
+        queueResume: startupQueueResume,
+      },
       dualApproval,
       timestamp: new Date().toISOString(),
     };

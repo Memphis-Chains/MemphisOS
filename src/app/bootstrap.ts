@@ -13,6 +13,7 @@ import { inStrictMode } from '../infra/runtime/emergency-log.js';
 import { EXIT_CODES, MemphisExitError } from '../infra/runtime/exit-codes.js';
 import { enforceSafeModeNoEgress, safeModeEnabled } from '../infra/runtime/safe-mode.js';
 import { writeSecurityCriticalEvent } from '../infra/runtime/security-critical.js';
+import { setStartupQueueResumeStatus } from '../infra/runtime/startup-state.js';
 import { verifyChainIntegrity } from '../infra/storage/chain-adapter.js';
 import type {
   QueuePendingTask,
@@ -263,6 +264,17 @@ export async function resumeRecoveredQueueTasksOnStartup(
     rawEnv,
     async (task) => redispatchRecoveredTask(task, container),
   );
+
+  setStartupQueueResumeStatus({
+    policy: resumed.policy,
+    safeModeOverrideApplied: resumed.safeModeOverrideApplied,
+    scanned: resumed.scanned,
+    redispatched: resumed.redispatched,
+    failed: resumed.failed,
+    canceled: resumed.canceled,
+    kept: resumed.kept,
+    errors: resumed.errors,
+  });
 
   if (resumed.scanned === 0) return;
 

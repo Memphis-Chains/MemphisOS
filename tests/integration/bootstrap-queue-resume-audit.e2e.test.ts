@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { resumeRecoveredQueueTasksOnStartup } from '../../src/app/bootstrap.js';
 import { createAppContainer } from '../../src/app/container.js';
 import type { AppConfig } from '../../src/infra/config/schema.js';
+import { createHttpServer } from '../../src/infra/http/server.js';
+import { resetStartupRuntimeStateForTests } from '../../src/infra/runtime/startup-state.js';
 
 function cfg(dir: string, dbName: string): AppConfig {
   return {
@@ -48,6 +50,7 @@ describe('bootstrap queue resume startup audit', () => {
   afterEach(() => {
     delete process.env.MEMPHIS_SECURITY_AUDIT_LOG_PATH;
     delete process.env.MEMPHIS_SAFE_MODE;
+    resetStartupRuntimeStateForTests();
   });
 
   it('writes queue.resume.startup audit details with safe-mode redispatch override', async () => {
@@ -91,5 +94,31 @@ describe('bootstrap queue resume startup audit', () => {
     expect(snapshot.pendingTasks).toBe(1);
     expect(snapshot.lastResume?.policy).toBe('keep');
     expect(snapshot.lastResume?.kept).toBe(1);
+
+    const app = createHttpServer(config, afterRestart.orchestration, {
+      sessionRepository: afterRestart.sessionRepository,
+      generationEventRepository: afterRestart.generationEventRepository,
+      dualApprovalRepository: afterRestart.dualApprovalRepository,
+      taskQueue: afterRestart.taskQueue,
+    });
+    const opsStatus = await app.inject({ method: 'GET', url: '/v1/ops/status' });
+    expect(opsStatus.statusCode).toBe(200);
+    const opsBody = opsStatus.json() as {
+      startup?: {
+        queueResume?: {
+          policy?: string;
+          safeModeOverrideApplied?: boolean;
+          scanned?: number;
+          kept?: number;
+        } | null;
+      };
+    };
+    expect(opsBody.startup?.queueResume).toMatchObject({
+      policy: 'keep',
+      safeModeOverrideApplied: true,
+      scanned: 1,
+      kept: 1,
+    });
+    await app.close();
   });
 });
