@@ -147,6 +147,7 @@ npm run -s ops:verify-incident-manifest -- \
 - detached key registry mode supported via `--public-key-bundle-path` (`schemaVersion:1`, `keys:[{keyId,publicKeyPem}]`)
 - optional detached-bundle provenance enforcement via `--require-key-bundle-signature --trust-root-path <trust_root.json>`
 - verification results are linked to immutable `system` chain events (`incident_manifest.verification`); use `--skip-chain-event` only for read-only dry runs
+- chain-link reliability controls: `--chain-event-retry-count`, `--chain-event-retry-backoff-ms`, and `MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false`
 
 ## Security Notes
 

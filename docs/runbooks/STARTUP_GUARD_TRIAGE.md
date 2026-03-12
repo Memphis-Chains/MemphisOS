@@ -88,6 +88,7 @@ Exporter behavior:
 - for off-host transfer, emit encrypted companions with `--encryption-passphrase` and verify via `--manifest-path ...enc` + `--decryption-passphrase`
 - set `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true` for financial workflows to fail closed when encryption is missing
 - keep chain linkage enabled (default) and confirm `chainEvent.written=true` in verifier output
+- tune chain append resilience with `--chain-event-retry-count` + `--chain-event-retry-backoff-ms` (or matching env vars)
 - when using detached key bundles, enforce provenance with `--require-key-bundle-signature --trust-root-path <path>`
 - if direct public-key files are unavailable, verify via `--public-key-bundle-path` key registry (`schemaVersion:1`)
 - run manifest verification before incident closure to confirm bundle integrity and signature validity

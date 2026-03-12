@@ -204,6 +204,10 @@ Updated: 2026-03-12
   - exporter supports `--require-encrypted-artifacts` / `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true`
   - policy fails closed when encryption passphrase sources are missing
   - policy metadata (`queueMode`, `requireEncryptedArtifacts`) is emitted with exporter results.
+- Added strict chain-link policy controls with retry/backoff:
+  - verifier supports `--chain-event-retry-count` + `--chain-event-retry-backoff-ms`
+  - enforcement toggle via `MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false`
+  - integration coverage verifies retry attempts + fail-closed behavior when append remains unavailable.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -214,6 +218,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add verifier policy mode for strict chain-link enforcement + retry/backoff on append failures.
-2. Add key-bundle rotation tooling (generate new bundle + signed provenance from current trust root).
-3. Add export-side policy profile presets (`financial-strict`, `forensics-lite`) to reduce operator flag churn.
+1. Add key-bundle rotation tooling (generate new bundle + signed provenance from current trust root).
+2. Add export-side policy profile presets (`financial-strict`, `forensics-lite`) to reduce operator flag churn.
+3. Add verify command profile presets (`trust-root-strict`, `legacy-compat`) for faster operator workflows.

@@ -90,6 +90,7 @@ interface VerifyOutput {
     attempted: boolean;
     written: boolean;
     chain: 'system';
+    attempts: number;
     index?: number;
     hash?: string;
     error?: string;
@@ -105,6 +106,28 @@ function parseArg(flag: string): string | null {
 
 function hasFlag(flag: string): boolean {
   return process.argv.includes(flag);
+}
+
+function parseBool(raw: string | undefined, fallback: boolean): boolean {
+  if (typeof raw !== 'string') return fallback;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return fallback;
+}
+
+function parseIntArg(flag: string, fallback: number, envName?: string): number {
+  const rawArg = parseArg(flag);
+  if (rawArg) {
+    const parsed = Number.parseInt(rawArg, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+  const rawEnv = envName ? process.env[envName] : undefined;
+  if (typeof rawEnv === 'string' && rawEnv.trim().length > 0) {
+    const parsed = Number.parseInt(rawEnv, 10);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+  return fallback;
 }
 
 function resolveDecryptionPassphrase(): string | null {
@@ -679,6 +702,10 @@ function verifySignature(options: {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function writeVerificationChainEvent(options: {
   manifestPath: string;
   bundlePath: string;
@@ -686,6 +713,8 @@ async function writeVerificationChainEvent(options: {
   checks: VerifyOutput['checks'];
   errors: string[];
   ok: boolean;
+  retries: number;
+  backoffMs: number;
 }): Promise<VerifyOutput['chainEvent']> {
   const eventId = randomUUID();
   const taskId = `incident-manifest-verify:${sha256Hex(options.manifestPath).slice(0, 16)}`;
@@ -711,23 +740,34 @@ async function writeVerificationChainEvent(options: {
     },
   } as const;
 
-  try {
-    const appended: AppendBlockResult = await appendBlock('system', payload, process.env);
-    return {
-      attempted: true,
-      written: true,
-      chain: 'system',
-      index: appended.index,
-      hash: appended.hash,
-    };
-  } catch (error) {
-    return {
-      attempted: true,
-      written: false,
-      chain: 'system',
-      error: error instanceof Error ? error.message : String(error),
-    };
+  let lastError = 'unknown_error';
+  const maxAttempts = options.retries + 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const appended: AppendBlockResult = await appendBlock('system', payload, process.env);
+      return {
+        attempted: true,
+        written: true,
+        chain: 'system',
+        attempts: attempt,
+        index: appended.index,
+        hash: appended.hash,
+      };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+      if (attempt < maxAttempts && options.backoffMs > 0) {
+        await sleep(options.backoffMs * attempt);
+      }
+    }
   }
+
+  return {
+    attempted: true,
+    written: false,
+    chain: 'system',
+    attempts: maxAttempts,
+    error: lastError,
+  };
 }
 
 async function main(): Promise<void> {
@@ -736,6 +776,17 @@ async function main(): Promise<void> {
   const requireSignedKeyBundle = hasFlag('--require-key-bundle-signature');
   const decryptionPassphrase = resolveDecryptionPassphrase();
   const skipChainEvent = hasFlag('--skip-chain-event');
+  const requireChainEvent = parseBool(process.env.MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED, true);
+  const chainEventRetries = parseIntArg(
+    '--chain-event-retry-count',
+    2,
+    'MEMPHIS_INCIDENT_CHAIN_EVENT_RETRY_COUNT',
+  );
+  const chainEventBackoffMs = parseIntArg(
+    '--chain-event-retry-backoff-ms',
+    50,
+    'MEMPHIS_INCIDENT_CHAIN_EVENT_RETRY_BACKOFF_MS',
+  );
   const expectedKeyId = parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
   const checks: VerifyOutput['checks'] = {
     schemaValid: false,
@@ -807,6 +858,7 @@ async function main(): Promise<void> {
         attempted: false,
         written: false,
         chain: 'system' as const,
+        attempts: 0,
       }
     : await writeVerificationChainEvent({
         manifestPath,
@@ -815,8 +867,10 @@ async function main(): Promise<void> {
         checks,
         errors,
         ok: verificationOk,
+        retries: chainEventRetries,
+        backoffMs: chainEventBackoffMs,
       });
-  if (!skipChainEvent && chainEvent && !chainEvent.written) {
+  if (!skipChainEvent && chainEvent && !chainEvent.written && requireChainEvent) {
     errors.push(`failed to append incident verification chain event: ${chainEvent.error ?? 'unknown_error'}`);
   }
 
