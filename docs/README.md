@@ -7,6 +7,7 @@ Minimal documentation set for the clean-slate MemphisOS repository.
 - `runbooks/QUEUE_RESUME_POLICY.md`: startup queue resume policy + mode guidance.
 - `runbooks/BRANCH_PROTECTION_PROFILE_SWITCH.md`: safe `team|solo` protection profile switch and verification.
 - `runbooks/GUARD_FAILURE_DRILL.md`: operator drill for trust-root/revocation guard-failure outcomes.
+- `runbooks/STARTUP_GUARD_TRIAGE.md`: startup status-field triage map and remediation actions.
 - `runbooks/SYSTEMD_EXIT_CODES.md`: exit-code to systemd behavior mapping.
 - `runbooks/TRUST_ROOT_ROTATION.md`: trust-root rotation ceremony.
 - `../SECURITY.md`: security policy baseline.

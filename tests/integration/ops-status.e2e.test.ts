@@ -223,8 +223,13 @@ describe('S3.4 Ops status endpoint', () => {
     expect(res.statusCode).toBe(200);
     let body = res.json() as {
       startup?: {
-        safeModeNetwork?: { mode?: string; reason?: string } | null;
-        revocationCache?: { enabled?: boolean; stale?: boolean; ageMs?: number | null } | null;
+        safeModeNetwork?: { mode?: string; reason?: string; checkedAt?: string } | null;
+        revocationCache?: {
+          enabled?: boolean;
+          stale?: boolean;
+          ageMs?: number | null;
+          checkedAt?: string;
+        } | null;
       };
     };
     expect(body.startup?.safeModeNetwork).toMatchObject({
@@ -236,6 +241,12 @@ describe('S3.4 Ops status endpoint', () => {
       stale: true,
       ageMs: 199_000,
     });
+    const firstSafeModeCheckedAt = body.startup?.safeModeNetwork?.checkedAt;
+    const firstRevocationCheckedAt = body.startup?.revocationCache?.checkedAt;
+    expect(typeof firstSafeModeCheckedAt).toBe('string');
+    expect(typeof firstRevocationCheckedAt).toBe('string');
+    expect(Number.isFinite(Date.parse(firstSafeModeCheckedAt ?? ''))).toBe(true);
+    expect(Number.isFinite(Date.parse(firstRevocationCheckedAt ?? ''))).toBe(true);
 
     setStartupSafeModeNetworkStatus({
       enabled: true,
@@ -268,8 +279,18 @@ describe('S3.4 Ops status endpoint', () => {
     expect(res.statusCode).toBe(200);
     body = res.json() as {
       startup?: {
-        safeModeNetwork?: { mode?: string; reason?: string; enforced?: boolean } | null;
-        revocationCache?: { enabled?: boolean; stale?: boolean; ageMs?: number | null } | null;
+        safeModeNetwork?: {
+          mode?: string;
+          reason?: string;
+          enforced?: boolean;
+          checkedAt?: string;
+        } | null;
+        revocationCache?: {
+          enabled?: boolean;
+          stale?: boolean;
+          ageMs?: number | null;
+          checkedAt?: string;
+        } | null;
       };
     };
     expect(body.startup?.safeModeNetwork).toMatchObject({
@@ -282,6 +303,16 @@ describe('S3.4 Ops status endpoint', () => {
       stale: false,
       ageMs: 20_000,
     });
+    const secondSafeModeCheckedAt = body.startup?.safeModeNetwork?.checkedAt;
+    const secondRevocationCheckedAt = body.startup?.revocationCache?.checkedAt;
+    expect(typeof secondSafeModeCheckedAt).toBe('string');
+    expect(typeof secondRevocationCheckedAt).toBe('string');
+    expect(Date.parse(secondSafeModeCheckedAt ?? '')).toBeGreaterThanOrEqual(
+      Date.parse(firstSafeModeCheckedAt ?? ''),
+    );
+    expect(Date.parse(secondRevocationCheckedAt ?? '')).toBeGreaterThanOrEqual(
+      Date.parse(firstRevocationCheckedAt ?? ''),
+    );
 
     await app.close();
   });

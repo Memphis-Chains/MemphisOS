@@ -36,6 +36,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Ops drill (startup guards)
+        run: npm run ops:drill-guards
+
       - name: Test (TS)
         run: npm run test:ts
 
