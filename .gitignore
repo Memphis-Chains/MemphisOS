@@ -30,5 +30,12 @@ data/retrieval-benchmark-history.json
 
 # Runtime data
 data/security-audit.jsonl
+data/queue.wal
+data/vault-state.json
+data/incident-bundle*.json
+data/incident-bundle*.manifest.json
 *.jsonl
 undefined/
+
+# local handoff notes
+CONTEXT_RESET_HANDOFF_v*.md

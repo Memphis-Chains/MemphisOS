@@ -108,7 +108,17 @@ GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s 
 npm run -s ops:drill-guards
 npm run -s ops:drill-guards -- --json
 npm run -s ops:export-incident-bundle -- --out data/incident-bundle.json
+npm run -s ops:export-incident-bundle -- \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --signing-key-path /secure/path/incident-signing-key.pem
 ```
+
+`ops:export-incident-bundle` defaults:
+
+- sensitive fields in status/audit payloads are redacted (`[REDACTED]`)
+- bundle history is pruned by retention policy (`--retention-count`, `--retention-days`)
+- optional forensic manifest is written when `--manifest-out` (or `--signing-key-path`) is provided
 
 ## Security Notes
 

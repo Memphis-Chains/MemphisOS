@@ -63,9 +63,20 @@ If process exits with `103`, expect `startup.trustRoot.valid=false` in drill/tes
 npm run -s ops:drill-guards
 npm run -s test:ts -- tests/integration/ops-status.e2e.test.ts
 npm run -s ops:export-incident-bundle -- --out data/incident-bundle.json
+npm run -s ops:export-incident-bundle -- \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --signing-key-path /secure/path/incident-signing-key.pem
 ```
 
 Both commands must pass before closing incident.
+
+Exporter behavior:
+
+- redaction is enabled by default (`[REDACTED]` marker); use `--no-redact` only for isolated local debugging
+- retention pruning defaults to `--retention-count 20` and `--retention-days 14`
+- retention can be tuned with `MEMPHIS_INCIDENT_BUNDLE_RETENTION_COUNT` and `MEMPHIS_INCIDENT_BUNDLE_RETENTION_DAYS`
+- signed manifest output is optional and intended for forensic chain-of-custody records
 
 ## 5. Combined Failure Escalation
 
