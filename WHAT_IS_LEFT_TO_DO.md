@@ -84,6 +84,9 @@ Updated: 2026-03-12
   - adds `t4-queue-resume-policy` warning when `MEMPHIS_QUEUE_MODE=financial` and `MEMPHIS_QUEUE_RESUME_POLICY=redispatch`
   - recommends `MEMPHIS_QUEUE_RESUME_POLICY=keep` for financial profiles
   - includes tests for both warning and pass cases.
+- Removed duplicate CI status-context generation for PRs:
+  - `.github/workflows/ci.yml` now runs `push` CI on `main` only (PR validation stays on `pull_request`)
+  - prevents duplicate `quality-gate` contexts (`push` + `pull_request`) on feature branches.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -94,5 +97,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Remove duplicate `quality-gate` check contexts by updating CI trigger strategy so PRs produce a single required status (eliminates stuck `push` + `pull_request` duplication).
-2. Add an operator profile switch for branch-protection automation (`solo` vs `team`) to avoid repeated manual protection relax/restore churn.
+1. Add an operator profile switch for branch-protection automation (`solo` vs `team`) to avoid repeated manual protection relax/restore churn.
