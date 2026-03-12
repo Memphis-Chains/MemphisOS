@@ -35,6 +35,7 @@ describe('revocation cache fail-closed guard', () => {
     delete process.env.MEMPHIS_REVOCATION_CACHE_MAX_STALE_MS;
     delete process.env.MEMPHIS_REVOCATION_CACHE_LAST_SYNC_MS;
     delete process.env.MEMPHIS_API_TOKEN;
+    delete process.env.MEMPHIS_SAFE_MODE;
   });
 
   it('blocks high-risk routes when revocation cache is stale', async () => {
@@ -108,5 +109,79 @@ describe('revocation cache fail-closed guard', () => {
 
     await app.close();
   });
-});
 
+  it('re-evaluates revocation guard state when env freshness changes at runtime', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mv5-revocation-guard-runtime-toggle-'));
+    const conf = cfg(join(dir, 'guard-runtime-toggle.db'));
+    const c = createAppContainer(conf);
+    const app = createHttpServer(conf, c.orchestration, {
+      sessionRepository: c.sessionRepository,
+      generationEventRepository: c.generationEventRepository,
+      dualApprovalRepository: c.dualApprovalRepository,
+      taskQueue: c.taskQueue,
+    });
+
+    process.env.MEMPHIS_API_TOKEN = '';
+    process.env.MEMPHIS_REVOCATION_CACHE_REQUIRED = 'true';
+    process.env.MEMPHIS_REVOCATION_CACHE_MAX_STALE_MS = '30000';
+    process.env.MEMPHIS_REVOCATION_CACHE_LAST_SYNC_MS = String(Date.now() - 120_000);
+
+    const blocked = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/dual-approval/request',
+      payload: {
+        action: 'freeze',
+        initiatorId: 'operator-a',
+      },
+    });
+    expect(blocked.statusCode).toBe(503);
+
+    process.env.MEMPHIS_REVOCATION_CACHE_LAST_SYNC_MS = String(Date.now());
+
+    const allowed = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/dual-approval/request',
+      payload: {
+        action: 'freeze',
+        initiatorId: 'operator-a',
+      },
+    });
+    expect(allowed.statusCode).toBe(200);
+
+    await app.close();
+  });
+
+  it('prioritizes safe-mode denial before revocation fail-closed checks', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mv5-revocation-guard-safe-mode-precedence-'));
+    const conf = cfg(join(dir, 'guard-safe-mode-precedence.db'));
+    const c = createAppContainer(conf);
+    const app = createHttpServer(conf, c.orchestration, {
+      sessionRepository: c.sessionRepository,
+      generationEventRepository: c.generationEventRepository,
+      dualApprovalRepository: c.dualApprovalRepository,
+      taskQueue: c.taskQueue,
+    });
+
+    process.env.MEMPHIS_API_TOKEN = '';
+    process.env.MEMPHIS_SAFE_MODE = 'true';
+    process.env.MEMPHIS_REVOCATION_CACHE_REQUIRED = 'true';
+    process.env.MEMPHIS_REVOCATION_CACHE_MAX_STALE_MS = '30000';
+    process.env.MEMPHIS_REVOCATION_CACHE_LAST_SYNC_MS = String(Date.now() - 120_000);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/dual-approval/request',
+      payload: {
+        action: 'freeze',
+        initiatorId: 'operator-a',
+      },
+    });
+
+    expect(res.statusCode).toBe(403);
+    const body = res.json() as { error?: { code?: string; message?: string } };
+    expect(body.error?.code).toBe('PERMISSION_DENIED');
+    expect(body.error?.message).toContain('forbidden in safe mode');
+
+    await app.close();
+  });
+});
