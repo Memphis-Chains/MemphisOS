@@ -175,6 +175,11 @@ Updated: 2026-03-12
   - workflow step `Ops artifacts regression (bundle + manifest)` runs before full TS suite
   - command: `npm run test:ops-artifacts`
   - covers signed verification success and tamper/unsigned failure paths.
+- Added secure signing key-source + signer metadata support for incident manifests:
+  - exporter accepts key sources from file path or env-injected PEM (`--signing-key-pem`, `--signing-key-pem-base64`)
+  - signer metadata `--signing-key-id` is embedded in manifest signature block
+  - verifier supports `--expected-key-id` enforcement and reports `keyIdMatch` in checks
+  - coverage added for env-pem signing and key-id mismatch failure paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -185,6 +190,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add secure key-source support for manifest signing (file path + env-injected key material + key-id metadata).
-2. Add manifest verification runbook focused on incident handoff and evidence packaging.
-3. Add optional verify-mode support for detached public-key bundles (embedded key-id registry + fingerprint mapping).
+1. Add dedicated manifest verification runbook focused on incident handoff and evidence packaging.
+2. Add optional verify-mode support for detached public-key bundles (embedded key-id registry + fingerprint mapping).
+3. Add encrypted-at-rest storage option for exported incident bundles/manifests before off-host transfer.
