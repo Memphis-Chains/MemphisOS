@@ -116,6 +116,9 @@ interface VerifyProfileDefaults {
   chainEventBackoffMs: number;
 }
 
+const VERIFY_PROFILE_VALUES: VerifyProfileName[] = ['trust-root-strict', 'legacy-compat'];
+const VERIFY_PROFILE_ENV = 'MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE';
+
 function parseArg(flag: string): string | null {
   const idx = process.argv.indexOf(flag);
   if (idx === -1) return null;
@@ -154,8 +157,40 @@ function parseOptionalBool(raw: string | undefined): boolean | null {
   return parseBool(raw, false);
 }
 
+function renderHelp(): string {
+  return [
+    'Usage: npm run -s ops:verify-incident-manifest -- [options]',
+    '',
+    'Options:',
+    '  --profile <name>                Verify policy profile: trust-root-strict|legacy-compat',
+    '  --completion-hints              Print machine-readable profile/completion hints as JSON',
+    '  -h, --help                      Show this help message',
+    '',
+    'Profile env variables:',
+    `  ${VERIFY_PROFILE_ENV}=trust-root-strict|legacy-compat`,
+    '  MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false',
+  ].join('\n');
+}
+
+function printCompletionHints(): void {
+  console.log(
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        command: 'ops:verify-incident-manifest',
+        profiles: VERIFY_PROFILE_VALUES,
+        profileFlag: '--profile',
+        profileEnv: VERIFY_PROFILE_ENV,
+        policyEnvVars: ['MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED'],
+      },
+      null,
+      2,
+    ),
+  );
+}
+
 function resolveVerifyProfileName(): VerifyProfileName | null {
-  const raw = parseArg('--profile') ?? process.env.MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE ?? null;
+  const raw = parseArg('--profile') ?? process.env[VERIFY_PROFILE_ENV] ?? null;
   if (!raw) return null;
   if (raw === 'trust-root-strict' || raw === 'legacy-compat') return raw;
   throw new Error(
@@ -876,6 +911,15 @@ async function writeVerificationChainEvent(options: {
 }
 
 async function main(): Promise<void> {
+  if (hasFlag('--help') || hasFlag('-h')) {
+    console.log(renderHelp());
+    return;
+  }
+  if (hasFlag('--completion-hints')) {
+    printCompletionHints();
+    return;
+  }
+
   const manifestPath = resolveManifestPath();
   const profile = resolveVerifyProfileName();
   const profileDefaults = resolveVerifyProfileDefaults(profile);

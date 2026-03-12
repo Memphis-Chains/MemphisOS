@@ -187,6 +187,10 @@ npm run -s ops:rotate-key-bundle -- \
 
 ## Package And Release
 
+Preferred: run the guarded draft-release workflow in GitHub Actions (`release-draft`), then review and publish the generated draft release.
+
+Manual fallback:
+
 ```bash
 npm run -s lint
 npm run -s typecheck
@@ -198,8 +202,7 @@ npm pack --dry-run
 npm pack
 ```
 
-Then create/push a git tag and publish release notes on GitHub using the runbook:
-`docs/runbooks/RELEASE.md`.
+Release details and workflow inputs are documented in `docs/runbooks/RELEASE.md`.
 
 ## Security Notes
 

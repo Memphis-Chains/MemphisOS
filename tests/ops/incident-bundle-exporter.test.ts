@@ -545,6 +545,35 @@ describe('incident bundle exporter', () => {
     expect(existsSync(inferredManifestPath)).toBe(true);
   });
 
+  it('prints profile help hints for operators and shell completion tooling', async () => {
+    const result = await runIncidentBundleExporter(['--help']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Usage: npm run -s ops:export-incident-bundle -- [options]');
+    expect(result.stdout).toContain('--profile <name>');
+    expect(result.stdout).toContain('financial-strict|forensics-lite');
+    expect(result.stdout).toContain('MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE');
+    expect(result.stdout).toContain('MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS');
+  });
+
+  it('prints machine-readable profile completion hints', async () => {
+    const result = await runIncidentBundleExporter(['--completion-hints']);
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout) as {
+      schemaVersion: number;
+      command: string;
+      profiles: string[];
+      profileFlag: string;
+      profileEnv: string;
+      policyEnvVars: string[];
+    };
+    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.command).toBe('ops:export-incident-bundle');
+    expect(parsed.profileFlag).toBe('--profile');
+    expect(parsed.profileEnv).toBe('MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE');
+    expect(parsed.profiles).toEqual(['financial-strict', 'forensics-lite']);
+    expect(parsed.policyEnvVars).toContain('MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS');
+  });
+
   it('fails on unsupported export profile names', async () => {
     const dir = makeTempDir('memphis-incident-bundle-profile-invalid-');
     const auditPath = path.join(dir, 'security-audit.jsonl');
