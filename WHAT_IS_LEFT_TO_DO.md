@@ -126,6 +126,8 @@ Updated: 2026-03-12
 - Added operator runbook for branch-protection profile switching:
   - `docs/runbooks/BRANCH_PROTECTION_PROFILE_SWITCH.md`
   - includes apply/verify/rollback workflow for `team|solo`.
+- Added invalid-profile coverage for branch-protection ops scripts:
+  - `ops:protect-main` and `ops:verify-main-protection` now have fixture tests asserting exit code `2` on invalid `MEMPHIS_BRANCH_PROTECTION_PROFILE`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -136,6 +138,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add API-level tests for invalid profile values in ops scripts (`MEMPHIS_BRANCH_PROTECTION_PROFILE`) to lock exit-code behavior.
-2. Add integration test coverage for strict-mode startup behavior when trust-root guard fails (`ERR_TRUST_ROOT=103`).
-3. Add integration coverage that stale revocation cache denies high-risk HTTP routes even if stale-check toggle env changes at runtime.
+1. Add integration test coverage for strict-mode startup behavior when trust-root guard fails (`ERR_TRUST_ROOT=103`).
+2. Add integration coverage that stale revocation cache denies high-risk HTTP routes even if stale-check toggle env changes at runtime.
+3. Add integration coverage for safe-mode + stale revocation interaction on high-risk routes (combined guard precedence).

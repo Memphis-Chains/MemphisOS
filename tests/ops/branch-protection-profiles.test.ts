@@ -205,4 +205,24 @@ describe('branch protection profile scripts', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('Policy mismatch');
   });
+
+  it('enforce script exits with code 2 on invalid profile value', () => {
+    const result = runScript(enforceScript, {
+      GITHUB_TOKEN: 'test-token',
+      MEMPHIS_BRANCH_PROTECTION_PROFILE: 'invalid-profile',
+    });
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('Invalid MEMPHIS_BRANCH_PROTECTION_PROFILE');
+  });
+
+  it('verify script exits with code 2 on invalid profile value', () => {
+    const result = runScript(verifyScript, {
+      GITHUB_TOKEN: 'test-token',
+      MEMPHIS_BRANCH_PROTECTION_PROFILE: 'invalid-profile',
+    });
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('Invalid MEMPHIS_BRANCH_PROTECTION_PROFILE');
+  });
 });
