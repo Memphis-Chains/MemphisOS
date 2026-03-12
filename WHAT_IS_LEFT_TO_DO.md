@@ -240,7 +240,10 @@ Updated: 2026-03-12
 - Trust-root transition validation module with downgrade protection checks.
 - Safe-mode boundaries and security critical fallback logging.
 
-## Next Priority Tasks
+## Next Priority Tasks (Post v0.1.0)
 
-1. Run the first `release-draft` workflow for the target version and review the draft release payload.
-2. Publish the reviewed draft release and record the workflow run URL/checksum in sprint closure notes.
+1. Replace placeholder Memphis DID key encoding with multibase `base58btc` + Ed25519 multicodec compliance and tests.
+2. Implement `src/cli/commands/insight.ts` chain persistence path (`save` flow) and cover with unit tests.
+3. Implement `src/cli/commands/insight.ts` real block-loading path for analysis mode and cover with unit tests.
+4. Define remote-agent broadcast behavior in `src/cognitive/model-d.ts` (feature-flagged, fail-safe default) and add contract tests.
+5. Add sprint closure note template and capture release evidence links/checksums in-repo.
