@@ -58,6 +58,39 @@ Cryptographic tracks used in the project architecture:
 
 > Exact active surfaces can vary by deployment profile and enabled runtime flags.
 
+## Admin Signature Bootstrap and Rotation
+
+Dual-approval admin actions (`request`, `approve`, `cancel`) support Ed25519 signature verification.
+
+Bootstrap:
+
+1. Generate per-admin Ed25519 keypairs.
+2. Publish only public keys in `MEMPHIS_ADMIN_PUBLIC_KEYS_JSON`.
+3. Use normalized admin identities (same canonical identity used in runtime auth checks).
+4. Enable enforcement with `MEMPHIS_ADMIN_SIGNATURE_REQUIRED=true`.
+
+Example:
+
+```json
+{
+  "admin-a": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
+  "admin-b": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+}
+```
+
+Rotation:
+
+1. Add new public key for the same admin identity.
+2. Deploy updated `MEMPHIS_ADMIN_PUBLIC_KEYS_JSON`.
+3. Verify signed dual-approval action succeeds with the new key.
+4. Remove old key material from configuration and secret stores.
+
+Operational guidance:
+
+- Keep private keys outside repository and outside runtime logs.
+- Treat key changes as privileged operations with audit evidence.
+- Prefer staged rollout to ensure no lockout before removing old keys.
+
 ## Audit status
 
 - Internal security baseline and hardening docs are maintained in-repo.

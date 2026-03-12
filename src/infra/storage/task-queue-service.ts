@@ -5,6 +5,7 @@ import { AppError } from '../../core/errors.js';
 
 export type TaskQueueMode = 'financial' | 'standard';
 export type TaskQueueStatus = 'completed' | 'failed' | 'canceled';
+export type TaskQueueResumePolicy = 'keep' | 'fail' | 'redispatch';
 
 export interface TaskQueueServiceOptions {
   walPath: string;
@@ -12,12 +13,14 @@ export interface TaskQueueServiceOptions {
   maxPendingTasks?: number;
   maxWalBytes?: number;
   faultInject?: string;
+  resumePolicy?: TaskQueueResumePolicy;
 }
 
 export interface QueueTaskInput {
   type: string;
   requestId?: string;
   metadata?: Record<string, unknown>;
+  payload?: Record<string, unknown>;
 }
 
 export interface QueueTicket {
@@ -32,6 +35,22 @@ export interface TaskQueueSnapshot {
   recoveredPendingTasks: number;
   totalEnqueued: number;
   totalFinished: number;
+}
+
+export interface QueuePendingTask {
+  taskId: string;
+  enqueuedAt: string;
+  task: QueueTaskInput;
+}
+
+export interface TaskQueueResumeResult {
+  policy: TaskQueueResumePolicy;
+  scanned: number;
+  redispatched: number;
+  failed: number;
+  canceled: number;
+  kept: number;
+  errors: string[];
 }
 
 type QueueEnvelope =
@@ -92,14 +111,16 @@ export class TaskQueueService {
   private readonly wal: TaskQueueWal;
   private readonly mode: TaskQueueMode;
   private readonly maxPendingTasks: number;
+  private readonly defaultResumePolicy: TaskQueueResumePolicy;
   private readonly pending = new Map<string, PendingTask>();
-  private recoveredPendingTasks = 0;
+  private readonly recoveredTaskIds = new Set<string>();
   private totalEnqueued = 0;
   private totalFinished = 0;
 
   constructor(options: TaskQueueServiceOptions) {
     this.mode = options.mode ?? 'financial';
     this.maxPendingTasks = options.maxPendingTasks ?? 100;
+    this.defaultResumePolicy = options.resumePolicy ?? 'keep';
     this.wal = new TaskQueueWal({
       walPath: options.walPath,
       mode: this.mode,
@@ -151,6 +172,7 @@ export class TaskQueueService {
     };
     this.wal.enqueue(envelope);
     this.pending.delete(taskId);
+    this.recoveredTaskIds.delete(taskId);
     this.totalFinished += 1;
     return true;
   }
@@ -160,10 +182,92 @@ export class TaskQueueService {
       mode: this.mode,
       maxPendingTasks: this.maxPendingTasks,
       pendingTasks: this.pending.size,
-      recoveredPendingTasks: this.recoveredPendingTasks,
+      recoveredPendingTasks: this.recoveredTaskIds.size,
       totalEnqueued: this.totalEnqueued,
       totalFinished: this.totalFinished,
     };
+  }
+
+  public listPending(): QueuePendingTask[] {
+    return [...this.pending.values()]
+      .map((task) => ({ ...task }))
+      .sort((a, b) => {
+        if (a.enqueuedAt === b.enqueuedAt) return a.taskId.localeCompare(b.taskId);
+        return a.enqueuedAt.localeCompare(b.enqueuedAt);
+      });
+  }
+
+  public async resumeRecoveredPending(input?: {
+    policy?: TaskQueueResumePolicy;
+    redispatch?: (
+      task: QueuePendingTask,
+    ) => Promise<TaskQueueStatus | void> | TaskQueueStatus | void;
+  }): Promise<TaskQueueResumeResult> {
+    const policy = input?.policy ?? this.defaultResumePolicy;
+    const recovered = this.listPending().filter((task) => this.recoveredTaskIds.has(task.taskId));
+    const out: TaskQueueResumeResult = {
+      policy,
+      scanned: recovered.length,
+      redispatched: 0,
+      failed: 0,
+      canceled: 0,
+      kept: 0,
+      errors: [],
+    };
+
+    if (recovered.length === 0) return out;
+
+    if (policy === 'keep') {
+      out.kept = recovered.length;
+      this.recoveredTaskIds.clear();
+      return out;
+    }
+
+    if (policy === 'redispatch' && !input?.redispatch) {
+      out.kept = recovered.length;
+      out.errors.push('resume redispatch requested but no redispatch handler was provided');
+      this.recoveredTaskIds.clear();
+      return out;
+    }
+
+    for (const task of recovered) {
+      try {
+        if (policy === 'fail') {
+          this.finish(task.taskId, 'failed', {
+            reason: 'resume_policy_fail',
+            recoveredOnStartup: true,
+          });
+          out.failed += 1;
+          continue;
+        }
+
+        const resumeStatus = normalizeResumeStatus(await input?.redispatch?.(task));
+        this.finish(task.taskId, resumeStatus, {
+          reason: 'resume_policy_redispatch',
+          recoveredOnStartup: true,
+        });
+        if (resumeStatus === 'completed') {
+          out.redispatched += 1;
+        } else if (resumeStatus === 'canceled') {
+          out.canceled += 1;
+        } else {
+          out.failed += 1;
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.finish(task.taskId, 'failed', {
+          reason: 'resume_policy_redispatch_error',
+          recoveredOnStartup: true,
+          error: message,
+        });
+        out.failed += 1;
+        out.errors.push(`task ${task.taskId}: ${message}`);
+      } finally {
+        this.recoveredTaskIds.delete(task.taskId);
+      }
+    }
+
+    return out;
   }
 
   private recover(): void {
@@ -178,14 +282,21 @@ export class TaskQueueService {
           enqueuedAt: envelope.enqueuedAt,
           task: envelope.task,
         });
+        this.recoveredTaskIds.add(envelope.taskId);
         this.totalEnqueued += 1;
         continue;
       }
 
       this.pending.delete(envelope.taskId);
+      this.recoveredTaskIds.delete(envelope.taskId);
       this.totalFinished += 1;
     }
-
-    this.recoveredPendingTasks = this.pending.size;
   }
+}
+
+function normalizeResumeStatus(status: TaskQueueStatus | void): TaskQueueStatus {
+  if (status === 'completed' || status === 'failed' || status === 'canceled') {
+    return status;
+  }
+  return 'completed';
 }

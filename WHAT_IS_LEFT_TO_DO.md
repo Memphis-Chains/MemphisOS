@@ -33,6 +33,19 @@ Updated: 2026-03-12
 - Added integration/unit coverage for signature enforcement and new metrics.
 - Added/enforced CODEOWNERS + code-owner review on protected `main`.
 - Enabled GitHub security controls (Dependabot alerts/updates, secret scanning, push protection).
+- Implemented queue resume worker semantics:
+  - resume policies: `keep` / `fail` / `redispatch`
+  - startup queue recovery + redispatch in bootstrap
+  - persisted queue payload for resumable chat tasks
+- Added queue restart drill coverage (`tests/integration/queue-resume-restart.e2e.test.ts`).
+- Added runbooks:
+  - safe mode operations
+  - systemd exit-code mapping
+  - trust-root rotation ceremony
+- Added dual-approval API idempotency contract:
+  - required `approvalRequestId` for approve/cancel
+  - persistent idempotency reservation table and replay handling
+- Cleared dependency security advisories (`npm audit` now reports `0` vulnerabilities).
 
 ## In Progress Architecture (Already Implemented)
 
@@ -43,11 +56,9 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add queue resume worker semantics (recover pending tasks and re-dispatch policies on restart).
-2. Add runbooks:
-   - Safe Mode operations
-   - systemd exit-code mapping (`RestartPreventExitStatus=102,103`)
-   - trust-root rotation ceremony
-3. Document admin signature key rotation and bootstrap in `SECURITY.md`.
-4. Extend dual-approval signing to include explicit `approval_request_id` idempotency checks in API contracts.
-5. Add restart drill test for queue recovery policy (crash with pending task, restart, deterministic outcome).
+1. Add direct tests for bootstrap startup queue-resume path (including `safe-mode + redispatch -> keep` policy override).
+2. Add API-level tests for `dual-approval/cancel` idempotency replay using `approvalRequestId`.
+3. Expose queue resume policy and last-run summary in `/v1/ops/status` payload.
+4. Add operational docs for queue resume env controls:
+   - `MEMPHIS_QUEUE_RESUME_POLICY`
+   - expectations for financial vs standard queue modes.

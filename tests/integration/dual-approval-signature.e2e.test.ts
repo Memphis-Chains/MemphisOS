@@ -112,6 +112,7 @@ describe('dual approval signature verification', () => {
       url: '/v1/admin/dual-approval/approve',
       headers: { authorization: 'Bearer tok' },
       payload: {
+        approvalRequestId: '0d8fef6b-92f2-493f-89fc-5d73898dfc14',
         requestId: created.request.requestId,
         approverId: approver,
         expectedStateVersion: created.request.stateVersion,
@@ -121,6 +122,7 @@ describe('dual approval signature verification', () => {
     expect(badApprove.statusCode).toBe(403);
 
     const approvePayload = {
+      approvalRequestId: '803b20d9-4f72-46ee-a903-5537dc71ef7f',
       requestId: created.request.requestId,
       expectedStateVersion: created.request.stateVersion,
     };
