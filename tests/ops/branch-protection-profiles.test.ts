@@ -168,4 +168,41 @@ describe('branch protection profile scripts', () => {
     expect(result.stderr).toContain('Required review count mismatch');
     expect(result.stderr).toContain('expected=0 actual=1');
   });
+
+  it('enforce script fails on github API 401 response', () => {
+    const result = runScript(enforceScript, {
+      GITHUB_TOKEN: 'test-token',
+      MEMPHIS_BRANCH_PROTECTION_PROFILE: 'team',
+      MEMPHIS_TEST_CURL_STATUS: '401',
+      MEMPHIS_TEST_CURL_BODY_FILE: path.join(fixturesDir, 'error-401.json'),
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Failed (HTTP 401)');
+    expect(result.stderr).toContain('Bad credentials');
+  });
+
+  it('verify script fails when quality-gate context is missing', () => {
+    const result = runScript(verifyScript, {
+      GITHUB_TOKEN: 'test-token',
+      MEMPHIS_BRANCH_PROTECTION_PROFILE: 'team',
+      MEMPHIS_TEST_CURL_STATUS: '200',
+      MEMPHIS_TEST_CURL_BODY_FILE: path.join(fixturesDir, 'protection-missing-quality-gate.json'),
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Missing required status check: quality-gate');
+  });
+
+  it('verify script fails on policy mismatch', () => {
+    const result = runScript(verifyScript, {
+      GITHUB_TOKEN: 'test-token',
+      MEMPHIS_BRANCH_PROTECTION_PROFILE: 'team',
+      MEMPHIS_TEST_CURL_STATUS: '200',
+      MEMPHIS_TEST_CURL_BODY_FILE: path.join(fixturesDir, 'protection-policy-mismatch.json'),
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Policy mismatch');
+  });
 });

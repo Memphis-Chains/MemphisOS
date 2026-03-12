@@ -116,6 +116,10 @@ Updated: 2026-03-12
 - Added script-level regression tests for branch protection profile automation:
   - fixture-driven coverage for `team|solo` in both enforce and verify scripts
   - mismatch assertion for required review count drift.
+- Added failure-path fixture coverage for branch-protection scripts:
+  - enforce path: GitHub API `401` handling
+  - verify path: missing `quality-gate` detection
+  - verify path: policy mismatch detection.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -126,6 +130,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add failure-path fixture tests for branch-protection scripts (HTTP 401, missing `quality-gate`, policy mismatch) to lock operator tooling behavior.
-2. Add integration coverage that `TrustRootRejected`/`StaleRevocationCache` security events trigger alert transport send/fallback paths.
-3. Add a short operator runbook section for switching `MEMPHIS_BRANCH_PROTECTION_PROFILE=team|solo` safely and re-verifying policy.
+1. Add integration coverage that `TrustRootRejected`/`StaleRevocationCache` security events trigger alert transport send/fallback paths.
+2. Add a short operator runbook section for switching `MEMPHIS_BRANCH_PROTECTION_PROFILE=team|solo` safely and re-verifying policy.
+3. Add API-level tests for invalid profile values in ops scripts (`MEMPHIS_BRANCH_PROTECTION_PROFILE`) to lock exit-code behavior.
