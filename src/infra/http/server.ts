@@ -33,6 +33,7 @@ import { writeSecurityAudit } from '../logging/security-audit.js';
 import { computeHealthSummary } from '../ops/health-summary.js';
 import { verifyAdminActionSignature } from '../runtime/admin-signature.js';
 import { writeDualApprovalChainEvent } from '../runtime/dual-approval-events.js';
+import { evaluateRevocationCacheStartup } from '../runtime/startup-guards.js';
 import {
   getStartupRevocationCacheStatus,
   getStartupQueueResumeStatus,
@@ -74,6 +75,14 @@ const SENSITIVE_EXACT_ROUTES = new Set<string>([
   '/v1/soul/loop-step',
 ]);
 const SENSITIVE_PREFIX_ROUTES = ['/v1/sessions/'] as const;
+const REVOCATION_FAIL_CLOSED_ROUTES = new Set<string>([
+  '/v1/admin/dual-approval/request',
+  '/v1/admin/dual-approval/approve',
+  '/v1/admin/dual-approval/cancel',
+  '/v1/vault/init',
+  '/v1/vault/encrypt',
+  '/v1/vault/decrypt',
+]);
 
 export function createHttpServer(
   config: AppConfig,
@@ -131,6 +140,34 @@ export function createHttpServer(
           requestId: request.id,
         },
       });
+    }
+    if (isRevocationFailClosedRoute(request.method, routePath)) {
+      const revocationStatus = evaluateRevocationCacheStartup(process.env);
+      if (revocationStatus.enabled && revocationStatus.stale) {
+        writeSecurityAudit({
+          action: 'revocation.cache.guard',
+          status: 'blocked',
+          ip: request.ip,
+          route: routePath,
+          details: {
+            reason: revocationStatus.reason ?? 'revocation cache stale',
+            maxStaleMs: revocationStatus.maxStaleMs,
+            ageMs: revocationStatus.ageMs,
+          },
+        });
+        return reply.status(503).send({
+          error: {
+            code: 'SERVICE_UNAVAILABLE',
+            message: 'high-risk route blocked: revocation cache stale',
+            details: {
+              route: routePath,
+              method: request.method,
+              reason: revocationStatus.reason ?? 'revocation cache stale',
+            },
+            requestId: request.id,
+          },
+        });
+      }
     }
     const requiresAuth = isAuthRequired(request.method, routePath);
     const key = `${request.ip}:${request.method}:${routePath}`;
@@ -1003,6 +1040,11 @@ function isSafeModeAllowedRoute(method: string, routePath: string): boolean {
   }
 
   return false;
+}
+
+function isRevocationFailClosedRoute(method: string, routePath: string): boolean {
+  if (method !== 'POST') return false;
+  return REVOCATION_FAIL_CLOSED_ROUTES.has(routePath);
 }
 
 function isSafeJournalChainName(chain: unknown): chain is string {
