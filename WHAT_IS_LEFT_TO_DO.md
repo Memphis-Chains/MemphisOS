@@ -196,6 +196,10 @@ Updated: 2026-03-12
   - `ops:verify-incident-manifest` now appends `incident_manifest.verification` events to the `system` chain
   - verifier output now carries `chainEvent` metadata (`index`, `hash`) for incident handoff traceability
   - integration coverage validates chain event emission and payload linkage.
+- Added signed detached key-bundle provenance + trust-root validation:
+  - key-bundle schema now supports optional `provenance` signature block
+  - verifier supports strict provenance enforcement (`--require-key-bundle-signature`) with trust-root anchoring (`--trust-root-path`)
+  - checks surface `keyBundleSignatureValid` + `keyBundleTrustRootMatch` for handoff evidence.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -206,6 +210,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add signed key-bundle provenance support (bundle signature + trust-root verification).
-2. Add policy controls for mandatory encrypted incident handoff in financial mode (`requireEncryptedArtifacts=true`).
-3. Add verifier policy mode for strict chain-link enforcement + retry/backoff on append failures.
+1. Add policy controls for mandatory encrypted incident handoff in financial mode (`requireEncryptedArtifacts=true`).
+2. Add verifier policy mode for strict chain-link enforcement + retry/backoff on append failures.
+3. Add key-bundle rotation tooling (generate new bundle + signed provenance from current trust root).

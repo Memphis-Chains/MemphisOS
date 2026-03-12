@@ -54,12 +54,31 @@ npm run -s ops:verify-incident-manifest -- \
   --require-signature
 ```
 
+Strict provenance mode (recommended for production handoffs):
+
+```bash
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --trust-root-path config/trust_root.json \
+  --expected-key-id incident-key-v1 \
+  --require-signature \
+  --require-key-bundle-signature
+```
+
 Bundle schema:
 
 ```json
 {
   "schemaVersion": 1,
-  "keys": [{ "keyId": "incident-key-v1", "publicKeyPem": "-----BEGIN PUBLIC KEY-----..." }]
+  "keys": [{ "keyId": "incident-key-v1", "publicKeyPem": "-----BEGIN PUBLIC KEY-----..." }],
+  "provenance": {
+    "algorithm": "ed25519",
+    "signerRootId": "sha256(publicKeyPem)",
+    "signerPublicKeyPem": "-----BEGIN PUBLIC KEY-----...",
+    "payloadSha256": "sha256(JSON.stringify({schemaVersion,keys}))",
+    "signature": "base64(ed25519-sign(payload))"
+  }
 }
 ```
 
@@ -82,6 +101,7 @@ Verification must report:
 - `checks.signatureVerified=true`
 - `checks.keyFingerprintMatch=true`
 - `checks.keyIdMatch=true` (when expected key id is set)
+- `checks.keyBundleSignatureValid=true` and `checks.keyBundleTrustRootMatch=true` when strict detached-bundle provenance is enabled
 - `checks.manifestEncrypted=true` and `checks.bundleEncrypted=true` when encrypted companions are used
 - `chainEvent.written=true` (immutable `incident_manifest.verification` linkage)
 
