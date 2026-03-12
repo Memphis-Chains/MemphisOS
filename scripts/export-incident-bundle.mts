@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { createHash, createPrivateKey, createPublicKey, sign as signDetached } from 'node:crypto';
+import { createPrivateKey, createPublicKey, sign as signDetached } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -11,6 +11,8 @@ import {
 } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { encryptBlob, sha256Hex } from './lib/encrypted-blob.mts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
 
@@ -56,6 +58,16 @@ interface IncidentBundleManifest {
     ok: boolean;
     schemaVersion: number | null;
   };
+  encryptedArtifacts?: {
+    schemaVersion: 1;
+    format: 'memphis.encrypted-blob.v1';
+    algorithm: 'aes-256-gcm';
+    kdf: 'scrypt';
+    bundle: EncryptedArtifactManifestDescriptor;
+    manifest?: {
+      path: string;
+    };
+  };
   signature?: {
     algorithm: 'ed25519';
     value: string;
@@ -69,6 +81,17 @@ interface SigningKeySpec {
   source: 'path' | 'env-pem' | 'env-pem-base64';
   privateKeyPem: string;
   keyId: string | null;
+}
+
+interface EncryptionPassphraseSpec {
+  source: 'arg' | 'arg-base64' | 'arg-file' | 'env' | 'env-base64' | 'env-file';
+  passphrase: string;
+}
+
+interface EncryptedArtifactManifestDescriptor {
+  path: string;
+  sha256: string;
+  bytes: number;
 }
 
 const REDACTED = '[REDACTED]';
@@ -162,10 +185,6 @@ function redactJson(value: JsonValue, keyHint?: string): JsonValue {
   return out;
 }
 
-function sha256Hex(data: string | Buffer): string {
-  return createHash('sha256').update(data).digest('hex');
-}
-
 function resolveSigningKeySpec(): SigningKeySpec | null {
   const pathRaw =
     parseArg('--signing-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PATH ?? null;
@@ -208,6 +227,41 @@ function resolveSigningKeySpec(): SigningKeySpec | null {
   return null;
 }
 
+function resolveEncryptionPassphraseSpec(): EncryptionPassphraseSpec | null {
+  const argRaw = parseArg('--encryption-passphrase');
+  const argBase64 = parseArg('--encryption-passphrase-base64');
+  const argFile = parseArg('--encryption-passphrase-file');
+  const envRaw = process.env.MEMPHIS_INCIDENT_BUNDLE_ENCRYPTION_PASSPHRASE ?? null;
+  const envBase64 = process.env.MEMPHIS_INCIDENT_BUNDLE_ENCRYPTION_PASSPHRASE_BASE64 ?? null;
+  const envFile = process.env.MEMPHIS_INCIDENT_BUNDLE_ENCRYPTION_PASSPHRASE_FILE ?? null;
+
+  const declared = [
+    ['arg', argRaw] as const,
+    ['arg-base64', argBase64] as const,
+    ['arg-file', argFile] as const,
+    ['env', envRaw] as const,
+    ['env-base64', envBase64] as const,
+    ['env-file', envFile] as const,
+  ].filter((entry) => typeof entry[1] === 'string' && entry[1].trim().length > 0);
+
+  if (declared.length === 0) return null;
+  if (declared.length > 1) {
+    throw new Error(
+      'multiple encryption passphrase sources provided; use exactly one of --encryption-passphrase, --encryption-passphrase-base64, --encryption-passphrase-file (or matching env vars)',
+    );
+  }
+
+  const [source, value] = declared[0];
+  if (!value) return null;
+  if (source === 'arg-base64' || source === 'env-base64') {
+    return { source, passphrase: Buffer.from(value, 'base64').toString('utf8') };
+  }
+  if (source === 'arg-file' || source === 'env-file') {
+    return { source, passphrase: readFileSync(resolve(value), 'utf8').trim() };
+  }
+  return { source, passphrase: value };
+}
+
 function inferManifestPath(bundlePath: string): string {
   if (bundlePath.endsWith('.json')) return bundlePath.slice(0, -'.json'.length) + MANIFEST_SUFFIX;
   return `${bundlePath}${MANIFEST_SUFFIX}`;
@@ -220,6 +274,10 @@ function isIncidentBundleFile(name: string): boolean {
 function manifestNameForBundle(bundleName: string): string {
   if (bundleName.endsWith('.json')) return bundleName.slice(0, -'.json'.length) + MANIFEST_SUFFIX;
   return `${bundleName}${MANIFEST_SUFFIX}`;
+}
+
+function encryptedCompanionPath(filePath: string): string {
+  return `${filePath}.enc`;
 }
 
 function safeUnlink(filePath: string): boolean {
@@ -258,8 +316,13 @@ function pruneIncidentBundleHistory(outPath: string, retentionCount: number, ret
     if (!overCount && !overAge) continue;
 
     if (safeUnlink(bundle.fullPath)) removed.push(bundle.fullPath);
+    const bundleEncryptedPath = encryptedCompanionPath(bundle.fullPath);
+    if (existsSync(bundleEncryptedPath) && safeUnlink(bundleEncryptedPath)) removed.push(bundleEncryptedPath);
+
     const manifestPath = resolve(outDir, manifestNameForBundle(bundle.name));
     if (existsSync(manifestPath) && safeUnlink(manifestPath)) removed.push(manifestPath);
+    const manifestEncryptedPath = encryptedCompanionPath(manifestPath);
+    if (existsSync(manifestEncryptedPath) && safeUnlink(manifestEncryptedPath)) removed.push(manifestEncryptedPath);
   }
 
   return removed;
@@ -284,6 +347,8 @@ function writeManifest(options: {
   drill: IncidentBundle['drill'];
   manifestPath: string;
   signingKey: SigningKeySpec | null;
+  encryptedBundle: EncryptedArtifactManifestDescriptor | null;
+  encryptedManifestPath: string | null;
 }): string {
   const bundleBytes = readFileSync(options.bundlePath);
   const manifestBase: IncidentBundleManifest = {
@@ -309,6 +374,17 @@ function writeManifest(options: {
     },
   };
 
+  if (options.encryptedBundle) {
+    manifestBase.encryptedArtifacts = {
+      schemaVersion: 1,
+      format: 'memphis.encrypted-blob.v1',
+      algorithm: 'aes-256-gcm',
+      kdf: 'scrypt',
+      bundle: options.encryptedBundle,
+      manifest: options.encryptedManifestPath ? { path: options.encryptedManifestPath } : undefined,
+    };
+  }
+
   if (options.signingKey) {
     const privateKey = createPrivateKey(options.signingKey.privateKeyPem);
     const publicKeyPem = createPublicKey(privateKey).export({ format: 'pem', type: 'spki' }).toString();
@@ -326,6 +402,31 @@ function writeManifest(options: {
   mkdirSync(dirname(options.manifestPath), { recursive: true });
   writeFileSync(options.manifestPath, JSON.stringify(manifestBase, null, 2), 'utf8');
   return options.manifestPath;
+}
+
+function writeEncryptedArtifact(options: {
+  plaintextPath: string;
+  encryptedPath: string;
+  purpose: 'incident-bundle' | 'incident-manifest';
+  generatedAt: string;
+  passphrase: string;
+}): EncryptedArtifactManifestDescriptor {
+  const plaintextBytes = readFileSync(options.plaintextPath);
+  const encryptedBlob = encryptBlob({
+    plaintext: plaintextBytes,
+    passphrase: options.passphrase,
+    purpose: options.purpose,
+    generatedAt: options.generatedAt,
+  });
+  const serialized = JSON.stringify(encryptedBlob, null, 2);
+  mkdirSync(dirname(options.encryptedPath), { recursive: true });
+  writeFileSync(options.encryptedPath, serialized, 'utf8');
+  const encryptedBytes = Buffer.from(serialized, 'utf8');
+  return {
+    path: options.encryptedPath,
+    sha256: sha256Hex(encryptedBytes),
+    bytes: encryptedBytes.byteLength,
+  };
 }
 
 async function fetchStatus(url: string, redactSensitive: boolean): Promise<IncidentBundle['status']> {
@@ -411,6 +512,9 @@ async function main(): Promise<void> {
   const retentionDays = parseIntArg('--retention-days', 14, 'MEMPHIS_INCIDENT_BUNDLE_RETENTION_DAYS');
   const manifestOut = parseArg('--manifest-out');
   const signingKey = resolveSigningKeySpec();
+  const encryptionPassphrase = resolveEncryptionPassphraseSpec();
+  const encryptedBundleOut = parseArg('--encrypted-bundle-out');
+  const encryptedManifestOut = parseArg('--encrypted-manifest-out');
   const writeManifestRequested = manifestOut !== null || signingKey !== null;
 
   const bundle: IncidentBundle = {
@@ -426,7 +530,26 @@ async function main(): Promise<void> {
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, JSON.stringify(bundle, null, 2), 'utf8');
+  const encryptedBundlePath = encryptionPassphrase
+    ? resolve(encryptedBundleOut ?? encryptedCompanionPath(outPath))
+    : null;
+  const encryptedBundleDescriptor =
+    encryptionPassphrase && encryptedBundlePath
+      ? writeEncryptedArtifact({
+          plaintextPath: outPath,
+          encryptedPath: encryptedBundlePath,
+          purpose: 'incident-bundle',
+          generatedAt: bundle.generatedAt,
+          passphrase: encryptionPassphrase.passphrase,
+        })
+      : null;
+
   const prunedFiles = pruneIncidentBundleHistory(outPath, retentionCount, retentionDays);
+  const expectedManifestPath = resolve(manifestOut ?? inferManifestPath(outPath));
+  const encryptedManifestPath =
+    encryptionPassphrase && writeManifestRequested
+      ? resolve(encryptedManifestOut ?? encryptedCompanionPath(expectedManifestPath))
+      : null;
   const manifestPath = writeManifestRequested
     ? writeManifest({
         bundlePath: outPath,
@@ -436,10 +559,22 @@ async function main(): Promise<void> {
         retentionDays,
         prunedFiles,
         drill: bundle.drill,
-        manifestPath: resolve(manifestOut ?? inferManifestPath(outPath)),
+        manifestPath: expectedManifestPath,
         signingKey,
+        encryptedBundle: encryptedBundleDescriptor,
+        encryptedManifestPath,
       })
     : null;
+  const encryptedManifestDescriptor =
+    encryptionPassphrase && manifestPath && encryptedManifestPath
+      ? writeEncryptedArtifact({
+          plaintextPath: manifestPath,
+          encryptedPath: encryptedManifestPath,
+          purpose: 'incident-manifest',
+          generatedAt: bundle.generatedAt,
+          passphrase: encryptionPassphrase.passphrase,
+        })
+      : null;
 
   console.log(
     JSON.stringify(
@@ -450,6 +585,26 @@ async function main(): Promise<void> {
         prunedFiles: prunedFiles.map((item) => basename(item)),
         signingKeySource: signingKey?.source ?? null,
         signingKeyId: signingKey?.keyId ?? null,
+        encryption: encryptionPassphrase
+          ? {
+              enabled: true,
+              source: encryptionPassphrase.source,
+              encryptedBundle: encryptedBundleDescriptor
+                ? {
+                    path: encryptedBundleDescriptor.path,
+                    sha256: encryptedBundleDescriptor.sha256,
+                    bytes: encryptedBundleDescriptor.bytes,
+                  }
+                : null,
+              encryptedManifest: encryptedManifestDescriptor
+                ? {
+                    path: encryptedManifestDescriptor.path,
+                    sha256: encryptedManifestDescriptor.sha256,
+                    bytes: encryptedManifestDescriptor.bytes,
+                  }
+                : null,
+            }
+          : { enabled: false },
       },
       null,
       2,

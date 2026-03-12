@@ -1,6 +1,13 @@
-import { createHash, createPublicKey, verify as verifyDetached } from 'node:crypto';
+import { createPublicKey, verify as verifyDetached } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
+
+import {
+  decryptBlob,
+  isEncryptedBlobJson,
+  parseEncryptedBlob,
+  sha256Hex,
+} from './lib/encrypted-blob.mts';
 
 interface BundleDescriptor {
   path: string;
@@ -20,6 +27,16 @@ interface IncidentBundleManifest {
   schemaVersion: number;
   generatedAt: string;
   bundle: BundleDescriptor;
+  encryptedArtifacts?: {
+    schemaVersion: number;
+    format: string;
+    algorithm: string;
+    kdf: string;
+    bundle: BundleDescriptor;
+    manifest?: {
+      path: string;
+    };
+  };
   signature?: SignatureDescriptor;
 }
 
@@ -39,7 +56,9 @@ interface VerifyOutput {
   bundlePath: string;
   checks: {
     schemaValid: boolean;
+    manifestEncrypted: boolean;
     bundleExists: boolean;
+    bundleEncrypted: boolean;
     bundleHashMatch: boolean;
     bundleSizeMatch: boolean;
     signaturePresent: boolean;
@@ -62,8 +81,37 @@ function hasFlag(flag: string): boolean {
   return process.argv.includes(flag);
 }
 
-function sha256Hex(data: string | Buffer): string {
-  return createHash('sha256').update(data).digest('hex');
+function resolveDecryptionPassphrase(): string | null {
+  const argRaw = parseArg('--decryption-passphrase');
+  const argBase64 = parseArg('--decryption-passphrase-base64');
+  const argFile = parseArg('--decryption-passphrase-file');
+
+  const envRaw = process.env.MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE ?? null;
+  const envBase64 = process.env.MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE_BASE64 ?? null;
+  const envFile = process.env.MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE_FILE ?? null;
+
+  const declared = [
+    argRaw,
+    argBase64,
+    argFile,
+    envRaw,
+    envBase64,
+    envFile,
+  ].filter((value) => typeof value === 'string' && value.trim().length > 0);
+  if (declared.length === 0) return null;
+  if (declared.length > 1) {
+    throw new Error(
+      'multiple decryption passphrase sources provided; use exactly one of --decryption-passphrase, --decryption-passphrase-base64, --decryption-passphrase-file (or matching env vars)',
+    );
+  }
+
+  if (argBase64 || envBase64) {
+    return Buffer.from(argBase64 ?? envBase64 ?? '', 'base64').toString('utf8');
+  }
+  if (argFile || envFile) {
+    return readFileSync(resolve(argFile ?? envFile ?? ''), 'utf8').trim();
+  }
+  return argRaw ?? envRaw ?? null;
 }
 
 function resolveManifestPath(): string {
@@ -74,8 +122,7 @@ function resolveManifestPath(): string {
   return resolve(provided);
 }
 
-function parseManifest(raw: string): IncidentBundleManifest {
-  const parsed = JSON.parse(raw) as unknown;
+function parseManifestObject(parsed: unknown): IncidentBundleManifest {
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('manifest must be a JSON object');
   }
@@ -101,6 +148,66 @@ function parseManifest(raw: string): IncidentBundleManifest {
     throw new Error('manifest bundle.bytes must be a non-negative number');
   }
 
+  let encryptedArtifacts: IncidentBundleManifest['encryptedArtifacts'] | undefined = undefined;
+  if (value.encryptedArtifacts !== undefined) {
+    if (!value.encryptedArtifacts || typeof value.encryptedArtifacts !== 'object' || Array.isArray(value.encryptedArtifacts)) {
+      throw new Error('manifest encryptedArtifacts must be an object when present');
+    }
+    const encrypted = value.encryptedArtifacts as { [k: string]: unknown };
+    if (encrypted.schemaVersion !== 1) {
+      throw new Error('manifest encryptedArtifacts.schemaVersion must be 1');
+    }
+    if (encrypted.format !== 'memphis.encrypted-blob.v1') {
+      throw new Error('manifest encryptedArtifacts.format must be memphis.encrypted-blob.v1');
+    }
+    if (encrypted.algorithm !== 'aes-256-gcm') {
+      throw new Error('manifest encryptedArtifacts.algorithm must be aes-256-gcm');
+    }
+    if (encrypted.kdf !== 'scrypt') {
+      throw new Error('manifest encryptedArtifacts.kdf must be scrypt');
+    }
+    if (!encrypted.bundle || typeof encrypted.bundle !== 'object' || Array.isArray(encrypted.bundle)) {
+      throw new Error('manifest encryptedArtifacts.bundle must be an object');
+    }
+    const encryptedBundle = encrypted.bundle as { [k: string]: unknown };
+    if (typeof encryptedBundle.path !== 'string' || encryptedBundle.path.length === 0) {
+      throw new Error('manifest encryptedArtifacts.bundle.path must be a non-empty string');
+    }
+    if (typeof encryptedBundle.sha256 !== 'string' || encryptedBundle.sha256.length === 0) {
+      throw new Error('manifest encryptedArtifacts.bundle.sha256 must be a non-empty string');
+    }
+    if (
+      typeof encryptedBundle.bytes !== 'number' ||
+      !Number.isFinite(encryptedBundle.bytes) ||
+      encryptedBundle.bytes < 0
+    ) {
+      throw new Error('manifest encryptedArtifacts.bundle.bytes must be a non-negative number');
+    }
+    let manifestEncryptedPath: string | undefined = undefined;
+    if (encrypted.manifest !== undefined) {
+      if (!encrypted.manifest || typeof encrypted.manifest !== 'object' || Array.isArray(encrypted.manifest)) {
+        throw new Error('manifest encryptedArtifacts.manifest must be an object when present');
+      }
+      const encryptedManifest = encrypted.manifest as { [k: string]: unknown };
+      if (typeof encryptedManifest.path !== 'string' || encryptedManifest.path.length === 0) {
+        throw new Error('manifest encryptedArtifacts.manifest.path must be a non-empty string');
+      }
+      manifestEncryptedPath = encryptedManifest.path;
+    }
+    encryptedArtifacts = {
+      schemaVersion: 1,
+      format: 'memphis.encrypted-blob.v1',
+      algorithm: 'aes-256-gcm',
+      kdf: 'scrypt',
+      bundle: {
+        path: encryptedBundle.path,
+        sha256: encryptedBundle.sha256,
+        bytes: encryptedBundle.bytes,
+      },
+      manifest: manifestEncryptedPath ? { path: manifestEncryptedPath } : undefined,
+    };
+  }
+
   if (value.signature === undefined) {
     return {
       schemaVersion,
@@ -110,6 +217,7 @@ function parseManifest(raw: string): IncidentBundleManifest {
         sha256: bundleObj.sha256,
         bytes: bundleObj.bytes,
       },
+      encryptedArtifacts,
     };
   }
 
@@ -139,6 +247,7 @@ function parseManifest(raw: string): IncidentBundleManifest {
       sha256: bundleObj.sha256,
       bytes: bundleObj.bytes,
     },
+    encryptedArtifacts,
     signature: {
       algorithm: 'ed25519',
       value: signature.value,
@@ -154,6 +263,98 @@ function resolveBundlePath(bundlePath: string, manifestPath: string): string {
   if (override) return resolve(override);
   if (isAbsolute(bundlePath)) return bundlePath;
   return resolve(dirname(manifestPath), bundlePath);
+}
+
+function resolveEncryptedCompanionPath(path: string): string {
+  return `${path}.enc`;
+}
+
+function loadManifest(options: {
+  manifestPath: string;
+  decryptionPassphrase: string | null;
+  checks: VerifyOutput['checks'];
+  errors: string[];
+}): { manifest: IncidentBundleManifest | null; manifestObject: Record<string, unknown> } {
+  try {
+    const rawBytes = readFileSync(options.manifestPath);
+    const parsed = JSON.parse(rawBytes.toString('utf8')) as unknown;
+    if (isEncryptedBlobJson(parsed)) {
+      options.checks.manifestEncrypted = true;
+      if (!options.decryptionPassphrase) {
+        options.errors.push('manifest is encrypted; provide --decryption-passphrase or matching env var');
+        return { manifest: null, manifestObject: {} };
+      }
+      const decryptedManifest = decryptBlob({
+        blob: parseEncryptedBlob(rawBytes),
+        passphrase: options.decryptionPassphrase,
+      });
+      const manifestObject = JSON.parse(decryptedManifest.toString('utf8')) as Record<string, unknown>;
+      const manifest = parseManifestObject(manifestObject);
+      options.checks.schemaValid = true;
+      return { manifest, manifestObject };
+    }
+
+    const manifestObject = parsed as Record<string, unknown>;
+    const manifest = parseManifestObject(manifestObject);
+    options.checks.schemaValid = true;
+    return { manifest, manifestObject };
+  } catch (error) {
+    options.errors.push(error instanceof Error ? error.message : String(error));
+    return { manifest: null, manifestObject: {} };
+  }
+}
+
+function resolveBundleBytes(options: {
+  manifest: IncidentBundleManifest;
+  manifestPath: string;
+  decryptionPassphrase: string | null;
+  preferEncrypted: boolean;
+  checks: VerifyOutput['checks'];
+  errors: string[];
+}): { bundlePath: string; bytes: Buffer | null } {
+  const plainPath = resolveBundlePath(options.manifest.bundle.path, options.manifestPath);
+  const encryptedPathFromManifest = options.manifest.encryptedArtifacts?.bundle?.path
+    ? isAbsolute(options.manifest.encryptedArtifacts.bundle.path)
+      ? options.manifest.encryptedArtifacts.bundle.path
+      : resolve(dirname(options.manifestPath), options.manifest.encryptedArtifacts.bundle.path)
+    : null;
+  const encryptedCandidates = [encryptedPathFromManifest, resolveEncryptedCompanionPath(plainPath)].filter(
+    (value): value is string => Boolean(value),
+  );
+  const orderedCandidates = options.preferEncrypted
+    ? [...encryptedCandidates, plainPath]
+    : [plainPath, ...encryptedCandidates];
+
+  const uniqueCandidates = [...new Set(orderedCandidates)];
+  for (const candidate of uniqueCandidates) {
+    if (!existsSync(candidate)) continue;
+
+    options.checks.bundleExists = true;
+    const bytes = readFileSync(candidate);
+    try {
+      const parsed = JSON.parse(bytes.toString('utf8')) as unknown;
+      if (isEncryptedBlobJson(parsed)) {
+        options.checks.bundleEncrypted = true;
+        if (!options.decryptionPassphrase) {
+          options.errors.push(
+            `bundle file is encrypted (${candidate}); provide --decryption-passphrase or matching env var`,
+          );
+          return { bundlePath: candidate, bytes: null };
+        }
+        const decrypted = decryptBlob({
+          blob: parseEncryptedBlob(bytes),
+          passphrase: options.decryptionPassphrase,
+        });
+        return { bundlePath: candidate, bytes: decrypted };
+      }
+      return { bundlePath: candidate, bytes };
+    } catch {
+      return { bundlePath: candidate, bytes };
+    }
+  }
+
+  options.errors.push(`bundle file not found: ${plainPath}`);
+  return { bundlePath: plainPath, bytes: null };
 }
 
 function parsePublicKeyBundle(raw: string): PublicKeyBundle {
@@ -303,10 +504,13 @@ function verifySignature(options: {
 function main(): void {
   const manifestPath = resolveManifestPath();
   const requireSignature = hasFlag('--require-signature');
+  const decryptionPassphrase = resolveDecryptionPassphrase();
   const expectedKeyId = parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
   const checks: VerifyOutput['checks'] = {
     schemaValid: false,
+    manifestEncrypted: false,
     bundleExists: false,
+    bundleEncrypted: false,
     bundleHashMatch: false,
     bundleSizeMatch: false,
     signaturePresent: false,
@@ -318,32 +522,31 @@ function main(): void {
   const errors: string[] = [];
 
   let manifestObject: Record<string, unknown> = {};
-  let manifest: IncidentBundleManifest | null = null;
-  try {
-    const raw = readFileSync(manifestPath, 'utf8');
-    manifestObject = JSON.parse(raw) as Record<string, unknown>;
-    manifest = parseManifest(raw);
-    checks.schemaValid = true;
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-  }
+  const loaded = loadManifest({
+    manifestPath,
+    decryptionPassphrase,
+    checks,
+    errors,
+  });
+  manifestObject = loaded.manifestObject;
+  const manifest = loaded.manifest;
 
   let bundlePath = '';
   if (manifest) {
-    bundlePath = resolveBundlePath(manifest.bundle.path, manifestPath);
-    checks.bundleExists = existsSync(bundlePath);
-    if (!checks.bundleExists) {
-      errors.push(`bundle file not found: ${bundlePath}`);
-    } else {
-      try {
-        const bytes = readFileSync(bundlePath);
-        checks.bundleHashMatch = sha256Hex(bytes) === manifest.bundle.sha256;
-        checks.bundleSizeMatch = bytes.byteLength === manifest.bundle.bytes;
-        if (!checks.bundleHashMatch) errors.push('bundle sha256 mismatch');
-        if (!checks.bundleSizeMatch) errors.push('bundle byte size mismatch');
-      } catch (error) {
-        errors.push(error instanceof Error ? error.message : String(error));
-      }
+    const bundleResolution = resolveBundleBytes({
+      manifest,
+      manifestPath,
+      decryptionPassphrase,
+      preferEncrypted: checks.manifestEncrypted,
+      checks,
+      errors,
+    });
+    bundlePath = bundleResolution.bundlePath;
+    if (bundleResolution.bytes) {
+      checks.bundleHashMatch = sha256Hex(bundleResolution.bytes) === manifest.bundle.sha256;
+      checks.bundleSizeMatch = bundleResolution.bytes.byteLength === manifest.bundle.bytes;
+      if (!checks.bundleHashMatch) errors.push('bundle sha256 mismatch');
+      if (!checks.bundleSizeMatch) errors.push('bundle byte size mismatch');
     }
 
     const keyResolution = resolvePublicKeyPem({ manifest, expectedKeyId });

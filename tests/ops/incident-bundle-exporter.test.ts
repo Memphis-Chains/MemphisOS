@@ -183,6 +183,24 @@ describe('incident bundle exporter', () => {
     writeFileSync(oldA.replace('.json', '.manifest.json'), '{"schemaVersion":1}', 'utf8');
     writeFileSync(oldB.replace('.json', '.manifest.json'), '{"schemaVersion":1}', 'utf8');
     writeFileSync(oldC.replace('.json', '.manifest.json'), '{"schemaVersion":1}', 'utf8');
+    writeFileSync(`${oldA}.enc`, '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}', 'utf8');
+    writeFileSync(`${oldB}.enc`, '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}', 'utf8');
+    writeFileSync(`${oldC}.enc`, '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}', 'utf8');
+    writeFileSync(
+      `${oldA.replace('.json', '.manifest.json')}.enc`,
+      '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}',
+      'utf8',
+    );
+    writeFileSync(
+      `${oldB.replace('.json', '.manifest.json')}.enc`,
+      '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}',
+      'utf8',
+    );
+    writeFileSync(
+      `${oldC.replace('.json', '.manifest.json')}.enc`,
+      '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}',
+      'utf8',
+    );
 
     const now = new Date();
     utimesSync(oldA, now, new Date(now.getTime() - 30_000));
@@ -220,8 +238,14 @@ describe('incident bundle exporter', () => {
     expect(existsSync(oldB)).toBe(false);
     expect(existsSync(oldA.replace('.json', '.manifest.json'))).toBe(false);
     expect(existsSync(oldB.replace('.json', '.manifest.json'))).toBe(false);
+    expect(existsSync(`${oldA}.enc`)).toBe(false);
+    expect(existsSync(`${oldB}.enc`)).toBe(false);
+    expect(existsSync(`${oldA.replace('.json', '.manifest.json')}.enc`)).toBe(false);
+    expect(existsSync(`${oldB.replace('.json', '.manifest.json')}.enc`)).toBe(false);
     expect(existsSync(oldC)).toBe(true);
     expect(existsSync(oldC.replace('.json', '.manifest.json'))).toBe(true);
+    expect(existsSync(`${oldC}.enc`)).toBe(true);
+    expect(existsSync(`${oldC.replace('.json', '.manifest.json')}.enc`)).toBe(true);
   });
 
   it('can emit a signed manifest for incident bundle chain-of-custody', async () => {
@@ -279,6 +303,75 @@ describe('incident bundle exporter', () => {
     const verified = verify(null, Buffer.from(payload, 'utf8'), pair.publicKey, signatureBytes);
     expect(verified).toBe(true);
     expect(manifest.signature?.payloadSha256).toBe(createHash('sha256').update(payload).digest('hex'));
+  });
+
+  it('can emit encrypted bundle + manifest companions for off-host transfer', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-encrypted-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const bundleEncryptedPath = `${bundlePath}.enc`;
+    const manifestEncryptedPath = `${manifestPath}.enc`;
+    const passphrase = 'operator-transfer-passphrase';
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter([
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--encryption-passphrase',
+        passphrase,
+      ]);
+      expect(result.status).toBe(0);
+      const emitted = JSON.parse(result.stdout) as {
+        ok: boolean;
+        encryption?: {
+          enabled: boolean;
+          source?: string;
+          encryptedBundle?: { path?: string };
+          encryptedManifest?: { path?: string };
+        };
+      };
+      expect(emitted.ok).toBe(true);
+      expect(emitted.encryption?.enabled).toBe(true);
+      expect(emitted.encryption?.source).toBe('arg');
+      expect(emitted.encryption?.encryptedBundle?.path).toBe(bundleEncryptedPath);
+      expect(emitted.encryption?.encryptedManifest?.path).toBe(manifestEncryptedPath);
+    });
+
+    expect(existsSync(bundlePath)).toBe(true);
+    expect(existsSync(manifestPath)).toBe(true);
+    expect(existsSync(bundleEncryptedPath)).toBe(true);
+    expect(existsSync(manifestEncryptedPath)).toBe(true);
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      encryptedArtifacts?: {
+        bundle?: { path?: string; sha256?: string; bytes?: number };
+        manifest?: { path?: string };
+      };
+    };
+    expect(manifest.encryptedArtifacts?.bundle?.path).toBe(bundleEncryptedPath);
+    expect(typeof manifest.encryptedArtifacts?.bundle?.sha256).toBe('string');
+    expect(typeof manifest.encryptedArtifacts?.bundle?.bytes).toBe('number');
+    expect(manifest.encryptedArtifacts?.manifest?.path).toBe(manifestEncryptedPath);
+
+    const encryptedBundleBlob = JSON.parse(readFileSync(bundleEncryptedPath, 'utf8')) as {
+      format?: string;
+      algorithm?: string;
+      kdf?: { name?: string };
+      ciphertext?: string;
+    };
+    expect(encryptedBundleBlob.format).toBe('memphis.encrypted-blob.v1');
+    expect(encryptedBundleBlob.algorithm).toBe('aes-256-gcm');
+    expect(encryptedBundleBlob.kdf?.name).toBe('scrypt');
+    expect(typeof encryptedBundleBlob.ciphertext).toBe('string');
+    expect(encryptedBundleBlob.ciphertext).not.toContain('trustRoot');
   });
 
   it('supports env-injected signing key PEM and records key-id metadata', async () => {
