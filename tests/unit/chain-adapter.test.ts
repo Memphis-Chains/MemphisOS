@@ -42,6 +42,45 @@ describe('chain adapter feature flag', () => {
     expect(out.rustBridgeLoaded).toBe(false);
   });
 
+  it('uses index 0 for rust-backed genesis append', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'memphis-rust-chain-home-'));
+    const bridgeDir = mkdtempSync(join(tmpdir(), 'memphis-rust-bridge-'));
+    const bridgePath = join(bridgeDir, 'bridge.cjs');
+    process.env.HOME = home;
+
+    writeFileSync(
+      bridgePath,
+      `module.exports = {
+  chain_append: (chainJson, blockJson) => {
+    const chain = JSON.parse(chainJson);
+    const block = JSON.parse(blockJson);
+    return JSON.stringify({ ok: true, data: { appended: true, length: chain.length + 1, chain: [...chain, block] } });
+  },
+  chain_validate: () => JSON.stringify({ ok: true, data: { valid: true } }),
+  chain_query: () => JSON.stringify({ ok: true, data: { count: 0, blocks: [] } })
+};`,
+      'utf8',
+    );
+
+    const first = await appendBlock(
+      'journal',
+      { type: 'journal', content: 'hello rust bridge' },
+      {
+        RUST_CHAIN_ENABLED: 'true',
+        RUST_CHAIN_BRIDGE_PATH: bridgePath,
+      } as NodeJS.ProcessEnv,
+    );
+
+    expect(first.index).toBe(0);
+    const chainDir = join(home, '.memphis', 'chains', 'journal');
+    const firstBlock = JSON.parse(readFileSync(join(chainDir, '000000.json'), 'utf8')) as {
+      index: number;
+      prev_hash: string;
+    };
+    expect(firstBlock.index).toBe(0);
+    expect(firstBlock.prev_hash).toBe('0'.repeat(64));
+  });
+
   it('rejects unsafe chain names when resolving storage path', () => {
     expect(() =>
       resolveChainDir('../../tmp/pwn', {

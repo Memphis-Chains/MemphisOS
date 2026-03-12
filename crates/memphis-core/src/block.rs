@@ -7,6 +7,15 @@ pub enum BlockType {
     Ask,
     Decision,
     System,
+    SystemEvent,
+    ToolCall,
+    ToolResult,
+    Error,
+    WalletTxRequested,
+    WalletTxSigned,
+    WalletTxBroadcast,
+    WalletTxConfirmed,
+    WalletTxFailed,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

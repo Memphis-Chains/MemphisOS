@@ -47,6 +47,37 @@ Run CLI:
 npm run cli
 ```
 
+## Setup For Anyone (Guided)
+
+Use the onboarding wizard to generate a working `.env` profile:
+
+```bash
+npm run -s cli -- onboarding wizard --interactive
+```
+
+Then run bootstrap checks (dry-run first):
+
+```bash
+npm run -s cli -- onboarding bootstrap --profile dev-local --dry-run --json
+```
+
+If you want hosted/API LLMs, set:
+
+- `DEFAULT_PROVIDER=shared-llm` and `SHARED_LLM_API_BASE`, `SHARED_LLM_API_KEY`, or
+- `DEFAULT_PROVIDER=decentralized-llm` and `DECENTRALIZED_LLM_API_BASE`, `DECENTRALIZED_LLM_API_KEY`.
+
+For local-first operation, keep `DEFAULT_PROVIDER=ollama` (or `local-fallback`).
+
+## SOUL Kernel Primitives (Rust Core)
+
+The Rust core now exposes deterministic SOUL primitives:
+
+- `soul_replay`: deterministic replay report (`accepted`, `rejected`, `snapshot.state_hash`)
+- `soul_loop_step`: bounded loop transitions for Think -> Act -> Observe style execution
+- `memory` module: append + recall primitives (keyword/tag) with chain validation
+
+These are available through the NAPI bridge and TS adapter (`NapiChainAdapter`).
+
 ## Branch Protection Ops
 
 ```bash

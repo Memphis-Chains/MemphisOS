@@ -46,6 +46,10 @@ Updated: 2026-03-12
   - required `approvalRequestId` for approve/cancel
   - persistent idempotency reservation table and replay handling
 - Cleared dependency security advisories (`npm audit` now reports `0` vulnerabilities).
+- Added Rust SOUL primitives and TS bridge wiring:
+  - `memphis-core`: `harness` (deterministic replay + snapshot), `loop_engine`, `memory`
+  - `memphis-napi`: `soul_replay`, `soul_loop_step`
+  - TS adapter methods + unit coverage for replay/loop paths.
 
 ## In Progress Architecture (Already Implemented)
 
