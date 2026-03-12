@@ -34,6 +34,17 @@ npm run -s ops:export-incident-bundle -- \
   --encryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE"
 ```
 
+Policy enforcement for financial workflows:
+
+```bash
+MEMPHIS_QUEUE_MODE=financial \
+MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true \
+npm run -s ops:export-incident-bundle -- \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --encryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE"
+```
+
 ## 3. Verify Evidence Integrity
 
 ```bash

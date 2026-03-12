@@ -136,6 +136,7 @@ npm run -s ops:verify-incident-manifest -- \
 - optional signer metadata: `--signing-key-id` / `MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID`
 - encrypted-at-rest companion artifacts: `--encryption-passphrase`, `--encryption-passphrase-base64`, `--encryption-passphrase-file` (or matching env vars)
 - optional encrypted output overrides: `--encrypted-bundle-out`, `--encrypted-manifest-out`
+- policy gate: `--require-encrypted-artifacts` or `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true` (recommended for financial mode)
 
 `ops:verify-incident-manifest` checks:
 

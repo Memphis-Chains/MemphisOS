@@ -125,6 +125,14 @@ function hasFlag(flag: string): boolean {
   return process.argv.includes(flag);
 }
 
+function parseBool(raw: string | undefined, fallback = false): boolean {
+  if (typeof raw !== 'string') return fallback;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return fallback;
+}
+
 function parseIntArg(flag: string, fallback: number, envName?: string): number {
   const raw = parseArg(flag);
   if (raw) {
@@ -515,7 +523,17 @@ async function main(): Promise<void> {
   const encryptionPassphrase = resolveEncryptionPassphraseSpec();
   const encryptedBundleOut = parseArg('--encrypted-bundle-out');
   const encryptedManifestOut = parseArg('--encrypted-manifest-out');
-  const writeManifestRequested = manifestOut !== null || signingKey !== null;
+  const queueMode = (process.env.MEMPHIS_QUEUE_MODE ?? 'financial').trim().toLowerCase();
+  const requireEncryptedArtifacts =
+    hasFlag('--require-encrypted-artifacts') ||
+    parseBool(process.env.MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS, false);
+  const writeManifestRequested =
+    manifestOut !== null || signingKey !== null || requireEncryptedArtifacts;
+  if (requireEncryptedArtifacts && !encryptionPassphrase) {
+    throw new Error(
+      'encrypted artifacts are required by policy; provide --encryption-passphrase (or matching env source)',
+    );
+  }
 
   const bundle: IncidentBundle = {
     schemaVersion: 1,
@@ -585,6 +603,10 @@ async function main(): Promise<void> {
         prunedFiles: prunedFiles.map((item) => basename(item)),
         signingKeySource: signingKey?.source ?? null,
         signingKeyId: signingKey?.keyId ?? null,
+        policy: {
+          queueMode,
+          requireEncryptedArtifacts,
+        },
         encryption: encryptionPassphrase
           ? {
               enabled: true,

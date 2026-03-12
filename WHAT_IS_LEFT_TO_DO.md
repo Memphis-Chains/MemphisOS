@@ -200,6 +200,10 @@ Updated: 2026-03-12
   - key-bundle schema now supports optional `provenance` signature block
   - verifier supports strict provenance enforcement (`--require-key-bundle-signature`) with trust-root anchoring (`--trust-root-path`)
   - checks surface `keyBundleSignatureValid` + `keyBundleTrustRootMatch` for handoff evidence.
+- Added financial-mode encrypted handoff policy controls:
+  - exporter supports `--require-encrypted-artifacts` / `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true`
+  - policy fails closed when encryption passphrase sources are missing
+  - policy metadata (`queueMode`, `requireEncryptedArtifacts`) is emitted with exporter results.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -210,6 +214,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add policy controls for mandatory encrypted incident handoff in financial mode (`requireEncryptedArtifacts=true`).
-2. Add verifier policy mode for strict chain-link enforcement + retry/backoff on append failures.
-3. Add key-bundle rotation tooling (generate new bundle + signed provenance from current trust root).
+1. Add verifier policy mode for strict chain-link enforcement + retry/backoff on append failures.
+2. Add key-bundle rotation tooling (generate new bundle + signed provenance from current trust root).
+3. Add export-side policy profile presets (`financial-strict`, `forensics-lite`) to reduce operator flag churn.
