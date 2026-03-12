@@ -87,6 +87,9 @@ Updated: 2026-03-12
 - Removed duplicate CI status-context generation for PRs:
   - `.github/workflows/ci.yml` now runs `push` CI on `main` only (PR validation stays on `pull_request`)
   - prevents duplicate `quality-gate` contexts (`push` + `pull_request`) on feature branches.
+- Added branch-protection operator profiles in ops scripts:
+  - `MEMPHIS_BRANCH_PROTECTION_PROFILE=team|solo` in `ops:protect-main` and `ops:verify-main-protection`
+  - `team` enforces 1 required review; `solo` enforces 0 reviews while keeping `quality-gate` and admin protections.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -97,4 +100,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add an operator profile switch for branch-protection automation (`solo` vs `team`) to avoid repeated manual protection relax/restore churn.
+1. Decide and apply the active branch-protection profile for this repo:
+   - `team` (1 required approval) for multi-maintainer governance
+   - `solo` (0 required approvals) for single-operator velocity.
