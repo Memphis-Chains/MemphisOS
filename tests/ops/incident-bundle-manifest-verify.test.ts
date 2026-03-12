@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { generateKeyPairSync } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign as signDetached } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -77,6 +77,10 @@ async function runCommand(
       resolve({ status, stdout, stderr });
     });
   });
+}
+
+function sha256Hex(data: string): string {
+  return createHash('sha256').update(data).digest('hex');
 }
 
 describe('incident manifest verifier', () => {
@@ -462,6 +466,220 @@ describe('incident manifest verifier', () => {
     expect(parsed.checks.keyFingerprintMatch).toBe(true);
     expect(parsed.checks.keyIdMatch).toBe(true);
     expect(parsed.errors).toEqual([]);
+  });
+
+  it('verifies detached key bundle provenance against trust root manifest', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-key-bundle-provenance-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const publicKeyBundlePath = path.join(dir, 'public-key-bundle.json');
+    const trustRootPath = path.join(dir, 'trust_root.json');
+    const commandEnv = { MEMPHIS_DATA_DIR: path.join(dir, '.memphis-data') };
+    const keyId = 'bundle-key-provenance';
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const manifestPair = generateKeyPairSync('ed25519');
+    writeFileSync(
+      signingKeyPath,
+      manifestPair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+
+    const bundlePublicKeyPem = manifestPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+
+    const trustRootSigner = generateKeyPairSync('ed25519');
+    const signerPublicKeyPem = trustRootSigner.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    const signerRootId = sha256Hex(signerPublicKeyPem);
+    const unsignedBundle = {
+      schemaVersion: 1,
+      keys: [{ keyId, publicKeyPem: bundlePublicKeyPem }],
+    };
+    const unsignedPayload = JSON.stringify(unsignedBundle);
+    const provenanceSignature = signDetached(
+      null,
+      Buffer.from(unsignedPayload, 'utf8'),
+      trustRootSigner.privateKey,
+    ).toString('base64');
+
+    writeFileSync(
+      publicKeyBundlePath,
+      JSON.stringify(
+        {
+          ...unsignedBundle,
+          provenance: {
+            algorithm: 'ed25519',
+            signerRootId,
+            signerPublicKeyPem,
+            payloadSha256: sha256Hex(unsignedPayload),
+            signature: provenanceSignature,
+            signedAt: '2026-03-12T00:00:00.000Z',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    writeFileSync(
+      trustRootPath,
+      JSON.stringify({ version: 1, rootIds: [signerRootId] }, null, 2),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--signing-key-path',
+        signingKeyPath,
+        '--signing-key-id',
+        keyId,
+      ], commandEnv);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      manifestPath,
+      '--public-key-bundle-path',
+      publicKeyBundlePath,
+      '--trust-root-path',
+      trustRootPath,
+      '--expected-key-id',
+      keyId,
+      '--require-signature',
+      '--require-key-bundle-signature',
+    ], commandEnv);
+    expect(verifyResult.status).toBe(0);
+
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: { keyBundleSignatureValid: boolean; keyBundleTrustRootMatch: boolean };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.checks.keyBundleSignatureValid).toBe(true);
+    expect(parsed.checks.keyBundleTrustRootMatch).toBe(true);
+    expect(parsed.errors).toEqual([]);
+  });
+
+  it('fails detached key bundle provenance when signature is tampered', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-key-bundle-provenance-tamper-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const publicKeyBundlePath = path.join(dir, 'public-key-bundle.json');
+    const trustRootPath = path.join(dir, 'trust_root.json');
+    const commandEnv = { MEMPHIS_DATA_DIR: path.join(dir, '.memphis-data') };
+    const keyId = 'bundle-key-provenance-tampered';
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const manifestPair = generateKeyPairSync('ed25519');
+    writeFileSync(
+      signingKeyPath,
+      manifestPair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+
+    const bundlePublicKeyPem = manifestPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+
+    const trustRootSigner = generateKeyPairSync('ed25519');
+    const signerPublicKeyPem = trustRootSigner.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    const signerRootId = sha256Hex(signerPublicKeyPem);
+    const unsignedBundle = {
+      schemaVersion: 1,
+      keys: [{ keyId, publicKeyPem: bundlePublicKeyPem }],
+    };
+    const unsignedPayload = JSON.stringify(unsignedBundle);
+    const provenanceSignature = signDetached(
+      null,
+      Buffer.from(unsignedPayload, 'utf8'),
+      trustRootSigner.privateKey,
+    ).toString('base64');
+    const tamperedSignature = provenanceSignature.slice(0, -2) + 'ab';
+
+    writeFileSync(
+      publicKeyBundlePath,
+      JSON.stringify(
+        {
+          ...unsignedBundle,
+          provenance: {
+            algorithm: 'ed25519',
+            signerRootId,
+            signerPublicKeyPem,
+            payloadSha256: sha256Hex(unsignedPayload),
+            signature: tamperedSignature,
+            signedAt: '2026-03-12T00:00:00.000Z',
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    writeFileSync(
+      trustRootPath,
+      JSON.stringify({ version: 1, rootIds: [signerRootId] }, null, 2),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--signing-key-path',
+        signingKeyPath,
+        '--signing-key-id',
+        keyId,
+      ], commandEnv);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      manifestPath,
+      '--public-key-bundle-path',
+      publicKeyBundlePath,
+      '--trust-root-path',
+      trustRootPath,
+      '--expected-key-id',
+      keyId,
+      '--require-signature',
+      '--require-key-bundle-signature',
+    ], commandEnv);
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: { keyBundleSignatureValid: boolean; keyBundleTrustRootMatch: boolean };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.checks.keyBundleSignatureValid).toBe(false);
+    expect(parsed.checks.keyBundleTrustRootMatch).toBe(true);
+    expect(parsed.errors.some((item) => item.includes('public key bundle signature verification failed'))).toBe(true);
   });
 
   it('fails detached public-key bundle lookup when key id is missing', async () => {

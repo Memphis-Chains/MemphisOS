@@ -87,6 +87,7 @@ Exporter behavior:
 - include `--signing-key-id` and verify with `--expected-key-id` to bind evidence to signer identity
 - for off-host transfer, emit encrypted companions with `--encryption-passphrase` and verify via `--manifest-path ...enc` + `--decryption-passphrase`
 - keep chain linkage enabled (default) and confirm `chainEvent.written=true` in verifier output
+- when using detached key bundles, enforce provenance with `--require-key-bundle-signature --trust-root-path <path>`
 - if direct public-key files are unavailable, verify via `--public-key-bundle-path` key registry (`schemaVersion:1`)
 - run manifest verification before incident closure to confirm bundle integrity and signature validity
 

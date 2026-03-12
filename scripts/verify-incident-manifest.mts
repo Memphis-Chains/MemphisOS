@@ -46,9 +46,24 @@ interface PublicKeyBundleEntry {
   publicKeyPem: string;
 }
 
+interface PublicKeyBundleProvenance {
+  algorithm: 'ed25519';
+  signerRootId: string;
+  signerPublicKeyPem: string;
+  payloadSha256: string;
+  signature: string;
+  signedAt?: string;
+}
+
 interface PublicKeyBundle {
   schemaVersion: number;
   keys: PublicKeyBundleEntry[];
+  provenance?: PublicKeyBundleProvenance;
+}
+
+interface TrustRootManifest {
+  version: number;
+  rootIds: string[];
 }
 
 interface VerifyOutput {
@@ -67,6 +82,8 @@ interface VerifyOutput {
     payloadHashMatch: boolean;
     keyFingerprintMatch: boolean;
     keyIdMatch: boolean;
+    keyBundleSignatureValid: boolean;
+    keyBundleTrustRootMatch: boolean;
   };
   errors: string[];
   chainEvent?: {
@@ -388,17 +405,156 @@ function parsePublicKeyBundle(raw: string): PublicKeyBundle {
     }
     keys.push({ keyId: row.keyId, publicKeyPem: row.publicKeyPem });
   }
-  return { schemaVersion: 1, keys };
+
+  let provenance: PublicKeyBundleProvenance | undefined = undefined;
+  if (value.provenance !== undefined) {
+    if (!value.provenance || typeof value.provenance !== 'object' || Array.isArray(value.provenance)) {
+      throw new Error('public key bundle provenance must be an object when present');
+    }
+    const row = value.provenance as { [k: string]: unknown };
+    if (row.algorithm !== 'ed25519') {
+      throw new Error('public key bundle provenance.algorithm must be ed25519');
+    }
+    if (typeof row.signerRootId !== 'string' || row.signerRootId.length === 0) {
+      throw new Error('public key bundle provenance.signerRootId must be a non-empty string');
+    }
+    if (typeof row.signerPublicKeyPem !== 'string' || row.signerPublicKeyPem.length === 0) {
+      throw new Error('public key bundle provenance.signerPublicKeyPem must be a non-empty string');
+    }
+    if (typeof row.payloadSha256 !== 'string' || row.payloadSha256.length === 0) {
+      throw new Error('public key bundle provenance.payloadSha256 must be a non-empty string');
+    }
+    if (typeof row.signature !== 'string' || row.signature.length === 0) {
+      throw new Error('public key bundle provenance.signature must be a non-empty string');
+    }
+    if (row.signedAt !== undefined && (typeof row.signedAt !== 'string' || row.signedAt.length === 0)) {
+      throw new Error('public key bundle provenance.signedAt must be a non-empty string when present');
+    }
+    provenance = {
+      algorithm: 'ed25519',
+      signerRootId: row.signerRootId,
+      signerPublicKeyPem: row.signerPublicKeyPem,
+      payloadSha256: row.payloadSha256,
+      signature: row.signature,
+      signedAt: row.signedAt as string | undefined,
+    };
+  }
+
+  return { schemaVersion: 1, keys, provenance };
+}
+
+function resolveTrustRootPath(): string {
+  const provided =
+    parseArg('--trust-root-path') ??
+    process.env.MEMPHIS_TRUST_ROOT_PATH ??
+    './config/trust_root.json';
+  return resolve(provided);
+}
+
+function parseTrustRootManifest(raw: string): TrustRootManifest {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('trust root manifest must be a JSON object');
+  }
+  const value = parsed as { [k: string]: unknown };
+  const version = value.version;
+  const rootIdsRaw = value.rootIds;
+  if (!Number.isInteger(version) || Number(version) <= 0) {
+    throw new Error('trust root manifest version must be a positive integer');
+  }
+  if (!Array.isArray(rootIdsRaw) || rootIdsRaw.length === 0) {
+    throw new Error('trust root manifest rootIds must be a non-empty array');
+  }
+  const rootIds = rootIdsRaw.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  if (rootIds.length !== rootIdsRaw.length) {
+    throw new Error('trust root manifest rootIds entries must be non-empty strings');
+  }
+  return { version, rootIds };
+}
+
+function verifyKeyBundleProvenance(options: {
+  bundle: PublicKeyBundle;
+  requireSignedBundle: boolean;
+  checks: VerifyOutput['checks'];
+  errors: string[];
+}): void {
+  const provenance = options.bundle.provenance;
+  if (!provenance) {
+    if (options.requireSignedBundle) {
+      options.checks.keyBundleSignatureValid = false;
+      options.checks.keyBundleTrustRootMatch = false;
+      options.errors.push('public key bundle signature is required but provenance is missing');
+    }
+    return;
+  }
+
+  try {
+    const unsignedPayload = JSON.stringify({
+      schemaVersion: options.bundle.schemaVersion,
+      keys: options.bundle.keys,
+    });
+    const payloadHash = sha256Hex(unsignedPayload);
+    options.checks.keyBundleSignatureValid = payloadHash === provenance.payloadSha256;
+    if (!options.checks.keyBundleSignatureValid) {
+      options.errors.push('public key bundle payload hash mismatch');
+    }
+
+    const signerPublicKey = createPublicKey(provenance.signerPublicKeyPem);
+    const signatureBytes = Buffer.from(provenance.signature, 'base64');
+    const signatureVerified = verifyDetached(
+      null,
+      Buffer.from(unsignedPayload, 'utf8'),
+      signerPublicKey,
+      signatureBytes,
+    );
+    if (!signatureVerified) {
+      options.checks.keyBundleSignatureValid = false;
+      options.errors.push('public key bundle signature verification failed');
+    }
+
+    const signerRootId = sha256Hex(provenance.signerPublicKeyPem);
+    if (signerRootId !== provenance.signerRootId) {
+      options.checks.keyBundleSignatureValid = false;
+      options.errors.push('public key bundle signerRootId does not match signerPublicKeyPem fingerprint');
+    }
+
+    const trustRootPath = resolveTrustRootPath();
+    if (!existsSync(trustRootPath)) {
+      options.checks.keyBundleTrustRootMatch = false;
+      options.errors.push(`trust root manifest not found: ${trustRootPath}`);
+      return;
+    }
+
+    const trustRoot = parseTrustRootManifest(readFileSync(trustRootPath, 'utf8'));
+    options.checks.keyBundleTrustRootMatch = trustRoot.rootIds.includes(provenance.signerRootId);
+    if (!options.checks.keyBundleTrustRootMatch) {
+      options.errors.push(
+        `public key bundle signerRootId is not trusted by current trust root manifest: ${provenance.signerRootId}`,
+      );
+    }
+  } catch (error) {
+    options.checks.keyBundleSignatureValid = false;
+    options.checks.keyBundleTrustRootMatch = false;
+    options.errors.push(error instanceof Error ? error.message : String(error));
+  }
 }
 
 function resolvePublicKeyPem(options: {
   manifest: IncidentBundleManifest;
   expectedKeyId: string | null;
+  requireSignedBundle: boolean;
+  checks: VerifyOutput['checks'];
 }): { publicKeyPem: string | null; source: 'path' | 'bundle' | 'none'; errors: string[] } {
   const errors: string[] = [];
   const directPathRaw =
     parseArg('--public-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_VERIFY_PUBLIC_KEY_PATH ?? null;
   if (directPathRaw) {
+    if (options.requireSignedBundle) {
+      options.checks.keyBundleSignatureValid = false;
+      options.checks.keyBundleTrustRootMatch = false;
+      errors.push('require-key-bundle-signature requires --public-key-bundle-path (direct key path is unsupported)');
+      return { publicKeyPem: null, source: 'none', errors };
+    }
     const directPath = resolve(directPathRaw);
     if (!existsSync(directPath)) {
       errors.push(`public key file not found: ${directPath}`);
@@ -415,7 +571,14 @@ function resolvePublicKeyPem(options: {
     parseArg('--public-key-bundle-path') ??
     process.env.MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH ??
     null;
-  if (!bundlePathRaw) return { publicKeyPem: null, source: 'none', errors };
+  if (!bundlePathRaw) {
+    if (options.requireSignedBundle) {
+      options.checks.keyBundleSignatureValid = false;
+      options.checks.keyBundleTrustRootMatch = false;
+      errors.push('public key bundle signature is required but --public-key-bundle-path is missing');
+    }
+    return { publicKeyPem: null, source: 'none', errors };
+  }
 
   const keyId = options.manifest.signature?.keyId ?? options.expectedKeyId;
   if (!keyId) {
@@ -431,6 +594,12 @@ function resolvePublicKeyPem(options: {
 
   try {
     const bundle = parsePublicKeyBundle(readFileSync(bundlePath, 'utf8'));
+    verifyKeyBundleProvenance({
+      bundle,
+      requireSignedBundle: options.requireSignedBundle,
+      checks: options.checks,
+      errors,
+    });
     const key = bundle.keys.find((entry) => entry.keyId === keyId);
     if (!key) {
       errors.push(`public key bundle missing keyId: ${keyId}`);
@@ -564,6 +733,7 @@ async function writeVerificationChainEvent(options: {
 async function main(): Promise<void> {
   const manifestPath = resolveManifestPath();
   const requireSignature = hasFlag('--require-signature');
+  const requireSignedKeyBundle = hasFlag('--require-key-bundle-signature');
   const decryptionPassphrase = resolveDecryptionPassphrase();
   const skipChainEvent = hasFlag('--skip-chain-event');
   const expectedKeyId = parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
@@ -579,6 +749,8 @@ async function main(): Promise<void> {
     payloadHashMatch: false,
     keyFingerprintMatch: false,
     keyIdMatch: true,
+    keyBundleSignatureValid: true,
+    keyBundleTrustRootMatch: true,
   };
   const errors: string[] = [];
 
@@ -610,7 +782,12 @@ async function main(): Promise<void> {
       if (!checks.bundleSizeMatch) errors.push('bundle byte size mismatch');
     }
 
-    const keyResolution = resolvePublicKeyPem({ manifest, expectedKeyId });
+    const keyResolution = resolvePublicKeyPem({
+      manifest,
+      expectedKeyId,
+      requireSignedBundle: requireSignedKeyBundle,
+      checks,
+    });
     errors.push(...keyResolution.errors);
 
     verifySignature({
