@@ -17,6 +17,8 @@ import { writeSecurityCriticalEvent } from '../infra/runtime/security-critical.j
 import {
   evaluateRevocationCacheStartup,
   evaluateTrustRootStartup,
+  type RevocationCacheStartupStatus,
+  type TrustRootStartupStatus,
 } from '../infra/runtime/startup-guards.js';
 import {
   setStartupRevocationCacheStatus,
@@ -45,46 +47,7 @@ export async function bootstrap(): Promise<void> {
   const config = loadConfig();
   startAlertSuppressionFlushLoop(process.env);
 
-  const trustRootStatus = evaluateTrustRootStartup(process.env);
-  setStartupTrustRootStatus(trustRootStatus);
-  if (trustRootStatus.enabled && !trustRootStatus.valid) {
-    const reason = trustRootStatus.reason ?? 'trust root validation failed';
-    await writeSecurityCriticalEvent(
-      {
-        event: 'TrustRootRejected',
-        reason,
-        details: {
-          path: trustRootStatus.path,
-        },
-      },
-      process.env,
-    );
-    if (inStrictMode(process.env)) {
-      throw new MemphisExitError(
-        EXIT_CODES.ERR_TRUST_ROOT,
-        `trust root rejected in strict mode: ${reason}`,
-      );
-    }
-  }
-
-  const revocationCacheStatus = evaluateRevocationCacheStartup(process.env);
-  setStartupRevocationCacheStatus(revocationCacheStatus);
-  if (revocationCacheStatus.enabled && revocationCacheStatus.stale) {
-    const reason = revocationCacheStatus.reason ?? 'revocation cache is stale';
-    await writeSecurityCriticalEvent(
-      {
-        event: 'StaleRevocationCache',
-        reason,
-        severity: 'high',
-        details: {
-          maxStaleMs: revocationCacheStatus.maxStaleMs,
-          lastSyncMs: revocationCacheStatus.lastSyncMs,
-          ageMs: revocationCacheStatus.ageMs,
-        },
-      },
-      process.env,
-    );
-  }
+  await runStartupSecurityGuards(process.env);
 
   if (!safeModeEnabled(process.env)) {
     setStartupSafeModeNetworkStatus({
@@ -170,6 +133,66 @@ export async function bootstrap(): Promise<void> {
   });
 
   await app.listen({ host: config.HOST, port: config.PORT });
+}
+
+export interface StartupSecurityGuardResult {
+  trustRootStatus: TrustRootStartupStatus;
+  revocationCacheStatus: RevocationCacheStartupStatus;
+}
+
+interface StartupSecurityGuardOptions {
+  nowMs?: number;
+  writeSecurityEvent?: typeof writeSecurityCriticalEvent;
+}
+
+export async function runStartupSecurityGuards(
+  rawEnv: NodeJS.ProcessEnv,
+  options: StartupSecurityGuardOptions = {},
+): Promise<StartupSecurityGuardResult> {
+  const writeSecurityEvent = options.writeSecurityEvent ?? writeSecurityCriticalEvent;
+
+  const trustRootStatus = evaluateTrustRootStartup(rawEnv);
+  setStartupTrustRootStatus(trustRootStatus);
+  if (trustRootStatus.enabled && !trustRootStatus.valid) {
+    const reason = trustRootStatus.reason ?? 'trust root validation failed';
+    await writeSecurityEvent(
+      {
+        event: 'TrustRootRejected',
+        reason,
+        details: {
+          path: trustRootStatus.path,
+        },
+      },
+      rawEnv,
+    );
+    if (inStrictMode(rawEnv)) {
+      throw new MemphisExitError(
+        EXIT_CODES.ERR_TRUST_ROOT,
+        `trust root rejected in strict mode: ${reason}`,
+      );
+    }
+  }
+
+  const revocationCacheStatus = evaluateRevocationCacheStartup(rawEnv, options.nowMs);
+  setStartupRevocationCacheStatus(revocationCacheStatus);
+  if (revocationCacheStatus.enabled && revocationCacheStatus.stale) {
+    const reason = revocationCacheStatus.reason ?? 'revocation cache is stale';
+    await writeSecurityEvent(
+      {
+        event: 'StaleRevocationCache',
+        reason,
+        severity: 'high',
+        details: {
+          maxStaleMs: revocationCacheStatus.maxStaleMs,
+          lastSyncMs: revocationCacheStatus.lastSyncMs,
+          ageMs: revocationCacheStatus.ageMs,
+        },
+      },
+      rawEnv,
+    );
+  }
+
+  return { trustRootStatus, revocationCacheStatus };
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

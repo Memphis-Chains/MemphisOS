@@ -120,6 +120,9 @@ Updated: 2026-03-12
   - enforce path: GitHub API `401` handling
   - verify path: missing `quality-gate` detection
   - verify path: policy mismatch detection.
+- Added startup security alert integration coverage:
+  - `TrustRootRejected` and `StaleRevocationCache` emit transport alerts when configured
+  - failed alert delivery falls back to emergency log with `[ALERT_FALLBACK]`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -130,6 +133,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add integration coverage that `TrustRootRejected`/`StaleRevocationCache` security events trigger alert transport send/fallback paths.
-2. Add a short operator runbook section for switching `MEMPHIS_BRANCH_PROTECTION_PROFILE=team|solo` safely and re-verifying policy.
-3. Add API-level tests for invalid profile values in ops scripts (`MEMPHIS_BRANCH_PROTECTION_PROFILE`) to lock exit-code behavior.
+1. Add a short operator runbook section for switching `MEMPHIS_BRANCH_PROTECTION_PROFILE=team|solo` safely and re-verifying policy.
+2. Add API-level tests for invalid profile values in ops scripts (`MEMPHIS_BRANCH_PROTECTION_PROFILE`) to lock exit-code behavior.
+3. Add integration test coverage for strict-mode startup behavior when trust-root guard fails (`ERR_TRUST_ROOT=103`).
