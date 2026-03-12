@@ -144,6 +144,7 @@ npm run -s ops:verify-incident-manifest -- \
 - encrypted manifest/bundle companions are supported with `--decryption-passphrase` (or matching env vars)
 - optional Ed25519 signature verification with fingerprint + payload hash + `keyId` expectation checks
 - detached key registry mode supported via `--public-key-bundle-path` (`schemaVersion:1`, `keys:[{keyId,publicKeyPem}]`)
+- verification results are linked to immutable `system` chain events (`incident_manifest.verification`); use `--skip-chain-event` only for read-only dry runs
 
 ## Security Notes
 

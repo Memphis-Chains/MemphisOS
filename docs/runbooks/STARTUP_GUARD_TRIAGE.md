@@ -86,6 +86,7 @@ Exporter behavior:
 - signing key source can come from file path or env-injected PEM (`MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM` / `_BASE64`)
 - include `--signing-key-id` and verify with `--expected-key-id` to bind evidence to signer identity
 - for off-host transfer, emit encrypted companions with `--encryption-passphrase` and verify via `--manifest-path ...enc` + `--decryption-passphrase`
+- keep chain linkage enabled (default) and confirm `chainEvent.written=true` in verifier output
 - if direct public-key files are unavailable, verify via `--public-key-bundle-path` key registry (`schemaVersion:1`)
 - run manifest verification before incident closure to confirm bundle integrity and signature validity
 
