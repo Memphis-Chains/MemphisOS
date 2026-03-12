@@ -21,4 +21,24 @@ describe('guard failure drill script', () => {
     expect(result.stdout).toContain('[PASS] revocation-stale');
     expect(result.stdout).toContain('stale=true');
   });
+
+  it('supports json output mode for ops automation', () => {
+    const result = spawnSync('npm', ['run', '-s', 'ops:drill-guards', '--', '--json'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: process.env,
+    });
+
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout) as {
+      ok: boolean;
+      scenarios: Array<{ name: string; ok: boolean; detail: string }>;
+    };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.scenarios.map((entry) => entry.name).sort()).toEqual([
+      'revocation-stale',
+      'trust-root-invalid-strict',
+    ]);
+    expect(parsed.scenarios.every((entry) => entry.ok)).toBe(true);
+  });
 });

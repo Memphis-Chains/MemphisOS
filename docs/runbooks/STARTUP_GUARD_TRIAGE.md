@@ -65,3 +65,18 @@ npm run -s test:ts -- tests/integration/ops-status.e2e.test.ts
 ```
 
 Both commands must pass before closing incident.
+
+## 5. Combined Failure Escalation
+
+Treat this as high severity when both conditions are present:
+
+- `startup.safeModeNetwork.mode = degraded`
+- `startup.revocationCache.stale = true`
+
+Escalation thresholds:
+
+- Longer than 5 minutes in combined state:
+Action: page on-call operator and freeze high-risk workflow submissions.
+
+- Longer than 15 minutes in combined state:
+Action: declare incident, keep safe mode active, and block financial/admin mutation paths until recovery is verified.

@@ -148,6 +148,12 @@ Updated: 2026-03-12
   - `quality-gate` now executes `npm run ops:drill-guards` before TS tests.
 - Added startup guard incident triage runbook:
   - `docs/runbooks/STARTUP_GUARD_TRIAGE.md` maps startup status fields to remediation actions.
+- Added machine-ingestable guard drill output:
+  - `ops:drill-guards -- --json` emits scenario results for automation.
+- Tightened CI drill verification:
+  - CI now asserts both scenario IDs are present in drill output (`trust-root-invalid-strict`, `revocation-stale`).
+- Added combined-guard escalation policy:
+  - startup triage runbook now defines escalation thresholds for `safeModeNetwork=degraded` + `revocationCache.stale=true`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -158,6 +164,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add guard-drill output mode `--json` for machine-ingestable ops pipelines and alert hooks.
-2. Add CI assertion that startup drill output contains both scenario IDs (`trust-root-invalid-strict`, `revocation-stale`) to catch silent script regressions.
-3. Add runbook section for combined failure scenarios (`safe-mode degraded` + `revocation stale`) with escalation thresholds.
+1. Add `ops:drill-guards -- --json` contract test for stable schema versioning (`schemaVersion`) to avoid downstream parser drift.
+2. Add `/v1/ops/status` regression test for combined degraded+stale incident shape to align with triage thresholds.
+3. Add a one-command incident bundle exporter (startup status + recent security audit slice + drill output).

@@ -11,6 +11,12 @@ Use this drill to validate expected behavior for two critical startup guard fail
 npm run -s ops:drill-guards
 ```
 
+Machine-readable mode:
+
+```bash
+npm run -s ops:drill-guards -- --json
+```
+
 ## Expected Output
 
 You should see:
