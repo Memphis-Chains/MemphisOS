@@ -21,13 +21,13 @@ When reporting, include:
 ## Security contact
 
 - GitHub Security Advisories (preferred):
-  `https://github.com/Memphis-Chains/memphis-v5/security/advisories`
+  `https://github.com/Memphis-Chains/MemphisOS/security/advisories`
 - Fallback issue channel (for non-sensitive security hardening questions):
-  `https://github.com/Memphis-Chains/memphis-v5/issues`
+  `https://github.com/Memphis-Chains/MemphisOS/issues`
 
 ## Security features
 
-Memphis v5 includes:
+MemphisOS includes:
 
 - **Local-first storage model** (reduced third-party data exposure)
 - **Secret hygiene policy** (`.env` / external secret stores, no secrets in git)
@@ -37,6 +37,15 @@ Memphis v5 includes:
   - Global limit: **100 requests / minute** per IP+method
   - Sensitive limit: **10 requests / minute** per IP+method+route (`/exec`, `/provider/chat`, `/v1/chat/generate`, `/v1/vault/*`, etc.)
 - **Operational smoke gates** for release confidence
+- **Dual-approval signature verification** for admin actions:
+  - `MEMPHIS_ADMIN_PUBLIC_KEYS_JSON` maps admin identity -> Ed25519 public key (PEM)
+  - `MEMPHIS_ADMIN_SIGNATURE_REQUIRED=true` enforces fail-closed verification
+- **Immutable dual-approval lifecycle journaling** to `system` chain with correlation IDs
+- **Safe-mode denial and overload observability** via Prometheus counters
+- **GitHub security controls enabled**:
+  - Dependabot alerts/security updates
+  - secret scanning + push protection
+  - protected `main` branch with CODEOWNERS review
 
 ## Encryption details
 

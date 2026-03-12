@@ -7,6 +7,7 @@ import type {
 import { AppError } from '../../../core/errors.js';
 import type { OrchestrationService } from '../../../modules/orchestration/service.js';
 import { chatGenerateSchema } from '../../config/request-schemas.js';
+import { metrics } from '../../logging/metrics.js';
 import type { TaskQueueService } from '../../storage/task-queue-service.js';
 import { generateResponseSchema } from '../contracts.js';
 
@@ -43,17 +44,25 @@ export async function registerChatRoutes(
       repos.sessionRepository.ensureSession(payload.sessionId);
     }
 
-    const queueTicket = repos?.taskQueue?.enqueue({
-      type: 'chat.generate',
-      requestId: request.id,
-      metadata: {
-        provider: payload.provider ?? 'auto',
-        strategy: payload.strategy ?? 'default',
-        sessionId: payload.sessionId ?? null,
-        inputDigest: createHash('sha256').update(payload.input).digest('hex'),
-        inputBytes: Buffer.byteLength(payload.input, 'utf8'),
-      },
-    });
+    let queueTicket: ReturnType<TaskQueueService['enqueue']> | undefined;
+    try {
+      queueTicket = repos?.taskQueue?.enqueue({
+        type: 'chat.generate',
+        requestId: request.id,
+        metadata: {
+          provider: payload.provider ?? 'auto',
+          strategy: payload.strategy ?? 'default',
+          sessionId: payload.sessionId ?? null,
+          inputDigest: createHash('sha256').update(payload.input).digest('hex'),
+          inputBytes: Buffer.byteLength(payload.input, 'utf8'),
+        },
+      });
+    } catch (error) {
+      if (error instanceof AppError && error.code === 'OVERLOAD') {
+        metrics.recordQueueOverload();
+      }
+      throw error;
+    }
 
     let result: Awaited<ReturnType<OrchestrationService['generate']>>;
     try {

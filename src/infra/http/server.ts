@@ -28,6 +28,8 @@ import { createLogger } from '../logging/logger.js';
 import { metrics } from '../logging/metrics.js';
 import { writeSecurityAudit } from '../logging/security-audit.js';
 import { computeHealthSummary } from '../ops/health-summary.js';
+import { verifyAdminActionSignature } from '../runtime/admin-signature.js';
+import { writeDualApprovalChainEvent } from '../runtime/dual-approval-events.js';
 import { getChainAdapterStatus } from '../storage/chain-adapter.js';
 import {
   VaultEntry,
@@ -108,6 +110,7 @@ export function createHttpServer(
 
     const routePath = normalizeRoutePath(request.url);
     if (safeModeEnabled(process.env) && !isSafeModeAllowedRoute(request.method, routePath)) {
+      metrics.recordSafeModeDenial(request.method, routePath);
       return reply.status(403).send({
         error: {
           code: 'PERMISSION_DENIED',
@@ -373,7 +376,38 @@ export function createHttpServer(
       });
     }
 
+    const signatureCheck = verifyAdminActionSignature(
+      {
+        action: 'dual_approval.request',
+        actorId: parsed.data.initiatorId,
+        signature: parsed.data.signature,
+        payload: {
+          action: parsed.data.action,
+          ttlMs: parsed.data.ttlMs ?? 5 * 60 * 1000,
+          reason: parsed.data.reason ?? null,
+        },
+      },
+      process.env,
+    );
+
     const record = repo.createRequest(parsed.data);
+    const transition = repo.listEvents(record.requestId).at(-1);
+    if (transition) {
+      metrics.recordDualApprovalTransition(record.action, transition.toState);
+      await writeDualApprovalChainEvent(
+        {
+          requestId: record.requestId,
+          correlationTaskId: request.id,
+          action: record.action,
+          fromState: transition.fromState,
+          toState: transition.toState,
+          actorId: transition.actorId,
+          stateVersion: record.stateVersion,
+          signatureVerified: signatureCheck.verified,
+        },
+        process.env,
+      );
+    }
     writeSecurityAudit({
       action: 'dual_approval.request',
       status: 'allowed',
@@ -383,6 +417,7 @@ export function createHttpServer(
         requestId: record.requestId,
         action: record.action,
         state: record.state,
+        signatureVerified: signatureCheck.verified,
       },
     });
 
@@ -402,7 +437,37 @@ export function createHttpServer(
       });
     }
 
+    const signatureCheck = verifyAdminActionSignature(
+      {
+        action: 'dual_approval.approve',
+        actorId: parsed.data.approverId,
+        signature: parsed.data.signature,
+        payload: {
+          requestId: parsed.data.requestId,
+          expectedStateVersion: parsed.data.expectedStateVersion,
+        },
+      },
+      process.env,
+    );
+
     const record = repo.approve(parsed.data);
+    const transition = repo.listEvents(record.requestId).at(-1);
+    if (transition) {
+      metrics.recordDualApprovalTransition(record.action, transition.toState);
+      await writeDualApprovalChainEvent(
+        {
+          requestId: record.requestId,
+          correlationTaskId: request.id,
+          action: record.action,
+          fromState: transition.fromState,
+          toState: transition.toState,
+          actorId: transition.actorId,
+          stateVersion: record.stateVersion,
+          signatureVerified: signatureCheck.verified,
+        },
+        process.env,
+      );
+    }
     writeSecurityAudit({
       action: 'dual_approval.approve',
       status: 'allowed',
@@ -413,6 +478,7 @@ export function createHttpServer(
         action: record.action,
         state: record.state,
         stateVersion: record.stateVersion,
+        signatureVerified: signatureCheck.verified,
       },
     });
 
@@ -432,7 +498,37 @@ export function createHttpServer(
       });
     }
 
+    const signatureCheck = verifyAdminActionSignature(
+      {
+        action: 'dual_approval.cancel',
+        actorId: parsed.data.actorId,
+        signature: parsed.data.signature,
+        payload: {
+          requestId: parsed.data.requestId,
+          expectedStateVersion: parsed.data.expectedStateVersion,
+        },
+      },
+      process.env,
+    );
+
     const record = repo.cancel(parsed.data);
+    const transition = repo.listEvents(record.requestId).at(-1);
+    if (transition) {
+      metrics.recordDualApprovalTransition(record.action, transition.toState);
+      await writeDualApprovalChainEvent(
+        {
+          requestId: record.requestId,
+          correlationTaskId: request.id,
+          action: record.action,
+          fromState: transition.fromState,
+          toState: transition.toState,
+          actorId: transition.actorId,
+          stateVersion: record.stateVersion,
+          signatureVerified: signatureCheck.verified,
+        },
+        process.env,
+      );
+    }
     writeSecurityAudit({
       action: 'dual_approval.cancel',
       status: 'allowed',
@@ -443,6 +539,7 @@ export function createHttpServer(
         action: record.action,
         state: record.state,
         stateVersion: record.stateVersion,
+        signatureVerified: signatureCheck.verified,
       },
     });
 

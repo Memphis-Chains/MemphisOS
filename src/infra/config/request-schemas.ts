@@ -58,6 +58,7 @@ export const dualApprovalCancelSchema = z.object({
   requestId: z.string().uuid(),
   actorId: z.string().min(1).max(256),
   expectedStateVersion: z.number().int().min(0),
+  signature: z.string().min(1).max(4096).optional(),
 });
 
 export const modelDProposalSchema = z.object({

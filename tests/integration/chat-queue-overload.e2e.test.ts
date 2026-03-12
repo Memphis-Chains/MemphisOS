@@ -108,6 +108,15 @@ describe('chat queue overload', () => {
     expect(secondReq.statusCode).toBe(429);
     expect((secondReq.json() as { error?: { code?: string } }).error?.code).toBe('OVERLOAD');
 
+    const metricsRes = await app.inject({
+      method: 'GET',
+      url: '/v1/metrics',
+      headers: { authorization: 'Bearer tok' },
+    });
+    expect(metricsRes.statusCode).toBe(200);
+    const metrics = metricsRes.json() as { queue?: { overloadTotal?: number } };
+    expect(metrics.queue?.overloadTotal).toBe(1);
+
     releaseFirst?.();
     const firstRes = await firstReq;
     expect(firstRes.statusCode).toBe(200);

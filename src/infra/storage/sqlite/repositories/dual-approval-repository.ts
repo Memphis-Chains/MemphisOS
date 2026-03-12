@@ -197,6 +197,7 @@ export class SqliteDualApprovalRepository {
     requestId: string;
     actorId: string;
     expectedStateVersion: number;
+    signature?: string;
     nowMs?: number;
   }): DualApprovalRequest {
     const nowMs = input.nowMs ?? Date.now();
@@ -223,10 +224,10 @@ export class SqliteDualApprovalRepository {
       const changed = this.db
         .prepare(
           `UPDATE dual_approval_requests
-           SET state='canceled', state_version=state_version+1, updated_at=?
+           SET state='canceled', signature=?, state_version=state_version+1, updated_at=?
            WHERE request_id=? AND state='pending' AND state_version=?`,
         )
-        .run(nowIso, input.requestId, input.expectedStateVersion).changes;
+        .run(input.signature ?? null, nowIso, input.requestId, input.expectedStateVersion).changes;
       if (changed !== 1) {
         throw new AppError('VALIDATION_ERROR', 'TransitionAlreadyApplied', 409, {
           requestId: input.requestId,
@@ -237,7 +238,7 @@ export class SqliteDualApprovalRepository {
         fromState: 'pending',
         toState: 'canceled',
         actorId: normalizedActor,
-        signature: null,
+        signature: input.signature ?? null,
         createdAt: nowIso,
       });
 
@@ -298,8 +299,8 @@ export class SqliteDualApprovalRepository {
   public listEvents(requestId: string): Array<{
     eventId: string;
     requestId: string;
-    fromState: string | null;
-    toState: string;
+    fromState: DualApprovalState | null;
+    toState: DualApprovalState;
     actorId: string;
     signature: string | null;
     createdAt: string;
@@ -315,8 +316,8 @@ export class SqliteDualApprovalRepository {
       .map((row) => ({
         eventId: (row as { event_id: string }).event_id,
         requestId: (row as { request_id: string }).request_id,
-        fromState: (row as { from_state: string | null }).from_state,
-        toState: (row as { to_state: string }).to_state,
+        fromState: (row as { from_state: DualApprovalState | null }).from_state,
+        toState: (row as { to_state: DualApprovalState }).to_state,
         actorId: (row as { actor_id: string }).actor_id,
         signature: (row as { signature: string | null }).signature,
         createdAt: (row as { created_at: string }).created_at,
