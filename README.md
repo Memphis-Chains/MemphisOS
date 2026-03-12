@@ -134,6 +134,7 @@ npm run -s ops:verify-incident-manifest -- \
 - manifest schema validity (`schemaVersion=1`)
 - bundle path existence + hash + byte-size integrity
 - optional Ed25519 signature verification with fingerprint + payload hash + `keyId` expectation checks
+- detached key registry mode supported via `--public-key-bundle-path` (`schemaVersion:1`, `keys:[{keyId,publicKeyPem}]`)
 
 ## Security Notes
 

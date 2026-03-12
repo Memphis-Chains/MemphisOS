@@ -183,6 +183,10 @@ Updated: 2026-03-12
 - Added dedicated manifest verification runbook:
   - `docs/runbooks/INCIDENT_MANIFEST_VERIFICATION.md`
   - defines export/sign/verify/handoff steps and failure handling for incident evidence packages.
+- Added detached public-key bundle verification mode:
+  - verifier supports `--public-key-bundle-path` registry (`schemaVersion:1`, `keys:[{keyId,publicKeyPem}]`)
+  - key lookup bound to manifest/expected `keyId`; missing entry fails closed
+  - coverage added for detached-bundle success and missing-key failure paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -193,6 +197,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add optional verify-mode support for detached public-key bundles (embedded key-id registry + fingerprint mapping).
-2. Add encrypted-at-rest storage option for exported incident bundles/manifests before off-host transfer.
-3. Add immutable audit linkage from manifest verification results into system chain events.
+1. Add encrypted-at-rest storage option for exported incident bundles/manifests before off-host transfer.
+2. Add immutable audit linkage from manifest verification results into system chain events.
+3. Add signed key-bundle provenance support (bundle signature + trust-root verification).

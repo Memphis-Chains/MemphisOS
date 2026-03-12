@@ -35,6 +35,25 @@ npm run -s ops:verify-incident-manifest -- \
   --require-signature
 ```
 
+Detached key bundle mode:
+
+```bash
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --expected-key-id incident-key-v1 \
+  --require-signature
+```
+
+Bundle schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "keys": [{ "keyId": "incident-key-v1", "publicKeyPem": "-----BEGIN PUBLIC KEY-----..." }]
+}
+```
+
 Verification must report:
 
 - `ok=true`

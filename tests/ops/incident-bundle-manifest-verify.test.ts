@@ -306,4 +306,145 @@ describe('incident manifest verifier', () => {
     expect(parsed.checks.keyIdMatch).toBe(false);
     expect(parsed.errors.some((item) => item.includes('signature key id mismatch'))).toBe(true);
   });
+
+  it('verifies signed manifest via detached public-key bundle lookup', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-key-bundle-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const publicKeyBundlePath = path.join(dir, 'public-key-bundle.json');
+    const keyId = 'bundle-key-1';
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const pair = generateKeyPairSync('ed25519');
+    const publicKeyPem = pair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    writeFileSync(
+      signingKeyPath,
+      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+    writeFileSync(
+      publicKeyBundlePath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          keys: [{ keyId, publicKeyPem }],
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--signing-key-path',
+        signingKeyPath,
+        '--signing-key-id',
+        keyId,
+      ]);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      manifestPath,
+      '--public-key-bundle-path',
+      publicKeyBundlePath,
+      '--expected-key-id',
+      keyId,
+      '--require-signature',
+    ]);
+    expect(verifyResult.status).toBe(0);
+
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: { signatureVerified: boolean; keyFingerprintMatch: boolean; keyIdMatch: boolean };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.checks.signatureVerified).toBe(true);
+    expect(parsed.checks.keyFingerprintMatch).toBe(true);
+    expect(parsed.checks.keyIdMatch).toBe(true);
+    expect(parsed.errors).toEqual([]);
+  });
+
+  it('fails detached public-key bundle lookup when key id is missing', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-key-bundle-missing-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const publicKeyBundlePath = path.join(dir, 'public-key-bundle.json');
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const pair = generateKeyPairSync('ed25519');
+    const publicKeyPem = pair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    writeFileSync(
+      signingKeyPath,
+      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+    writeFileSync(
+      publicKeyBundlePath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          keys: [{ keyId: 'some-other-key', publicKeyPem }],
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--signing-key-path',
+        signingKeyPath,
+        '--signing-key-id',
+        'expected-key',
+      ]);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      manifestPath,
+      '--public-key-bundle-path',
+      publicKeyBundlePath,
+      '--expected-key-id',
+      'expected-key',
+      '--require-signature',
+    ]);
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as { ok: boolean; errors: string[] };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors.some((item) => item.includes('public key bundle missing keyId'))).toBe(true);
+  });
 });
