@@ -80,6 +80,10 @@ Updated: 2026-03-12
 - Surfaced startup queue-recovery decision in `/v1/ops/status`:
   - top-level `startup.queueResume` now exposes policy, safe-mode override, counters, and completion timestamp from bootstrap runtime.
   - integration coverage validates both null default and populated startup status paths.
+- Extended `doctor` queue-policy risk checks:
+  - adds `t4-queue-resume-policy` warning when `MEMPHIS_QUEUE_MODE=financial` and `MEMPHIS_QUEUE_RESUME_POLICY=redispatch`
+  - recommends `MEMPHIS_QUEUE_RESUME_POLICY=keep` for financial profiles
+  - includes tests for both warning and pass cases.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -90,6 +94,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Extend `doctor` checks with queue policy risk rules:
-   - warn when `MEMPHIS_QUEUE_MODE=financial` and `MEMPHIS_QUEUE_RESUME_POLICY=redispatch`
-   - suggest `keep` as default for financial profiles.
+1. Remove duplicate `quality-gate` check contexts by updating CI trigger strategy so PRs produce a single required status (eliminates stuck `push` + `pull_request` duplication).
+2. Add an operator profile switch for branch-protection automation (`solo` vs `team`) to avoid repeated manual protection relax/restore churn.
