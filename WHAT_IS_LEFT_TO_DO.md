@@ -90,6 +90,8 @@ Updated: 2026-03-12
 - Added branch-protection operator profiles in ops scripts:
   - `MEMPHIS_BRANCH_PROTECTION_PROFILE=team|solo` in `ops:protect-main` and `ops:verify-main-protection`
   - `team` enforces 1 required review; `solo` enforces 0 reviews while keeping `quality-gate` and admin protections.
+- Applied and verified active branch-protection profile:
+  - current profile set to `team` on `main` (`required_approving_review_count=1`).
 
 ## In Progress Architecture (Already Implemented)
 
@@ -100,6 +102,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Decide and apply the active branch-protection profile for this repo:
-   - `team` (1 required approval) for multi-maintainer governance
-   - `solo` (0 required approvals) for single-operator velocity.
+1. Add script-level tests for branch-protection profile logic (`team|solo`) using fixture JSON responses to prevent regressions in ops automation.
+2. If maintaining as single operator, optionally switch active profile to `solo` to remove manual merge-gate relax/restore steps.
