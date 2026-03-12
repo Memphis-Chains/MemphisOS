@@ -224,6 +224,14 @@ Updated: 2026-03-12
   - legacy profile supports non-strict compatibility mode for incident review workflows
   - profile selection supports env override (`MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE`)
   - verifier output now reports resolved policy settings.
+- Added profile-aware operator help and completion hints for incident ops scripts:
+  - `ops:export-incident-bundle --help` + `--completion-hints`
+  - `ops:verify-incident-manifest --help` + `--completion-hints`
+  - profile flag/env guidance is now exposed for shell tooling and runbook usage.
+- Added guarded draft-release workflow automation:
+  - `.github/workflows/release-draft.yml` (`workflow_dispatch`)
+  - validates release gates, builds package/checksum, and creates draft GitHub release artifacts.
+  - requires explicit confirmation token (`draft-release`) and `target_ref=main`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -234,5 +242,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add profile-aware CLI help/completion hints for ops profile flags and env variables.
-2. Automate package/tag/release-note publication as a guarded GitHub workflow (`draft release` mode).
+1. Run the first `release-draft` workflow for the target version and review the draft release payload.
+2. Publish the reviewed draft release and record the workflow run URL/checksum in sprint closure notes.

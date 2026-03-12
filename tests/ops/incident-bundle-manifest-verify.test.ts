@@ -1164,6 +1164,41 @@ describe('incident manifest verifier', () => {
     expect(parsed.errors).toEqual([]);
   });
 
+  it('prints profile help hints for operators and shell completion tooling', async () => {
+    const verifyResult = await runCommand(['ops:verify-incident-manifest', '--', '--help']);
+    expect(verifyResult.status).toBe(0);
+    expect(verifyResult.stdout).toContain(
+      'Usage: npm run -s ops:verify-incident-manifest -- [options]',
+    );
+    expect(verifyResult.stdout).toContain('--profile <name>');
+    expect(verifyResult.stdout).toContain('trust-root-strict|legacy-compat');
+    expect(verifyResult.stdout).toContain('MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE');
+    expect(verifyResult.stdout).toContain('MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED');
+  });
+
+  it('prints machine-readable verify profile completion hints', async () => {
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--completion-hints',
+    ]);
+    expect(verifyResult.status).toBe(0);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      schemaVersion: number;
+      command: string;
+      profiles: string[];
+      profileFlag: string;
+      profileEnv: string;
+      policyEnvVars: string[];
+    };
+    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.command).toBe('ops:verify-incident-manifest');
+    expect(parsed.profileFlag).toBe('--profile');
+    expect(parsed.profileEnv).toBe('MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE');
+    expect(parsed.profiles).toEqual(['trust-root-strict', 'legacy-compat']);
+    expect(parsed.policyEnvVars).toContain('MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED');
+  });
+
   it('fails on unsupported verify profile names', async () => {
     const dir = makeTempDir('memphis-incident-manifest-profile-invalid-');
     const manifestPath = path.join(dir, 'incident-bundle.manifest.json');

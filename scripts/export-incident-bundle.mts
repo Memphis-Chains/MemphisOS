@@ -108,6 +108,8 @@ interface ExportProfileDefaults {
 const REDACTED = '[REDACTED]';
 const INCIDENT_BUNDLE_PREFIX = 'incident-bundle-';
 const MANIFEST_SUFFIX = '.manifest.json';
+const EXPORT_PROFILE_VALUES: ExportProfileName[] = ['financial-strict', 'forensics-lite'];
+const EXPORT_PROFILE_ENV = 'MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE';
 const REDACTABLE_KEY_PATTERNS = [
   /token/i,
   /secret/i,
@@ -161,7 +163,7 @@ function parseIntArg(flag: string, fallback: number, envName?: string): number {
 }
 
 function resolveExportProfileName(): ExportProfileName | null {
-  const raw = parseArg('--profile') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE ?? null;
+  const raw = parseArg('--profile') ?? process.env[EXPORT_PROFILE_ENV] ?? null;
   if (!raw) return null;
   if (raw === 'financial-strict' || raw === 'forensics-lite') return raw;
   throw new Error(
@@ -203,6 +205,38 @@ function resolveExportProfileDefaults(profile: ExportProfileName | null): Export
 function parseOptionalBool(raw: string | undefined): boolean | null {
   if (typeof raw !== 'string' || raw.trim().length === 0) return null;
   return parseBool(raw, false);
+}
+
+function renderHelp(): string {
+  return [
+    'Usage: npm run -s ops:export-incident-bundle -- [options]',
+    '',
+    'Options:',
+    '  --profile <name>                Export policy profile: financial-strict|forensics-lite',
+    '  --completion-hints              Print machine-readable profile/completion hints as JSON',
+    '  -h, --help                      Show this help message',
+    '',
+    'Profile env variables:',
+    `  ${EXPORT_PROFILE_ENV}=financial-strict|forensics-lite`,
+    '  MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true|false',
+  ].join('\n');
+}
+
+function printCompletionHints(): void {
+  console.log(
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        command: 'ops:export-incident-bundle',
+        profiles: EXPORT_PROFILE_VALUES,
+        profileFlag: '--profile',
+        profileEnv: EXPORT_PROFILE_ENV,
+        policyEnvVars: ['MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS'],
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 function tailLines(input: string, count: number): string[] {
@@ -585,6 +619,15 @@ function readAuditTail(auditPath: string, count: number, redactSensitive: boolea
 }
 
 async function main(): Promise<void> {
+  if (hasFlag('--help') || hasFlag('-h')) {
+    console.log(renderHelp());
+    return;
+  }
+  if (hasFlag('--completion-hints')) {
+    printCompletionHints();
+    return;
+  }
+
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = resolve(moduleDir, '..');
   const profile = resolveExportProfileName();

@@ -1,0 +1,172 @@
+name: release-draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semver version without leading v (example: 0.1.0)
+        required: true
+        type: string
+      target_ref:
+        description: Release source ref (guarded to main)
+        required: true
+        default: main
+        type: string
+      confirm:
+        description: Type draft-release to confirm execution
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  draft-release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      TARGET_REF: ${{ inputs.target_ref }}
+      CONFIRM: ${{ inputs.confirm }}
+
+    steps:
+      - name: Validate guarded inputs
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRM" != "draft-release" ]]; then
+            echo "::error::confirmation mismatch (expected: draft-release)"
+            exit 1
+          fi
+          if [[ "$TARGET_REF" != "main" ]]; then
+            echo "::error::target_ref must be main for guarded draft releases"
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::version must be semver-like (example: 0.1.0)"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
+          fi
+          source "$HOME/.cargo/env"
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run -s lint
+
+      - name: Typecheck
+        run: npm run -s typecheck
+
+      - name: Ops artifact regression
+        run: npm run -s test:ops-artifacts
+
+      - name: Test (TS)
+        run: npm run -s test:ts
+
+      - name: Chaos gate
+        run: npm run -s test:chaos
+
+      - name: Test (Rust)
+        run: npm run -s test:rust
+
+      - name: Build package artifact
+        id: package
+        run: |
+          set -euo pipefail
+          npm pack --dry-run
+          mkdir -p release-dist
+          npm pack --pack-destination release-dist
+          ASSET_PATH="$(ls release-dist/*.tgz | head -n 1)"
+          ASSET_NAME="$(basename "$ASSET_PATH")"
+          SHA256="$(sha256sum "$ASSET_PATH" | awk '{print $1}')"
+          SHA_FILE="release-dist/${ASSET_NAME}.sha256"
+          NOTES_PATH="release-dist/release-notes.md"
+          printf '%s  %s\n' "$SHA256" "$ASSET_NAME" > "$SHA_FILE"
+          cat > "$NOTES_PATH" <<EOF
+          MemphisOS v$VERSION (draft)
+
+          This draft release was created by GitHub Actions workflow \`release-draft\`.
+
+          Source ref: \`$TARGET_REF\`
+
+          Quality gates run in this workflow:
+          - npm run -s lint
+          - npm run -s typecheck
+          - npm run -s test:ops-artifacts
+          - npm run -s test:ts
+          - npm run -s test:chaos
+          - npm run -s test:rust
+
+          Artifact:
+          - \`$ASSET_NAME\`
+          - sha256: \`$SHA256\`
+          EOF
+          {
+            echo "asset_path=$ASSET_PATH"
+            echo "asset_name=$ASSET_NAME"
+            echo "sha256=$SHA256"
+            echo "sha_file=$SHA_FILE"
+            echo "notes_path=$NOTES_PATH"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload draft artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: draft-release-${{ env.VERSION }}
+          path: |
+            ${{ steps.package.outputs.asset_path }}
+            ${{ steps.package.outputs.sha_file }}
+            ${{ steps.package.outputs.notes_path }}
+
+      - name: Create draft GitHub release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! command -v gh >/dev/null 2>&1; then
+            echo "::error::gh CLI is required on runner but was not found"
+            exit 1
+          fi
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::release/tag already exists: $TAG"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            "${{ steps.package.outputs.asset_path }}" \
+            "${{ steps.package.outputs.sha_file }}" \
+            --draft \
+            --target "$TARGET_REF" \
+            --title "MemphisOS v$VERSION" \
+            --notes-file "${{ steps.package.outputs.notes_path }}"
+          RELEASE_URL="$(gh release view "$TAG" --json url --jq '.url')"
+          echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Emit summary
+        run: |
+          {
+            echo "## Draft Release Created"
+            echo
+            echo "- tag: \`v$VERSION\`"
+            echo "- artifact: \`${{ steps.package.outputs.asset_name }}\`"
+            echo "- sha256: \`${{ steps.package.outputs.sha256 }}\`"
+            echo "- release: ${{ steps.release.outputs.release_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"
