@@ -240,6 +240,82 @@ describe('incident manifest verifier', () => {
     expect(last.data?.payload?.bundlePath).toContain('incident-bundle.json');
   });
 
+  it('retries chain-event append and fails closed when chain linkage is required', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-chain-retry-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const verifyKeyPath = path.join(dir, 'signing-public.pem');
+    const exportEnv = { MEMPHIS_DATA_DIR: path.join(dir, '.memphis-data') };
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const pair = generateKeyPairSync('ed25519');
+    writeFileSync(
+      signingKeyPath,
+      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+    writeFileSync(
+      verifyKeyPath,
+      pair.publicKey.export({ format: 'pem', type: 'spki' }).toString(),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--signing-key-path',
+        signingKeyPath,
+      ], exportEnv);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const blockedDataPath = path.join(dir, 'blocked-data-dir');
+    writeFileSync(blockedDataPath, 'not-a-directory', 'utf8');
+    const verifyEnv = {
+      MEMPHIS_DATA_DIR: blockedDataPath,
+      MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED: 'true',
+    };
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      manifestPath,
+      '--public-key-path',
+      verifyKeyPath,
+      '--require-signature',
+      '--chain-event-retry-count',
+      '2',
+      '--chain-event-retry-backoff-ms',
+      '1',
+    ], verifyEnv);
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      chainEvent?: { attempted?: boolean; written?: boolean; attempts?: number; error?: string };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.chainEvent?.attempted).toBe(true);
+    expect(parsed.chainEvent?.written).toBe(false);
+    expect(parsed.chainEvent?.attempts).toBe(3);
+    expect(typeof parsed.chainEvent?.error).toBe('string');
+    expect(parsed.errors.some((item) => item.includes('failed to append incident verification chain event'))).toBe(
+      true,
+    );
+  });
+
   it('fails verification when bundle content is tampered after manifest export', async () => {
     const dir = makeTempDir('memphis-incident-manifest-tamper-');
     const auditPath = path.join(dir, 'security-audit.jsonl');

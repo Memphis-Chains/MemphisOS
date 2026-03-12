@@ -77,6 +77,19 @@ npm run -s ops:verify-incident-manifest -- \
   --require-key-bundle-signature
 ```
 
+Strict chain-link mode with retry/backoff:
+
+```bash
+MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true \
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json \
+  --public-key-path /secure/path/incident-signing-public.pem \
+  --expected-key-id incident-key-v1 \
+  --require-signature \
+  --chain-event-retry-count 2 \
+  --chain-event-retry-backoff-ms 50
+```
+
 Bundle schema:
 
 ```json
