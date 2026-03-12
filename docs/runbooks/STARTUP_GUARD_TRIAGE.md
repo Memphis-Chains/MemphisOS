@@ -67,6 +67,10 @@ npm run -s ops:export-incident-bundle -- \
   --out data/incident-bundle.json \
   --manifest-out data/incident-bundle.manifest.json \
   --signing-key-path /secure/path/incident-signing-key.pem
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json \
+  --public-key-path /secure/path/incident-signing-public.pem \
+  --require-signature
 ```
 
 Both commands must pass before closing incident.
@@ -77,6 +81,7 @@ Exporter behavior:
 - retention pruning defaults to `--retention-count 20` and `--retention-days 14`
 - retention can be tuned with `MEMPHIS_INCIDENT_BUNDLE_RETENTION_COUNT` and `MEMPHIS_INCIDENT_BUNDLE_RETENTION_DAYS`
 - signed manifest output is optional and intended for forensic chain-of-custody records
+- run manifest verification before incident closure to confirm bundle integrity and signature validity
 
 ## 5. Combined Failure Escalation
 
