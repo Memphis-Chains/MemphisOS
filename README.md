@@ -31,6 +31,7 @@ Removed:
 npm ci
 npm run lint
 npm run typecheck
+npm run test:ops-artifacts
 npm run test:ts
 npm run test:chaos
 npm run test:rust

@@ -171,6 +171,10 @@ Updated: 2026-03-12
   - verifies schema, bundle hash/size integrity, and optional Ed25519 signature validity
   - supports strict signed-bundle enforcement with `--require-signature`
   - integration coverage added in `tests/ops/incident-bundle-manifest-verify.test.ts`.
+- Added dedicated CI ops artifact regression gate:
+  - workflow step `Ops artifacts regression (bundle + manifest)` runs before full TS suite
+  - command: `npm run test:ops-artifacts`
+  - covers signed verification success and tamper/unsigned failure paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -181,6 +185,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add CI ops regression stage for incident bundle/manifest workflow (export + verify signed + tamper-fail case).
-2. Add secure key-source support for manifest signing (file path + env-injected key material + key-id metadata).
-3. Add manifest verification runbook focused on incident handoff and evidence packaging.
+1. Add secure key-source support for manifest signing (file path + env-injected key material + key-id metadata).
+2. Add manifest verification runbook focused on incident handoff and evidence packaging.
+3. Add optional verify-mode support for detached public-key bundles (embedded key-id registry + fingerprint mapping).
