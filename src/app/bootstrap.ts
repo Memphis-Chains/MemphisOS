@@ -8,12 +8,16 @@ import { checkOllama, checkRustToolchain } from '../infra/cli/utils/dependencies
 import { loadConfig } from '../infra/config/env.js';
 import type { AppConfig } from '../infra/config/schema.js';
 import { createHttpServer } from '../infra/http/server.js';
+import { startAlertSuppressionFlushLoop } from '../infra/logging/alert-runtime.js';
 import { writeSecurityAudit } from '../infra/logging/security-audit.js';
 import { inStrictMode } from '../infra/runtime/emergency-log.js';
 import { EXIT_CODES, MemphisExitError } from '../infra/runtime/exit-codes.js';
 import { enforceSafeModeNoEgress, safeModeEnabled } from '../infra/runtime/safe-mode.js';
 import { writeSecurityCriticalEvent } from '../infra/runtime/security-critical.js';
-import { setStartupQueueResumeStatus } from '../infra/runtime/startup-state.js';
+import {
+  setStartupQueueResumeStatus,
+  setStartupSafeModeNetworkStatus,
+} from '../infra/runtime/startup-state.js';
 import { verifyChainIntegrity } from '../infra/storage/chain-adapter.js';
 import type {
   QueuePendingTask,
@@ -33,8 +37,29 @@ export async function bootstrap(): Promise<void> {
   }
 
   const config = loadConfig();
+  startAlertSuppressionFlushLoop(process.env);
+
+  if (!safeModeEnabled(process.env)) {
+    setStartupSafeModeNetworkStatus({
+      enabled: false,
+      attempted: false,
+      enforced: false,
+      backend: 'none',
+      mode: 'disabled',
+      reason: 'safe mode disabled',
+    });
+  }
+
   if (safeModeEnabled(process.env)) {
     const networkPolicy = enforceSafeModeNoEgress(process.env);
+    setStartupSafeModeNetworkStatus({
+      enabled: true,
+      attempted: networkPolicy.attempted,
+      enforced: networkPolicy.enforced,
+      backend: networkPolicy.backend,
+      mode: networkPolicy.mode,
+      reason: networkPolicy.reason,
+    });
     if (!networkPolicy.enforced) {
       const reason = networkPolicy.reason ?? 'safe-mode no-egress policy failed';
       await writeSecurityCriticalEvent(

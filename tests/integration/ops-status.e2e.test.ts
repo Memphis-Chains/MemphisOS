@@ -71,7 +71,18 @@ describe('S3.4 Ops status endpoint', () => {
           completedAt: string;
         } | null;
       } | null;
-      startup?: { queueResume: unknown | null };
+      startup?: {
+        queueResume: unknown | null;
+        safeModeNetwork?: {
+          enabled: boolean;
+          attempted: boolean;
+          enforced: boolean;
+          backend: 'iptables' | 'none';
+          mode: 'disabled' | 'enforced' | 'degraded';
+          reason?: string;
+          checkedAt: string;
+        } | null;
+      };
       dualApproval: {
         pending: number;
         approved: number;
@@ -92,6 +103,13 @@ describe('S3.4 Ops status endpoint', () => {
     expect(body.queue?.lastResume?.scanned).toBe(resumeSummary.scanned);
     expect(typeof body.queue?.lastResume?.completedAt).toBe('string');
     expect(body.startup?.queueResume ?? null).toBeNull();
+    expect(body.startup?.safeModeNetwork).toMatchObject({
+      enabled: false,
+      attempted: false,
+      enforced: false,
+      backend: 'none',
+      mode: 'disabled',
+    });
     expect(body.dualApproval?.pending).toBe(0);
 
     await app.close();

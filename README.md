@@ -32,6 +32,7 @@ npm ci
 npm run lint
 npm run typecheck
 npm run test:ts
+npm run test:chaos
 npm run test:rust
 ```
 
@@ -67,6 +68,15 @@ If you want hosted/API LLMs, set:
 - `DEFAULT_PROVIDER=decentralized-llm` and `DECENTRALIZED_LLM_API_BASE`, `DECENTRALIZED_LLM_API_KEY`.
 
 For local-first operation, keep `DEFAULT_PROVIDER=ollama` (or `local-fallback`).
+
+## Alerting Integrations
+
+Optional external pager integrations:
+
+- PagerDuty: `MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY`
+- OpsGenie: `MEMPHIS_ALERT_OPSGENIE_API_KEY`
+
+If delivery fails, Memphis writes `[ALERT_FALLBACK]` events into emergency logging.
 
 ## SOUL Kernel Primitives (Rust Core)
 

@@ -12,7 +12,18 @@ export interface StartupQueueResumeStatus {
   completedAt: string;
 }
 
+export interface SafeModeNetworkStatus {
+  enabled: boolean;
+  attempted: boolean;
+  enforced: boolean;
+  backend: 'iptables' | 'none';
+  mode: 'disabled' | 'enforced' | 'degraded';
+  reason?: string;
+  checkedAt: string;
+}
+
 let startupQueueResumeStatus: StartupQueueResumeStatus | null = null;
+let startupSafeModeNetworkStatus: SafeModeNetworkStatus | null = null;
 
 export function setStartupQueueResumeStatus(
   input: Omit<StartupQueueResumeStatus, 'completedAt'> & { completedAt?: string },
@@ -33,6 +44,22 @@ export function getStartupQueueResumeStatus(): StartupQueueResumeStatus | null {
   };
 }
 
+export function setStartupSafeModeNetworkStatus(
+  input: Omit<SafeModeNetworkStatus, 'checkedAt'> & { checkedAt?: string },
+): SafeModeNetworkStatus {
+  startupSafeModeNetworkStatus = {
+    ...input,
+    checkedAt: input.checkedAt ?? new Date().toISOString(),
+  };
+  return getStartupSafeModeNetworkStatus() as SafeModeNetworkStatus;
+}
+
+export function getStartupSafeModeNetworkStatus(): SafeModeNetworkStatus | null {
+  if (!startupSafeModeNetworkStatus) return null;
+  return { ...startupSafeModeNetworkStatus };
+}
+
 export function resetStartupRuntimeStateForTests(): void {
   startupQueueResumeStatus = null;
+  startupSafeModeNetworkStatus = null;
 }

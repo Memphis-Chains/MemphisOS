@@ -92,6 +92,20 @@ Updated: 2026-03-12
   - `team` enforces 1 required review; `solo` enforces 0 reviews while keeping `quality-gate` and admin protections.
 - Applied and verified active branch-protection profile:
   - current profile set to `team` on `main` (`required_approving_review_count=1`).
+- Wired alerting runtime and transport hardening:
+  - added PagerDuty/OpsGenie transport support with failover
+  - alert delivery failures log `[ALERT_FALLBACK]` to emergency log
+  - suppression summaries now flush on runtime interval.
+- Added safe-mode capability visibility in status surfaces:
+  - `/v1/ops/status` now includes `startup.safeModeNetwork` (enabled/attempted/enforced/backend/mode/reason).
+- Added deterministic chaos gate:
+  - new `npm run test:chaos` with `MEMPHIS_FAULT_INJECT=wal-rename-pre-sync`
+  - CI `quality-gate` now runs dedicated chaos step.
+- Added unit/integration coverage for:
+  - alert emitter dedupe + suppression summary
+  - alert transport fallback semantics
+  - alert runtime flush loop
+  - safe-mode runtime status shape in ops status.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -102,5 +116,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add script-level tests for branch-protection profile logic (`team|solo`) using fixture JSON responses to prevent regressions in ops automation.
-2. If maintaining as single operator, optionally switch active profile to `solo` to remove manual merge-gate relax/restore steps.
+1. Implement concrete PagerDuty/OpsGenie transport secret checks in `doctor` (warn when configured key missing/invalid).
+2. Extend critical-event mapping to emit alerts for `TrustRootRejected` and `StaleRevocationCache` once those runtime checks land.
+3. Add script-level tests for branch-protection profile logic (`team|solo`) using fixture JSON responses to prevent regressions in ops automation.

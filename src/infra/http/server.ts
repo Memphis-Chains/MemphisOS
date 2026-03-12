@@ -33,7 +33,10 @@ import { writeSecurityAudit } from '../logging/security-audit.js';
 import { computeHealthSummary } from '../ops/health-summary.js';
 import { verifyAdminActionSignature } from '../runtime/admin-signature.js';
 import { writeDualApprovalChainEvent } from '../runtime/dual-approval-events.js';
-import { getStartupQueueResumeStatus } from '../runtime/startup-state.js';
+import {
+  getStartupQueueResumeStatus,
+  getStartupSafeModeNetworkStatus,
+} from '../runtime/startup-state.js';
 import { getChainAdapterStatus } from '../storage/chain-adapter.js';
 import { NapiChainAdapter } from '../storage/rust-chain-adapter.js';
 import {
@@ -211,6 +214,18 @@ export function createHttpServer(
     const queue = repos?.taskQueue?.snapshot() ?? null;
     const dualApproval = repos?.dualApprovalRepository?.countByState() ?? null;
     const startupQueueResume = getStartupQueueResumeStatus();
+    const startupSafeModeEnabled = safeModeEnabled(process.env);
+    const startupSafeModeNetwork = getStartupSafeModeNetworkStatus() ?? {
+      enabled: startupSafeModeEnabled,
+      attempted: false,
+      enforced: false,
+      backend: startupSafeModeEnabled ? 'iptables' : 'none',
+      mode: startupSafeModeEnabled ? 'degraded' : 'disabled',
+      reason: startupSafeModeEnabled
+        ? 'safe mode network capability not evaluated yet'
+        : 'safe mode disabled',
+      checkedAt: new Date().toISOString(),
+    };
 
     return {
       service: 'memphis-v5',
@@ -227,6 +242,7 @@ export function createHttpServer(
       queue,
       startup: {
         queueResume: startupQueueResume,
+        safeModeNetwork: startupSafeModeNetwork,
       },
       dualApproval,
       timestamp: new Date().toISOString(),
