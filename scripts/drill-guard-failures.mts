@@ -16,6 +16,8 @@ type DrillResult = {
   detail: string;
 };
 
+type OutputMode = 'text' | 'json';
+
 const noopSecurityWrite = async () => ({
   wroteChain: false,
   wroteSyslog: false,
@@ -78,6 +80,7 @@ async function runRevocationStaleDrill(): Promise<DrillResult> {
 }
 
 async function main(): Promise<void> {
+  const outputMode: OutputMode = process.argv.includes('--json') ? 'json' : 'text';
   const tempDir = mkdtempSync(join(tmpdir(), 'memphis-guard-drill-'));
   const results: DrillResult[] = [];
 
@@ -89,9 +92,22 @@ async function main(): Promise<void> {
     rmSync(tempDir, { recursive: true, force: true });
   }
 
-  for (const result of results) {
-    const prefix = result.ok ? '[PASS]' : '[FAIL]';
-    console.log(`${prefix} ${result.name} ${result.detail}`);
+  if (outputMode === 'json') {
+    console.log(
+      JSON.stringify(
+        {
+          ok: results.every((result) => result.ok),
+          scenarios: results,
+        },
+        null,
+        2,
+      ),
+    );
+  } else {
+    for (const result of results) {
+      const prefix = result.ok ? '[PASS]' : '[FAIL]';
+      console.log(`${prefix} ${result.name} ${result.detail}`);
+    }
   }
 
   if (results.some((result) => !result.ok)) {

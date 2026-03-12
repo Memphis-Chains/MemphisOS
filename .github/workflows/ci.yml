@@ -37,7 +37,12 @@ jobs:
         run: npm run typecheck
 
       - name: Ops drill (startup guards)
-        run: npm run ops:drill-guards
+        run: |
+          set -euo pipefail
+          OUT="$(npm run -s ops:drill-guards)"
+          printf '%s\n' "$OUT"
+          grep -q 'trust-root-invalid-strict' <<<"$OUT"
+          grep -q 'revocation-stale' <<<"$OUT"
 
       - name: Test (TS)
         run: npm run test:ts
