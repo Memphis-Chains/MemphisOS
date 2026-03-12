@@ -254,6 +254,8 @@ Updated: 2026-03-12
 - Added integration coverage for Model D coordinator broadcast behavior:
   - broadcast-enabled mode now has non-blocking failure-path assertions.
   - partial delivery failures are recorded without interrupting proposal creation.
+- Added operator runbook for proactive Telegram delivery:
+  - `docs/runbooks/PROACTIVE_TELEGRAM_DELIVERY.md` documents opt-in env vars, failure triage, and rollback.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -266,6 +268,6 @@ Updated: 2026-03-12
 
 1. Adopt `docs/templates/SPRINT_CLOSURE_NOTE.md` for the current sprint and commit the filled note.
 2. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
-3. Add operator-facing runbook section for proactive Telegram delivery env vars and failure handling.
-4. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
-5. Consolidate legacy `src/cli/commands/*` entrypoints with `infra/cli` routing or remove dead paths.
+3. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
+4. Consolidate legacy `src/cli/commands/*` entrypoints with `infra/cli` routing or remove dead paths.
+5. Add end-to-end CLI tests that exercise `insights --save` + `reflect --save` persistence on a fresh data dir.
