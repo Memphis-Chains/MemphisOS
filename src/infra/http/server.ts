@@ -7,6 +7,7 @@ import { handleHttpError } from './error-handler.js';
 import { buildHealthPayload } from './health.js';
 import { resolveSafeChildPath } from './path-validation.js';
 import { globalLimiter, sensitiveLimiter } from './rate-limit.js';
+import { registerChatRoutes } from './routes/chat.js';
 import { getChainPath } from '../../config/paths.js';
 import type {
   GenerationEventRepository,
@@ -19,6 +20,8 @@ import {
   dualApprovalCancelSchema,
   dualApprovalRequestSchema,
   modelDProposalSchema,
+  soulLoopStepSchema,
+  soulReplaySchema,
   vaultDecryptSchema,
   vaultEncryptSchema,
   vaultInitSchema,
@@ -31,6 +34,7 @@ import { computeHealthSummary } from '../ops/health-summary.js';
 import { verifyAdminActionSignature } from '../runtime/admin-signature.js';
 import { writeDualApprovalChainEvent } from '../runtime/dual-approval-events.js';
 import { getChainAdapterStatus } from '../storage/chain-adapter.js';
+import { NapiChainAdapter } from '../storage/rust-chain-adapter.js';
 import {
   VaultEntry,
   VaultInitInput,
@@ -39,6 +43,7 @@ import {
   vaultEncrypt,
   vaultInit,
 } from '../storage/rust-vault-adapter.js';
+import { loadReplayBlocksFromChain, normalizeReplayBlocks } from '../storage/soul.js';
 import type { SqliteDualApprovalRepository } from '../storage/sqlite/repositories/dual-approval-repository.js';
 import type { TaskQueueService } from '../storage/task-queue-service.js';
 import {
@@ -46,7 +51,6 @@ import {
   saveVaultEntry,
   verifyVaultEntry,
 } from '../storage/vault-entry-store.js';
-import { registerChatRoutes } from './routes/chat.js';
 
 const SAFE_CHAIN_NAME = /^[A-Za-z0-9_-]{1,64}$/;
 const SENSITIVE_EXACT_ROUTES = new Set<string>([
@@ -60,6 +64,8 @@ const SENSITIVE_EXACT_ROUTES = new Set<string>([
   '/v1/vault/encrypt',
   '/v1/vault/decrypt',
   '/v1/vault/entries',
+  '/v1/soul/replay',
+  '/v1/soul/loop-step',
 ]);
 const SENSITIVE_PREFIX_ROUTES = ['/v1/sessions/'] as const;
 
@@ -585,6 +591,89 @@ export function createHttpServer(
     const sessionId = request.params.sessionId;
     const events = repos.generationEventRepository.listBySession(sessionId);
     return { sessionId, events };
+  });
+
+  app.post<{ Body: unknown }>('/v1/soul/replay', async (request, reply) => {
+    const parsed = soulReplaySchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError('VALIDATION_ERROR', 'Invalid soul replay payload', 400, {
+        issues: parsed.error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
+      });
+    }
+
+    const chain = parsed.data.chain ?? 'system';
+    try {
+      const adapter = new NapiChainAdapter(process.env);
+      const rawBlocks =
+        parsed.data.blocks !== undefined
+          ? normalizeReplayBlocks(parsed.data.blocks, chain)
+          : await loadReplayBlocksFromChain(chain, process.env);
+      const blocks =
+        parsed.data.latest && parsed.data.latest > 0
+          ? rawBlocks.slice(-parsed.data.latest)
+          : rawBlocks;
+
+      const report = adapter.soulReplay(chain, blocks);
+      writeSecurityAudit({
+        action: 'soul.replay',
+        status: 'allowed',
+        ip: request.ip,
+        route: '/v1/soul/replay',
+        details: {
+          chain,
+          blocks: blocks.length,
+          accepted: report.accepted,
+          rejected: report.rejected,
+        },
+      });
+      return { ok: true, chain, count: blocks.length, report };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'soul_replay_failed';
+      writeSecurityAudit({
+        action: 'soul.replay',
+        status: 'error',
+        ip: request.ip,
+        route: '/v1/soul/replay',
+        details: { chain, message },
+      });
+      return reply.status(503).send({ ok: false, error: message });
+    }
+  });
+
+  app.post<{ Body: unknown }>('/v1/soul/loop-step', async (request, reply) => {
+    const parsed = soulLoopStepSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError('VALIDATION_ERROR', 'Invalid soul loop-step payload', 400, {
+        issues: parsed.error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
+      });
+    }
+
+    try {
+      const adapter = new NapiChainAdapter(process.env);
+      const result = adapter.soulLoopStep(parsed.data.state, parsed.data.action, parsed.data.limits);
+      writeSecurityAudit({
+        action: 'soul.loop_step',
+        status: 'allowed',
+        ip: request.ip,
+        route: '/v1/soul/loop-step',
+        details: {
+          applied: result.applied,
+          reason: result.reason ?? null,
+          haltReason: result.state.halt_reason,
+        },
+      });
+      return { ok: true, result };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'soul_loop_step_failed';
+      writeSecurityAudit({
+        action: 'soul.loop_step',
+        status: 'error',
+        ip: request.ip,
+        route: '/v1/soul/loop-step',
+        details: { message },
+      });
+      return reply.status(503).send({ ok: false, error: message });
+    }
   });
 
   registerChatRoutes(app, orchestration, repos);

@@ -59,6 +59,9 @@ export type CliArgs = {
   days?: number;
   repoPath?: string;
   agent?: string;
+  state?: string;
+  action?: string;
+  limits?: string;
 };
 
 function readFlagValue(flags: Map<string, string | true>, name: string): string | undefined {
@@ -156,5 +159,8 @@ export function parseCommand(argv: string[]): CliArgs {
     days: readNumberFlag(flags, '--days'),
     repoPath: readFlagValue(flags, '--repo-path'),
     agent: readFlagValue(flags, '--agent'),
+    state: readFlagValue(flags, '--state'),
+    action: readFlagValue(flags, '--action'),
+    limits: readFlagValue(flags, '--limits'),
   };
 }

@@ -83,3 +83,59 @@ export const modelDProposalSchema = z.object({
     status: z.enum(['pending', 'voting', 'approved', 'rejected', 'executed']),
   }),
 });
+
+export const soulReplayBlockSchema = z.object({
+  index: z.number().int().nonnegative(),
+  timestamp: z.string().min(1),
+  chain: z.string().min(1).max(64),
+  data: z.object({
+    block_type: z.string().min(1).max(64),
+    content: z.string().min(1),
+    tags: z.array(z.string()).default([]),
+  }),
+  prev_hash: z.string().min(1),
+  hash: z.string().min(1),
+});
+
+export const soulReplaySchema = z.object({
+  chain: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]{1,64}$/)
+    .default('system'),
+  blocks: z.array(soulReplayBlockSchema).min(1).optional(),
+  latest: z.number().int().positive().max(100000).optional(),
+});
+
+export const soulLoopStateSchema = z.object({
+  steps: z.number().int().nonnegative(),
+  tool_calls: z.number().int().nonnegative(),
+  wait_ms: z.number().int().nonnegative(),
+  errors: z.number().int().nonnegative(),
+  completed: z.boolean(),
+  halt_reason: z.string().nullable(),
+});
+
+export const soulLoopLimitsSchema = z.object({
+  max_steps: z.number().int().positive(),
+  max_tool_calls: z.number().int().positive(),
+  max_wait_ms: z.number().int().nonnegative(),
+  max_errors: z.number().int().nonnegative(),
+});
+
+export const soulLoopActionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('tool_call'), data: z.object({ tool: z.string().min(1) }) }),
+  z.object({ type: z.literal('wait'), data: z.object({ duration_ms: z.number().int().nonnegative() }) }),
+  z.object({ type: z.literal('complete'), data: z.object({ summary: z.string().min(1) }) }),
+  z.object({
+    type: z.literal('error'),
+    data: z.object({ recoverable: z.boolean(), message: z.string().min(1) }),
+  }),
+]);
+
+export const soulLoopStepSchema = z.object({
+  state: soulLoopStateSchema,
+  action: soulLoopActionSchema,
+  limits: soulLoopLimitsSchema.optional(),
+});

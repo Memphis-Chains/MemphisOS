@@ -54,6 +54,10 @@ Updated: 2026-03-12
   - `OrchestrationService.generate` now runs through `TaskExecutor` (Think -> Act -> Observe)
   - System/tool/error lifecycle events are persisted to `system` chain
   - Queue redispatch passes stable `runId` and reuses cached `task.tool_result` events to avoid re-running completed tool calls after restart.
+- Added SOUL API + CLI surface:
+  - HTTP endpoints: `POST /v1/soul/replay`, `POST /v1/soul/loop-step`
+  - CLI commands: `memphis soul replay`, `memphis soul step`
+  - Added replay block loader/normalizer utility for chain-backed replays.
 
 ## In Progress Architecture (Already Implemented)
 
