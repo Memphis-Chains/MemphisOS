@@ -13,6 +13,7 @@ interface SignatureDescriptor {
   value: string;
   payloadSha256: string;
   keyFingerprint: string;
+  keyId?: string;
 }
 
 interface IncidentBundleManifest {
@@ -35,6 +36,7 @@ interface VerifyOutput {
     signatureVerified: boolean;
     payloadHashMatch: boolean;
     keyFingerprintMatch: boolean;
+    keyIdMatch: boolean;
   };
   errors: string[];
 }
@@ -115,6 +117,9 @@ function parseManifest(raw: string): IncidentBundleManifest {
   if (typeof signature.keyFingerprint !== 'string' || signature.keyFingerprint.length === 0) {
     throw new Error('manifest signature.keyFingerprint must be a non-empty string');
   }
+  if (signature.keyId !== undefined && (typeof signature.keyId !== 'string' || signature.keyId.length === 0)) {
+    throw new Error('manifest signature.keyId must be a non-empty string when present');
+  }
 
   return {
     schemaVersion,
@@ -129,6 +134,7 @@ function parseManifest(raw: string): IncidentBundleManifest {
       value: signature.value,
       payloadSha256: signature.payloadSha256,
       keyFingerprint: signature.keyFingerprint,
+      keyId: signature.keyId as string | undefined,
     },
   };
 }
@@ -144,6 +150,7 @@ function verifySignature(options: {
   manifest: IncidentBundleManifest;
   manifestObject: Record<string, unknown>;
   publicKeyPath: string | null;
+  expectedKeyId: string | null;
   requireSignature: boolean;
   checks: VerifyOutput['checks'];
   errors: string[];
@@ -152,8 +159,21 @@ function verifySignature(options: {
   options.checks.signaturePresent = Boolean(signature);
 
   if (!signature) {
+    if (options.expectedKeyId) {
+      options.checks.keyIdMatch = false;
+      options.errors.push('expected key id provided but manifest is unsigned');
+    }
     if (options.requireSignature) options.errors.push('signature is required but manifest is unsigned');
     return;
+  }
+
+  if (options.expectedKeyId) {
+    options.checks.keyIdMatch = signature.keyId === options.expectedKeyId;
+    if (!options.checks.keyIdMatch) {
+      options.errors.push(
+        `signature key id mismatch (expected=${options.expectedKeyId}, actual=${signature.keyId ?? 'none'})`,
+      );
+    }
   }
 
   const unsigned = { ...options.manifestObject };
@@ -204,6 +224,7 @@ function main(): void {
   const requireSignature = hasFlag('--require-signature');
   const publicKeyPath =
     parseArg('--public-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_VERIFY_PUBLIC_KEY_PATH ?? null;
+  const expectedKeyId = parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
   const checks: VerifyOutput['checks'] = {
     schemaValid: false,
     bundleExists: false,
@@ -213,6 +234,7 @@ function main(): void {
     signatureVerified: false,
     payloadHashMatch: false,
     keyFingerprintMatch: false,
+    keyIdMatch: true,
   };
   const errors: string[] = [];
 
@@ -249,6 +271,7 @@ function main(): void {
       manifest,
       manifestObject,
       publicKeyPath: publicKeyPath ? resolve(publicKeyPath) : null,
+      expectedKeyId,
       requireSignature,
       checks,
       errors,

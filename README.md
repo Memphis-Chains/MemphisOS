@@ -112,10 +112,12 @@ npm run -s ops:export-incident-bundle -- --out data/incident-bundle.json
 npm run -s ops:export-incident-bundle -- \
   --out data/incident-bundle.json \
   --manifest-out data/incident-bundle.manifest.json \
-  --signing-key-path /secure/path/incident-signing-key.pem
+  --signing-key-path /secure/path/incident-signing-key.pem \
+  --signing-key-id incident-key-v1
 npm run -s ops:verify-incident-manifest -- \
   --manifest-path data/incident-bundle.manifest.json \
   --public-key-path /secure/path/incident-signing-public.pem \
+  --expected-key-id incident-key-v1 \
   --require-signature
 ```
 
@@ -123,13 +125,15 @@ npm run -s ops:verify-incident-manifest -- \
 
 - sensitive fields in status/audit payloads are redacted (`[REDACTED]`)
 - bundle history is pruned by retention policy (`--retention-count`, `--retention-days`)
-- optional forensic manifest is written when `--manifest-out` (or `--signing-key-path`) is provided
+- optional forensic manifest is written when `--manifest-out` or any signing key source is provided
+- signing key sources: `--signing-key-path`, `--signing-key-pem`, `--signing-key-pem-base64` (or matching env vars)
+- optional signer metadata: `--signing-key-id` / `MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID`
 
 `ops:verify-incident-manifest` checks:
 
 - manifest schema validity (`schemaVersion=1`)
 - bundle path existence + hash + byte-size integrity
-- optional Ed25519 signature verification with fingerprint + payload hash checks
+- optional Ed25519 signature verification with fingerprint + payload hash + `keyId` expectation checks
 
 ## Security Notes
 

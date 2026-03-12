@@ -52,7 +52,10 @@ async function withStatusServer<T>(
   }
 }
 
-async function runIncidentBundleExporter(args: string[]): Promise<{
+async function runIncidentBundleExporter(
+  args: string[],
+  envOverrides: NodeJS.ProcessEnv = {},
+): Promise<{
   status: number | null;
   stdout: string;
   stderr: string;
@@ -60,7 +63,7 @@ async function runIncidentBundleExporter(args: string[]): Promise<{
   return new Promise((resolve, reject) => {
     const child = spawn('npm', ['run', '-s', 'ops:export-incident-bundle', '--', ...args], {
       cwd: repoRoot,
-      env: process.env,
+      env: { ...process.env, ...envOverrides },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stdout = '';
@@ -276,5 +279,63 @@ describe('incident bundle exporter', () => {
     const verified = verify(null, Buffer.from(payload, 'utf8'), pair.publicKey, signatureBytes);
     expect(verified).toBe(true);
     expect(manifest.signature?.payloadSha256).toBe(createHash('sha256').update(payload).digest('hex'));
+  });
+
+  it('supports env-injected signing key PEM and records key-id metadata', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-env-key-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle-signed.json');
+    const manifestPath = path.join(dir, 'incident-bundle-signed.manifest.json');
+    const keyId = 'incident-key-v1';
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const pair = generateKeyPairSync('ed25519');
+    const privatePem = pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString();
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter(
+        [
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+        ],
+        {
+          MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM: privatePem,
+          MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID: keyId,
+        },
+      );
+      expect(result.status).toBe(0);
+      const emitted = JSON.parse(result.stdout) as {
+        ok: boolean;
+        manifest: string | null;
+        signingKeySource: string | null;
+        signingKeyId: string | null;
+      };
+      expect(emitted.ok).toBe(true);
+      expect(emitted.manifest).toBe(manifestPath);
+      expect(emitted.signingKeySource).toBe('env-pem');
+      expect(emitted.signingKeyId).toBe(keyId);
+    });
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      signature?: {
+        keyId?: string;
+        value?: string;
+      };
+    };
+    expect(manifest.signature?.keyId).toBe(keyId);
+
+    const signatureValue = manifest.signature?.value ?? '';
+    const unsigned = { ...manifest };
+    delete (unsigned as { signature?: unknown }).signature;
+    const payload = JSON.stringify(unsigned);
+    const signatureBytes = Buffer.from(signatureValue, 'base64');
+    const verified = verify(null, Buffer.from(payload, 'utf8'), pair.publicKey, signatureBytes);
+    expect(verified).toBe(true);
   });
 });

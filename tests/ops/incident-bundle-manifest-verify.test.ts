@@ -84,6 +84,7 @@ describe('incident manifest verifier', () => {
     const manifestPath = path.join(dir, 'incident-bundle-signed.manifest.json');
     const signingKeyPath = path.join(dir, 'signing-private.pem');
     const verifyKeyPath = path.join(dir, 'signing-public.pem');
+    const keyId = 'incident-signer-a';
     writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
 
     const pair = generateKeyPairSync('ed25519');
@@ -112,6 +113,8 @@ describe('incident manifest verifier', () => {
         manifestPath,
         '--signing-key-path',
         signingKeyPath,
+        '--signing-key-id',
+        keyId,
       ]);
       expect(exportResult.status).toBe(0);
     });
@@ -124,6 +127,8 @@ describe('incident manifest verifier', () => {
       '--public-key-path',
       verifyKeyPath,
       '--require-signature',
+      '--expected-key-id',
+      keyId,
     ]);
     expect(verifyResult.status).toBe(0);
 
@@ -137,6 +142,7 @@ describe('incident manifest verifier', () => {
         signatureVerified: boolean;
         payloadHashMatch: boolean;
         keyFingerprintMatch: boolean;
+        keyIdMatch: boolean;
       };
       errors: string[];
     };
@@ -148,6 +154,7 @@ describe('incident manifest verifier', () => {
     expect(parsed.checks.signatureVerified).toBe(true);
     expect(parsed.checks.payloadHashMatch).toBe(true);
     expect(parsed.checks.keyFingerprintMatch).toBe(true);
+    expect(parsed.checks.keyIdMatch).toBe(true);
     expect(parsed.errors).toEqual([]);
   });
 
@@ -234,5 +241,69 @@ describe('incident manifest verifier', () => {
     const parsed = JSON.parse(verifyResult.stdout) as { ok: boolean; errors: string[] };
     expect(parsed.ok).toBe(false);
     expect(parsed.errors.some((item) => item.includes('signature is required'))).toBe(true);
+  });
+
+  it('fails when expected key id does not match manifest signature metadata', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-key-id-mismatch-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const verifyKeyPath = path.join(dir, 'signing-public.pem');
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const pair = generateKeyPairSync('ed25519');
+    writeFileSync(
+      signingKeyPath,
+      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+    writeFileSync(
+      verifyKeyPath,
+      pair.publicKey.export({ format: 'pem', type: 'spki' }).toString(),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand([
+        'ops:export-incident-bundle',
+        '--',
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        bundlePath,
+        '--manifest-out',
+        manifestPath,
+        '--signing-key-path',
+        signingKeyPath,
+        '--signing-key-id',
+        'actual-key',
+      ]);
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand([
+      'ops:verify-incident-manifest',
+      '--',
+      '--manifest-path',
+      manifestPath,
+      '--public-key-path',
+      verifyKeyPath,
+      '--require-signature',
+      '--expected-key-id',
+      'expected-key',
+    ]);
+    expect(verifyResult.status).toBe(1);
+
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: { keyIdMatch: boolean };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.checks.keyIdMatch).toBe(false);
+    expect(parsed.errors.some((item) => item.includes('signature key id mismatch'))).toBe(true);
   });
 });

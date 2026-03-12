@@ -61,7 +61,14 @@ interface IncidentBundleManifest {
     value: string;
     payloadSha256: string;
     keyFingerprint: string;
+    keyId?: string;
   };
+}
+
+interface SigningKeySpec {
+  source: 'path' | 'env-pem' | 'env-pem-base64';
+  privateKeyPem: string;
+  keyId: string | null;
 }
 
 const REDACTED = '[REDACTED]';
@@ -159,6 +166,48 @@ function sha256Hex(data: string | Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
+function resolveSigningKeySpec(): SigningKeySpec | null {
+  const pathRaw =
+    parseArg('--signing-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PATH ?? null;
+  const pemRaw =
+    parseArg('--signing-key-pem') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM ?? null;
+  const pemBase64Raw =
+    parseArg('--signing-key-pem-base64') ??
+    process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM_BASE64 ??
+    null;
+  const keyId = parseArg('--signing-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID ?? null;
+
+  const presentSources = [Boolean(pathRaw), Boolean(pemRaw), Boolean(pemBase64Raw)].filter(Boolean).length;
+  if (presentSources > 1) {
+    throw new Error(
+      'multiple signing key sources provided; use exactly one of --signing-key-path, --signing-key-pem, --signing-key-pem-base64',
+    );
+  }
+
+  if (pathRaw) {
+    return {
+      source: 'path',
+      privateKeyPem: readFileSync(resolve(pathRaw), 'utf8'),
+      keyId,
+    };
+  }
+  if (pemRaw) {
+    return {
+      source: 'env-pem',
+      privateKeyPem: pemRaw,
+      keyId,
+    };
+  }
+  if (pemBase64Raw) {
+    return {
+      source: 'env-pem-base64',
+      privateKeyPem: Buffer.from(pemBase64Raw, 'base64').toString('utf8'),
+      keyId,
+    };
+  }
+  return null;
+}
+
 function inferManifestPath(bundlePath: string): string {
   if (bundlePath.endsWith('.json')) return bundlePath.slice(0, -'.json'.length) + MANIFEST_SUFFIX;
   return `${bundlePath}${MANIFEST_SUFFIX}`;
@@ -234,7 +283,7 @@ function writeManifest(options: {
   prunedFiles: string[];
   drill: IncidentBundle['drill'];
   manifestPath: string;
-  signingKeyPath: string | null;
+  signingKey: SigningKeySpec | null;
 }): string {
   const bundleBytes = readFileSync(options.bundlePath);
   const manifestBase: IncidentBundleManifest = {
@@ -260,9 +309,8 @@ function writeManifest(options: {
     },
   };
 
-  if (options.signingKeyPath) {
-    const privateKeyPem = readFileSync(options.signingKeyPath, 'utf8');
-    const privateKey = createPrivateKey(privateKeyPem);
+  if (options.signingKey) {
+    const privateKey = createPrivateKey(options.signingKey.privateKeyPem);
     const publicKeyPem = createPublicKey(privateKey).export({ format: 'pem', type: 'spki' }).toString();
     const payload = JSON.stringify(manifestBase);
     const signatureBytes = signDetached(null, Buffer.from(payload, 'utf8'), privateKey);
@@ -271,6 +319,7 @@ function writeManifest(options: {
       value: signatureBytes.toString('base64'),
       payloadSha256: sha256Hex(payload),
       keyFingerprint: sha256Hex(publicKeyPem),
+      keyId: options.signingKey.keyId ?? undefined,
     };
   }
 
@@ -361,8 +410,8 @@ async function main(): Promise<void> {
   const retentionCount = parseIntArg('--retention-count', 20, 'MEMPHIS_INCIDENT_BUNDLE_RETENTION_COUNT');
   const retentionDays = parseIntArg('--retention-days', 14, 'MEMPHIS_INCIDENT_BUNDLE_RETENTION_DAYS');
   const manifestOut = parseArg('--manifest-out');
-  const signingKeyPath = parseArg('--signing-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PATH ?? null;
-  const writeManifestRequested = manifestOut !== null || signingKeyPath !== null;
+  const signingKey = resolveSigningKeySpec();
+  const writeManifestRequested = manifestOut !== null || signingKey !== null;
 
   const bundle: IncidentBundle = {
     schemaVersion: 1,
@@ -388,7 +437,7 @@ async function main(): Promise<void> {
         prunedFiles,
         drill: bundle.drill,
         manifestPath: resolve(manifestOut ?? inferManifestPath(outPath)),
-        signingKeyPath,
+        signingKey,
       })
     : null;
 
@@ -399,6 +448,8 @@ async function main(): Promise<void> {
         output: outPath,
         manifest: manifestPath,
         prunedFiles: prunedFiles.map((item) => basename(item)),
+        signingKeySource: signingKey?.source ?? null,
+        signingKeyId: signingKey?.keyId ?? null,
       },
       null,
       2,
