@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -131,5 +131,112 @@ describe('HTTP e2e', () => {
     expect(events[0]?.requestId).toBe('req-e2e-1');
 
     await app.close();
+  });
+
+  it('serves soul replay and loop-step endpoints when rust bridge is available', async () => {
+    const prevRustEnabled = process.env.RUST_CHAIN_ENABLED;
+    const prevBridgePath = process.env.RUST_CHAIN_BRIDGE_PATH;
+    try {
+      const bridgeDir = mkdtempSync(join(tmpdir(), 'memphis-v5-soul-bridge-'));
+      const bridgePath = join(bridgeDir, 'bridge.cjs');
+      writeFileSync(
+        bridgePath,
+        `module.exports = {
+  chain_append: () => JSON.stringify({ ok: true, data: { appended: true, length: 1, chain: [] } }),
+  chain_validate: () => JSON.stringify({ ok: true, data: { valid: true } }),
+  chain_query: () => JSON.stringify({ ok: true, data: { count: 0, blocks: [] } }),
+  soul_replay: (_chain, blocksJson) => {
+    const blocks = JSON.parse(blocksJson);
+    return JSON.stringify({
+      ok: true,
+      data: {
+        accepted: blocks.length,
+        rejected: 0,
+        errors: [],
+        snapshot: { blocks: blocks.length, last_hash: blocks.at(-1)?.hash ?? null, state_hash: 'snapshot-hash' }
+      }
+    });
+  },
+  soul_loop_step: (stateJson, actionJson) => {
+    const state = JSON.parse(stateJson);
+    const action = JSON.parse(actionJson);
+    if (action.type === 'complete') {
+      state.completed = true;
+      state.steps += 1;
+    }
+    return JSON.stringify({ ok: true, data: { applied: true, state } });
+  }
+};`,
+        'utf8',
+      );
+
+      process.env.RUST_CHAIN_ENABLED = 'true';
+      process.env.RUST_CHAIN_BRIDGE_PATH = bridgePath;
+
+      const config = makeConfig();
+      const container = createAppContainer(config);
+      const app = createHttpServer(config, container.orchestration, {
+        sessionRepository: container.sessionRepository,
+        generationEventRepository: container.generationEventRepository,
+      });
+
+      const replay = await app.inject({
+        method: 'POST',
+        url: '/v1/soul/replay',
+        payload: {
+          chain: 'system',
+          blocks: [
+            {
+              index: 0,
+              timestamp: '2026-03-12T00:00:00Z',
+              chain: 'system',
+              data: { block_type: 'system_event', content: 'boot', tags: ['boot'] },
+              prev_hash: '0'.repeat(64),
+              hash: 'a'.repeat(64),
+            },
+          ],
+        },
+      });
+      expect(replay.statusCode).toBe(200);
+      expect(replay.json()).toMatchObject({
+        ok: true,
+        chain: 'system',
+        report: { accepted: 1, rejected: 0, snapshot: { state_hash: 'snapshot-hash' } },
+      });
+
+      const loop = await app.inject({
+        method: 'POST',
+        url: '/v1/soul/loop-step',
+        payload: {
+          state: {
+            steps: 0,
+            tool_calls: 0,
+            wait_ms: 0,
+            errors: 0,
+            completed: false,
+            halt_reason: null,
+          },
+          action: { type: 'complete', data: { summary: 'done' } },
+        },
+      });
+      expect(loop.statusCode).toBe(200);
+      expect(loop.json()).toMatchObject({
+        ok: true,
+        result: { applied: true, state: { completed: true, steps: 1 } },
+      });
+
+      await app.close();
+    } finally {
+      if (prevRustEnabled === undefined) {
+        delete process.env.RUST_CHAIN_ENABLED;
+      } else {
+        process.env.RUST_CHAIN_ENABLED = prevRustEnabled;
+      }
+      if (prevBridgePath === undefined) {
+        delete process.env.RUST_CHAIN_BRIDGE_PATH;
+      } else {
+        process.env.RUST_CHAIN_BRIDGE_PATH = prevBridgePath;
+      }
+    }
   });
 });
