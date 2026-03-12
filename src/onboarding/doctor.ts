@@ -23,7 +23,13 @@ export class Doctor {
   }
 
   private checkBridge(): DoctorResult['bridge'] {
-    const exports = ['chain_append', 'chain_verify', 'health_check'];
+    const exports = [
+      'chain_append',
+      'chain_validate',
+      'chain_query',
+      'soul_replay',
+      'soul_loop_step',
+    ];
     return { status: 'PASS', message: 'bridge exports loaded', details: { exports } };
   }
 }

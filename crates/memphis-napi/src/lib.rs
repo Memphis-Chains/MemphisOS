@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
 use memphis_core::block::Block;
+use memphis_core::harness::replay;
+use memphis_core::loop_engine::{LoopAction, LoopLimits, LoopState};
 use memphis_core::soul::validate_block;
 use memphis_embed::{EmbedConfig, EmbedMode, EmbedPersistenceConfig, EmbedPersistenceLoadState, EmbedPipeline};
 mod vault_bridge;
@@ -245,6 +247,41 @@ pub fn chain_query(chain_json: String, contains: Option<String>, tag: Option<Str
 }
 
 #[napi]
+pub fn soul_replay(chain_name: String, blocks_json: String) -> String {
+    let blocks: Vec<Block> = match serde_json::from_str(&blocks_json) {
+        Ok(v) => v,
+        Err(e) => return err(format!("invalid_blocks_json: {e}")),
+    };
+
+    let report = replay(chain_name, &blocks);
+    ok(report)
+}
+
+#[napi]
+pub fn soul_loop_step(state_json: String, action_json: String, limits_json: Option<String>) -> String {
+    let mut state: LoopState = match serde_json::from_str(&state_json) {
+        Ok(v) => v,
+        Err(e) => return err(format!("invalid_loop_state_json: {e}")),
+    };
+    let action: LoopAction = match serde_json::from_str(&action_json) {
+        Ok(v) => v,
+        Err(e) => return err(format!("invalid_loop_action_json: {e}")),
+    };
+    let limits = match limits_json {
+        Some(raw) => match serde_json::from_str::<LoopLimits>(&raw) {
+            Ok(v) => v,
+            Err(e) => return err(format!("invalid_loop_limits_json: {e}")),
+        },
+        None => LoopLimits::default(),
+    };
+
+    match state.apply(&action, &limits) {
+        Ok(()) => ok(serde_json::json!({ "applied": true, "state": state })),
+        Err(reason) => ok(serde_json::json!({ "applied": false, "reason": reason, "state": state })),
+    }
+}
+
+#[napi]
 pub fn vault_init_json(request_json: String) -> String {
     let req: VaultInitRequest = match serde_json::from_str(&request_json) {
         Ok(v) => v,
@@ -407,8 +444,8 @@ pub fn embed_reset() -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        chain_validate, embed_mode_from_env, embed_reset, embed_search, embed_search_tuned, embed_store, vault_decrypt,
-        vault_encrypt, vault_init_json,
+        chain_validate, embed_mode_from_env, embed_reset, embed_search, embed_search_tuned, embed_store, soul_loop_step,
+        soul_replay, vault_decrypt, vault_encrypt, vault_init_json,
     };
     use memphis_embed::EmbedMode;
     use memphis_core::block::{Block, BlockData, BlockType};
@@ -492,5 +529,42 @@ mod tests {
         assert_eq!(embed_mode_from_env(), EmbedMode::Provider("mixedbread".to_string()));
 
         std::env::remove_var("RUST_EMBED_MODE");
+    }
+
+    #[test]
+    fn soul_bridge_roundtrip_json() {
+        let block = Block {
+            index: 0,
+            timestamp: "2026-03-12T12:00:00Z".to_string(),
+            chain: "system".to_string(),
+            data: BlockData {
+                block_type: BlockType::SystemEvent,
+                content: "boot".to_string(),
+                tags: vec!["boot".to_string()],
+            },
+            prev_hash: "0".repeat(64),
+            hash: "h0".to_string(),
+        };
+        let replay = soul_replay("system".to_string(), serde_json::to_string(&vec![block]).unwrap());
+        assert!(replay.contains("\"ok\":true"));
+        assert!(replay.contains("\"accepted\":1"));
+
+        let state = serde_json::json!({
+            "steps": 0,
+            "tool_calls": 0,
+            "wait_ms": 0,
+            "errors": 0,
+            "completed": false,
+            "halt_reason": null
+        })
+        .to_string();
+        let action = serde_json::json!({
+            "type": "complete",
+            "data": { "summary": "done" }
+        })
+        .to_string();
+        let out = soul_loop_step(state, action, None);
+        assert!(out.contains("\"ok\":true"));
+        assert!(out.contains("\"applied\":true"));
     }
 }

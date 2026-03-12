@@ -21,6 +21,7 @@ describe('Doctor', () => {
     if (results.bridge.status === 'PASS') {
       expect(results.bridge.details).toHaveProperty('exports');
       expect(results.bridge.details?.exports).toContain('chain_append');
+      expect(results.bridge.details?.exports).toContain('soul_replay');
     }
   });
 });
