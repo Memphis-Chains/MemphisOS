@@ -88,7 +88,7 @@ export async function bootstrap(): Promise<void> {
   }
 
   const container = createAppContainer(config);
-  await resumeRecoveredQueueTasks(container, config, process.env);
+  await resumeRecoveredQueueTasksOnStartup(container, config, process.env);
   const app = createHttpServer(config, container.orchestration, {
     sessionRepository: container.sessionRepository,
     generationEventRepository: container.generationEventRepository,
@@ -252,7 +252,7 @@ async function redispatchRecoveredTask(
   return 'completed';
 }
 
-async function resumeRecoveredQueueTasks(
+export async function resumeRecoveredQueueTasksOnStartup(
   container: ReturnType<typeof createAppContainer>,
   config: AppConfig,
   rawEnv: NodeJS.ProcessEnv,
