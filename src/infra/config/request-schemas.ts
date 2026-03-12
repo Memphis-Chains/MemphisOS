@@ -38,3 +38,45 @@ export const vaultDecryptSchema = z.object({
     createdAt: z.string().min(1).optional(),
   }),
 });
+
+export const dualApprovalRequestSchema = z.object({
+  action: z.enum(['freeze', 'unfreeze']),
+  initiatorId: z.string().min(1).max(256),
+  ttlMs: z.number().int().min(1).max(3600000).optional(),
+  reason: z.string().min(1).max(2000).optional(),
+  signature: z.string().min(1).max(4096).optional(),
+});
+
+export const dualApprovalApproveSchema = z.object({
+  requestId: z.string().uuid(),
+  approverId: z.string().min(1).max(256),
+  expectedStateVersion: z.number().int().min(0),
+  signature: z.string().min(1).max(4096).optional(),
+});
+
+export const dualApprovalCancelSchema = z.object({
+  requestId: z.string().uuid(),
+  actorId: z.string().min(1).max(256),
+  expectedStateVersion: z.number().int().min(0),
+});
+
+export const modelDProposalSchema = z.object({
+  protocol: z.string().min(1).max(100),
+  from: z.object({
+    id: z.string().min(1).max(200),
+    name: z.string().min(1).max(200).optional(),
+  }),
+  to: z
+    .object({
+      id: z.string().min(1).max(200),
+      name: z.string().min(1).max(200).optional(),
+    })
+    .optional(),
+  proposal: z.object({
+    id: z.string().min(1).max(200),
+    title: z.string().min(1).max(500),
+    description: z.string().min(1).max(5000),
+    type: z.enum(['strategic', 'tactical', 'operational']),
+    status: z.enum(['pending', 'voting', 'approved', 'rejected', 'executed']),
+  }),
+});

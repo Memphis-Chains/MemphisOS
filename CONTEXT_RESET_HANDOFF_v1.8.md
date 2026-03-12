@@ -1,106 +1,124 @@
-# Context Reset Handoff (v1.8 Build Slice)
+# Context Reset Handoff (v1.8 -> v1.8.1)
 
 Date: 2026-03-12
 
-## Implemented in this slice
+## Repository migration status
 
-1. Runtime exit codes + typed fatal error
-- `src/infra/runtime/exit-codes.ts` (new)
-- wired in:
-  - `src/index.ts`
-  - `src/infra/cli/index.ts`
+- Local repo created: `/home/memphis_ai_brain_on_chain/MemphisOS`
+- Base checkpoint used: `09f19a7` from previous `memphis` repo
+- GitHub repo created and pushed: `https://github.com/elathoxu-crypto/MemphisOS`
+- `main` branch protection enabled (`quality-gate`, PR review, admin enforce, no force push)
 
-2. Emergency logging + fallback protocol
-- `src/infra/runtime/emergency-log.ts` (new)
-- critical chain->syslog->emergency fallback:
-  - `src/infra/runtime/security-critical.ts` (new)
+Note: Could not create under `Memphis-Chains` with current token because token identity is `elathoxu-crypto`.
 
-3. Safe mode boundary enforcement
-- safe-mode network enforcement helper:
-  - `src/infra/runtime/safe-mode.ts` (new)
-- bootstrap integration:
-  - `src/app/bootstrap.ts`
-- execution/generation blocking in safe mode:
-  - `src/agent/system.ts`
-  - `src/modules/orchestration/service.ts`
-  - `src/gateway/server.ts`
-  - `src/infra/http/server.ts`
+## Implemented in this continuation slice
 
-4. CLI/runtime flags for ops testing
-- added parser/types/env flags:
-  - `src/infra/cli/types.ts`
-  - `src/infra/cli/parser.ts`
-  - `src/infra/cli/index.ts`
-  - `src/infra/config/schema.ts`
-- supported flags:
-  - `--safe-mode`
-  - `--strict-mode`
-  - `--fault-inject=<value>`
+1. Durable API queue wiring + backpressure
+- New: `src/infra/storage/task-queue-service.ts`
+  - WAL-backed replay (`TaskQueueWal`)
+  - fail-fast overload (`OVERLOAD`, HTTP 429)
+  - queue snapshot metrics (pending, totals, recovered pending)
+- Wired into chat route:
+  - `src/infra/http/routes/chat.ts`
+  - Queue-first persist before generation
+  - finish markers on success/failure
+- Wired into status:
+  - `src/infra/http/server.ts` -> `/v1/ops/status` includes `queue`
+  - `src/gateway/server.ts` -> `/ops/status` includes `queue`
+- Container wiring:
+  - `src/app/container.ts` creates `taskQueue`
+  - `src/app/bootstrap.ts` passes `taskQueue`
 
-5. WAL queue integrity primitives
-- `src/infra/storage/task-queue-wal.ts` (new)
-  - lockfile exclusivity
-  - CRC32C per-record checksum
-  - torn tail truncation recovery
-  - atomic rotation
-  - deterministic fault injection (`wal-rename-pre-sync`)
+2. Queue configuration + error code
+- Updated:
+  - `src/infra/config/schema.ts` (queue env fields)
+  - `src/core/errors.ts` (`OVERLOAD` code)
 
-6. Identity normalization + approval DB constraints foundation
-- `src/infra/auth/identity.ts` (new)
-- approvals schema constraints:
+3. Dual-approval state machine persistence (CAS + events)
+- Migration:
   - `src/infra/storage/sqlite/client.ts`
-- approval repository:
-  - `src/infra/storage/sqlite/repositories/approval-repository.ts` (new)
+  - Added tables:
+    - `dual_approval_requests`
+    - `dual_approval_events`
+- New repository:
+  - `src/infra/storage/sqlite/repositories/dual-approval-repository.ts`
+  - Features:
+    - create/approve/cancel/expire
+    - optimistic CAS via `state_version`
+    - self-approve denial (normalized identities)
+    - transition event persistence
+- Container wiring:
+  - `src/app/container.ts` creates `dualApprovalRepository`
+- HTTP endpoints:
+  - `POST /v1/admin/dual-approval/request`
+  - `POST /v1/admin/dual-approval/approve`
+  - `POST /v1/admin/dual-approval/cancel`
+  - `GET /v1/admin/dual-approval/:requestId`
+  - implemented in `src/infra/http/server.ts`
+  - auth policy updated in `src/infra/http/auth-policy.ts`
 
-7. Alert dedupe primitive
-- `src/infra/logging/alert-emitter.ts` (new)
+4. Trust-root validation module
+- New:
+  - `src/infra/runtime/trust-root.ts`
+  - forward-only version check (`new_version > current_version`)
+  - transition metadata validation
 
-8. Backlog tracking updated
-- `WHAT_IS_LEFT_TO_DO.md`
+5. Package metadata updated for new repo
+- `package.json` repository/homepage/bugs now point to `elathoxu-crypto/MemphisOS`
 
-## Tests added/updated
+## Tests added/updated in this slice
 
 New tests:
-- `tests/unit/emergency-log.test.ts`
-- `tests/unit/safe-mode-runtime.test.ts`
-- `tests/unit/safe-mode-boundary.test.ts`
-- `tests/unit/task-queue-wal.test.ts`
-- `tests/unit/approval-repository.test.ts`
+- `tests/unit/task-queue-service.test.ts`
+- `tests/unit/dual-approval-repository.test.ts`
+- `tests/unit/trust-root.test.ts`
+- `tests/integration/chat-queue-overload.e2e.test.ts`
 
 Updated tests:
-- `tests/integration/gateway.e2e.test.ts`
-- `tests/unit/cli.ask-doctor.test.ts`
+- `tests/integration/ops-status.e2e.test.ts`
+- `tests/integration/ops-health-color.e2e.test.ts`
 
 ## Verified commands (passed)
 
 ```bash
-cd /home/memphis_ai_brain_on_chain/memphis
+cd /home/memphis_ai_brain_on_chain/MemphisOS
 npm run -s test:ts -- \
-  tests/unit/emergency-log.test.ts \
-  tests/unit/safe-mode-runtime.test.ts \
-  tests/unit/safe-mode-boundary.test.ts \
-  tests/unit/task-queue-wal.test.ts \
-  tests/unit/approval-repository.test.ts \
-  tests/integration/gateway.e2e.test.ts
+  tests/unit/task-queue-service.test.ts \
+  tests/unit/dual-approval-repository.test.ts \
+  tests/unit/trust-root.test.ts \
+  tests/integration/chat-queue-overload.e2e.test.ts \
+  tests/integration/ops-status.e2e.test.ts \
+  tests/integration/ops-health-color.e2e.test.ts
 
-npm run -s test:ts -- tests/unit/cli.ask-doctor.test.ts
 npm run -s typecheck
 ```
 
-## Not yet wired end-to-end
+## Git status summary for this slice
 
-1. `TaskQueueWal` is not yet connected to a live API task ingestion path.
-2. Backpressure policy (`max_pending_tasks`) not integrated yet.
-3. Queue mode ACK semantics (`financial|standard`) not integrated in request path.
-4. Full dual-approval state machine (`PendingFreeze/PendingUnfreeze`) not yet implemented.
-5. Alert emitter is a primitive; pager transport wiring is still pending.
+Primary changed files:
+- `src/app/bootstrap.ts`
+- `src/app/container.ts`
+- `src/core/errors.ts`
+- `src/gateway/server.ts`
+- `src/infra/config/request-schemas.ts`
+- `src/infra/config/schema.ts`
+- `src/infra/http/auth-policy.ts`
+- `src/infra/http/routes/chat.ts`
+- `src/infra/http/server.ts`
+- `src/infra/storage/sqlite/client.ts`
+- `src/infra/storage/task-queue-service.ts` (new)
+- `src/infra/storage/sqlite/repositories/dual-approval-repository.ts` (new)
+- `src/infra/runtime/trust-root.ts` (new)
+- `tests/integration/chat-queue-overload.e2e.test.ts` (new)
+- `tests/unit/task-queue-service.test.ts` (new)
+- `tests/unit/dual-approval-repository.test.ts` (new)
+- `tests/unit/trust-root.test.ts` (new)
+- `WHAT_IS_LEFT_TO_DO.md`
 
-## Next suggested implementation slice
+## Remaining work (next slice)
 
-1. Add API-backed disk queue service using `TaskQueueWal`.
-2. Enforce `max_pending_tasks` fail-fast behavior (429/Overload).
-3. Implement ACK semantics:
-   - `financial`: ack only after `fdatasync`
-   - `standard`: batched flush
-4. Expose queue status in `/v1/ops/status`.
-5. Add integration tests for queue overload + crash/restart replay.
+1. Add signed-admin receipt verification in dual-approval endpoints (validate signature payload).
+2. Emit immutable chain blocks for dual-approval transitions with correlation IDs.
+3. Add restart-resume worker flow for pending queue tasks (not only replayed status).
+4. Add Prometheus counters for queue overload and dual-approval transitions.
+5. Add Safe Mode runbook docs + systemd mapping (`RestartPreventExitStatus=102,103`).

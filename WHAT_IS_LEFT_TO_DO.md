@@ -83,7 +83,24 @@ Updated: 2026-03-12
 - [ ] Add replay protection for `/api/model-d/proposals` (proposal dedupe window and idempotency key).
 - [ ] Add CI check that validates signed-block append path end-to-end with `RUST_CHAIN_REQUIRE_SIGNATURES=true`.
 - [ ] Add metrics for Model D endpoint (`approve/reject/abstain` counts and response latency) to `/metrics`.
-- [ ] Wire `TaskQueueWal` into an actual API/task ingestion path with backpressure (`max_pending_tasks`) and queue-mode (`financial|standard`) ACK semantics.
-- [ ] Build dual-approval state machine persistence (`PendingFreeze`/`PendingUnfreeze`) with CAS/transaction boundaries and event emission.
+- [x] Wire `TaskQueueWal` into an actual API/task ingestion path with backpressure (`max_pending_tasks`) and queue-mode (`financial|standard`) ACK semantics.
+  - Added `TaskQueueService` with WAL replay + overload fail-fast.
+  - Wired `/v1/chat/generate` queue-first persistence and finish records.
+  - Added queue status to `/v1/ops/status` and gateway `/ops/status`.
+  - Added tests: `tests/unit/task-queue-service.test.ts`, `tests/integration/chat-queue-overload.e2e.test.ts`.
+- [x] Build dual-approval state machine persistence (`PendingFreeze`/`PendingUnfreeze`) with CAS/transaction boundaries and event emission.
+  - Added SQLite tables `dual_approval_requests` and `dual_approval_events`.
+  - Added `SqliteDualApprovalRepository` with create/approve/cancel/expire and CAS checks.
+  - Added admin endpoints under `/v1/admin/dual-approval/*`.
+  - Added tests: `tests/unit/dual-approval-repository.test.ts`.
 - [ ] Add safe-mode runbook docs + systemd exit code mapping (`RestartPreventExitStatus=102,103`).
-- [ ] Add trust-root validation module + downgrade rejection tests (`new_version > current_version`).
+- [x] Add trust-root validation module + downgrade rejection tests (`new_version > current_version`).
+  - Added `src/infra/runtime/trust-root.ts` and tests in `tests/unit/trust-root.test.ts`.
+
+## Next Task List (Now)
+
+- [ ] Add signed admin-action receipts to dual-approval endpoints (verify signature payload, not just store it).
+- [ ] Emit immutable chain blocks for dual-approval transitions (`pending/approved/expired/canceled`) with correlation IDs.
+- [ ] Add durable task queue worker semantics (recover-and-resume pending entries after restart, not only status replay).
+- [ ] Expose queue backpressure counters and dual-approval transition counters in `/metrics` (Prometheus).
+- [ ] Add Safe Mode runbook docs + systemd mapping (`RestartPreventExitStatus=102,103`).

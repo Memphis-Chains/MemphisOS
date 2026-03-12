@@ -16,6 +16,10 @@ export const apiAuthPolicy: EndpointAuthPolicy[] = [
   { method: 'POST', path: '/v1/vault/encrypt', requiresAuth: true },
   { method: 'POST', path: '/v1/vault/decrypt', requiresAuth: true },
   { method: 'GET', path: '/v1/vault/entries', requiresAuth: true },
+  { method: 'POST', path: '/v1/admin/dual-approval/request', requiresAuth: true },
+  { method: 'POST', path: '/v1/admin/dual-approval/approve', requiresAuth: true },
+  { method: 'POST', path: '/v1/admin/dual-approval/cancel', requiresAuth: true },
+  { method: 'GET', path: '/v1/admin/dual-approval/:requestId', requiresAuth: true },
 ];
 
 export function isAuthRequired(method: string, path: string): boolean {

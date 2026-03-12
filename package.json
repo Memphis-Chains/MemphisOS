@@ -129,11 +129,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Memphis-Chains/memphis.git"
+    "url": "git+https://github.com/elathoxu-crypto/MemphisOS.git"
   },
-  "homepage": "https://github.com/Memphis-Chains/memphis#readme",
+  "homepage": "https://github.com/elathoxu-crypto/MemphisOS#readme",
   "bugs": {
-    "url": "https://github.com/Memphis-Chains/memphis/issues"
+    "url": "https://github.com/elathoxu-crypto/MemphisOS/issues"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

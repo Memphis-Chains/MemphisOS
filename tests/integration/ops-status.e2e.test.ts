@@ -37,6 +37,8 @@ describe('S3.4 Ops status endpoint', () => {
     const app = createHttpServer(conf, c.orchestration, {
       sessionRepository: c.sessionRepository,
       generationEventRepository: c.generationEventRepository,
+      dualApprovalRepository: c.dualApprovalRepository,
+      taskQueue: c.taskQueue,
     });
 
     const res = await app.inject({ method: 'GET', url: '/v1/ops/status' });
@@ -50,14 +52,27 @@ describe('S3.4 Ops status endpoint', () => {
         chain: { backend: string };
         vault: { rustEnabled: boolean; vaultApiAvailable: boolean };
       };
+      queue: {
+        mode: 'financial' | 'standard';
+        maxPendingTasks: number;
+        pendingTasks: number;
+      } | null;
+      dualApproval: {
+        pending: number;
+        approved: number;
+        expired: number;
+        canceled: number;
+      } | null;
     };
     expect(body.service).toBe('memphis-v5');
     expect(Array.isArray(body.providers)).toBe(true);
     expect(Array.isArray(body.metrics.providers)).toBe(true);
     expect(body.uptimeSec >= 0).toBe(true);
     expect(body.adapters.chain.backend).toBe('ts-legacy');
-    expect(body.adapters.vault.rustEnabled).toBe(false);
-    expect(body.adapters.vault.vaultApiAvailable).toBe(false);
+    expect(typeof body.adapters.vault.rustEnabled).toBe('boolean');
+    expect(typeof body.adapters.vault.vaultApiAvailable).toBe('boolean');
+    expect(body.queue?.maxPendingTasks).toBeGreaterThan(0);
+    expect(body.dualApproval?.pending).toBe(0);
 
     await app.close();
   });

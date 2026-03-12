@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 import type {
   GenerationEventRepository,
@@ -7,6 +7,7 @@ import type {
 import { AppError } from '../../../core/errors.js';
 import type { OrchestrationService } from '../../../modules/orchestration/service.js';
 import { chatGenerateSchema } from '../../config/request-schemas.js';
+import type { TaskQueueService } from '../../storage/task-queue-service.js';
 import { generateResponseSchema } from '../contracts.js';
 
 type ChatRouteRequest = {
@@ -24,6 +25,7 @@ export async function registerChatRoutes(
   repos?: {
     sessionRepository: SessionRepository;
     generationEventRepository: GenerationEventRepository;
+    taskQueue?: TaskQueueService;
   },
 ) {
   app.post('/v1/chat/generate', async (request) => {
@@ -41,14 +43,44 @@ export async function registerChatRoutes(
       repos.sessionRepository.ensureSession(payload.sessionId);
     }
 
-    const result = await orchestration.generate({
-      input: payload.input,
-      provider: payload.provider,
-      model: payload.model,
-      sessionId: payload.sessionId,
-      options: payload.options,
-      strategy: payload.strategy,
+    const queueTicket = repos?.taskQueue?.enqueue({
+      type: 'chat.generate',
+      requestId: request.id,
+      metadata: {
+        provider: payload.provider ?? 'auto',
+        strategy: payload.strategy ?? 'default',
+        sessionId: payload.sessionId ?? null,
+        inputDigest: createHash('sha256').update(payload.input).digest('hex'),
+        inputBytes: Buffer.byteLength(payload.input, 'utf8'),
+      },
     });
+
+    let result: Awaited<ReturnType<OrchestrationService['generate']>>;
+    try {
+      result = await orchestration.generate({
+        input: payload.input,
+        provider: payload.provider,
+        model: payload.model,
+        sessionId: payload.sessionId,
+        options: payload.options,
+        strategy: payload.strategy,
+      });
+    } catch (error) {
+      if (queueTicket) {
+        repos?.taskQueue?.finish(queueTicket.taskId, 'failed', {
+          code: error instanceof AppError ? error.code : 'INTERNAL_ERROR',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+      throw error;
+    }
+
+    if (queueTicket) {
+      repos?.taskQueue?.finish(queueTicket.taskId, 'completed', {
+        providerUsed: result.providerUsed,
+        modelUsed: result.modelUsed ?? null,
+      });
+    }
 
     if (repos) {
       repos.generationEventRepository.create({

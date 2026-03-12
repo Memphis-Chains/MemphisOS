@@ -82,6 +82,8 @@ export async function bootstrap(): Promise<void> {
   const app = createHttpServer(config, container.orchestration, {
     sessionRepository: container.sessionRepository,
     generationEventRepository: container.generationEventRepository,
+    dualApprovalRepository: container.dualApprovalRepository,
+    taskQueue: container.taskQueue,
   });
 
   await app.listen({ host: config.HOST, port: config.PORT });

@@ -106,6 +106,7 @@ export class Gateway {
         uptimeSec,
         host: `${this.config.host}:${this.config.port}`,
         providers,
+        queue: container.taskQueue.snapshot(),
         metrics: metrics.snapshot(),
         health,
         system: {

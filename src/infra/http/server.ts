@@ -15,6 +15,9 @@ import type {
 import { AppError } from '../../core/errors.js';
 import type { OrchestrationService } from '../../modules/orchestration/service.js';
 import {
+  dualApprovalApproveSchema,
+  dualApprovalCancelSchema,
+  dualApprovalRequestSchema,
   modelDProposalSchema,
   vaultDecryptSchema,
   vaultEncryptSchema,
@@ -34,6 +37,8 @@ import {
   vaultEncrypt,
   vaultInit,
 } from '../storage/rust-vault-adapter.js';
+import type { SqliteDualApprovalRepository } from '../storage/sqlite/repositories/dual-approval-repository.js';
+import type { TaskQueueService } from '../storage/task-queue-service.js';
 import {
   listVaultEntries,
   saveVaultEntry,
@@ -62,6 +67,8 @@ export function createHttpServer(
   repos?: {
     sessionRepository: SessionRepository;
     generationEventRepository: GenerationEventRepository;
+    taskQueue?: TaskQueueService;
+    dualApprovalRepository?: SqliteDualApprovalRepository;
   },
 ) {
   const logger = createLogger(config.LOG_LEVEL, config.LOG_FORMAT);
@@ -191,6 +198,8 @@ export function createHttpServer(
     const health = computeHealthSummary({ providers, uptimeSec });
     const chainAdapter = getChainAdapterStatus(process.env);
     const vaultAdapter = getRustVaultAdapterStatus(process.env);
+    const queue = repos?.taskQueue?.snapshot() ?? null;
+    const dualApproval = repos?.dualApprovalRepository?.countByState() ?? null;
 
     return {
       service: 'memphis-v5',
@@ -204,6 +213,8 @@ export function createHttpServer(
         chain: chainAdapter,
         vault: vaultAdapter,
       },
+      queue,
+      dualApproval,
       timestamp: new Date().toISOString(),
     };
   });
@@ -347,6 +358,115 @@ export function createHttpServer(
       details: { count: withIntegrity.length },
     });
     return { ok: true, count: withIntegrity.length, entries: withIntegrity };
+  });
+
+  app.post<{ Body: unknown }>('/v1/admin/dual-approval/request', async (request, reply) => {
+    const repo = repos?.dualApprovalRepository;
+    if (!repo) {
+      return reply.status(503).send({ ok: false, error: 'dual approval repository unavailable' });
+    }
+
+    const parsed = dualApprovalRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError('VALIDATION_ERROR', 'Invalid dual approval request payload', 400, {
+        issues: parsed.error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
+      });
+    }
+
+    const record = repo.createRequest(parsed.data);
+    writeSecurityAudit({
+      action: 'dual_approval.request',
+      status: 'allowed',
+      ip: request.ip,
+      route: '/v1/admin/dual-approval/request',
+      details: {
+        requestId: record.requestId,
+        action: record.action,
+        state: record.state,
+      },
+    });
+
+    return { ok: true, request: record };
+  });
+
+  app.post<{ Body: unknown }>('/v1/admin/dual-approval/approve', async (request, reply) => {
+    const repo = repos?.dualApprovalRepository;
+    if (!repo) {
+      return reply.status(503).send({ ok: false, error: 'dual approval repository unavailable' });
+    }
+
+    const parsed = dualApprovalApproveSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError('VALIDATION_ERROR', 'Invalid dual approval approve payload', 400, {
+        issues: parsed.error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
+      });
+    }
+
+    const record = repo.approve(parsed.data);
+    writeSecurityAudit({
+      action: 'dual_approval.approve',
+      status: 'allowed',
+      ip: request.ip,
+      route: '/v1/admin/dual-approval/approve',
+      details: {
+        requestId: record.requestId,
+        action: record.action,
+        state: record.state,
+        stateVersion: record.stateVersion,
+      },
+    });
+
+    return { ok: true, request: record };
+  });
+
+  app.post<{ Body: unknown }>('/v1/admin/dual-approval/cancel', async (request, reply) => {
+    const repo = repos?.dualApprovalRepository;
+    if (!repo) {
+      return reply.status(503).send({ ok: false, error: 'dual approval repository unavailable' });
+    }
+
+    const parsed = dualApprovalCancelSchema.safeParse(request.body);
+    if (!parsed.success) {
+      throw new AppError('VALIDATION_ERROR', 'Invalid dual approval cancel payload', 400, {
+        issues: parsed.error.issues.map((i) => ({ path: i.path.map(String), message: i.message })),
+      });
+    }
+
+    const record = repo.cancel(parsed.data);
+    writeSecurityAudit({
+      action: 'dual_approval.cancel',
+      status: 'allowed',
+      ip: request.ip,
+      route: '/v1/admin/dual-approval/cancel',
+      details: {
+        requestId: record.requestId,
+        action: record.action,
+        state: record.state,
+        stateVersion: record.stateVersion,
+      },
+    });
+
+    return { ok: true, request: record };
+  });
+
+  app.get<{ Params: { requestId: string } }>('/v1/admin/dual-approval/:requestId', async (request) => {
+    const repo = repos?.dualApprovalRepository;
+    if (!repo) {
+      throw new AppError('INTERNAL_ERROR', 'dual approval repository unavailable', 503);
+    }
+
+    const record = repo.get(request.params.requestId);
+    if (!record) {
+      throw new AppError('VALIDATION_ERROR', 'dual approval request not found', 404, {
+        requestId: request.params.requestId,
+      });
+    }
+
+    return {
+      ok: true,
+      request: record,
+      events: repo.listEvents(record.requestId),
+    };
   });
 
   app.get('/v1/sessions', async () => {

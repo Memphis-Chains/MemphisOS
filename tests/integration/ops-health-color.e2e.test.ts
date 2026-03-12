@@ -38,6 +38,8 @@ describe('S4.4 ops health color', () => {
     const app = createHttpServer(conf, c.orchestration, {
       sessionRepository: c.sessionRepository,
       generationEventRepository: c.generationEventRepository,
+      dualApprovalRepository: c.dualApprovalRepository,
+      taskQueue: c.taskQueue,
     });
 
     const res = await app.inject({
