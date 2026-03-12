@@ -66,28 +66,53 @@ describe('HTTP e2e', () => {
   });
 
   it('serves health and providers health', async () => {
-    const config = makeConfig();
-    const container = createAppContainer(config);
-    const app = createHttpServer(config, container.orchestration, {
-      sessionRepository: container.sessionRepository,
-      generationEventRepository: container.generationEventRepository,
-    });
+    const prevRustEnabled = process.env.RUST_CHAIN_ENABLED;
+    const prevBridgePath = process.env.RUST_CHAIN_BRIDGE_PATH;
+    const prevDataDir = process.env.MEMPHIS_DATA_DIR;
+    process.env.RUST_CHAIN_ENABLED = 'false';
+    delete process.env.RUST_CHAIN_BRIDGE_PATH;
+    process.env.MEMPHIS_DATA_DIR = mkdtempSync(join(tmpdir(), 'memphis-v5-health-data-'));
 
-    const health = await app.inject({ method: 'GET', url: '/health' });
-    expect(health.statusCode).toBe(200);
-    const healthBody = health.json();
-    expect(healthBody.status).toBe('healthy');
-    expect(healthBody.checks.database.status).toBe('ok');
-    expect(healthBody.checks.data_dir.status).toBe('ok');
-    expect(healthBody.checks.rust_bridge.status).toBe('ok');
-    expect(typeof healthBody.uptime_seconds).toBe('number');
+    try {
+      const config = makeConfig();
+      const container = createAppContainer(config);
+      const app = createHttpServer(config, container.orchestration, {
+        sessionRepository: container.sessionRepository,
+        generationEventRepository: container.generationEventRepository,
+      });
 
-    const providers = await app.inject({ method: 'GET', url: '/v1/providers/health' });
-    expect(providers.statusCode).toBe(200);
-    const body = providers.json();
-    expect(body.defaultProvider).toBe('local-fallback');
+      const health = await app.inject({ method: 'GET', url: '/health' });
+      expect(health.statusCode).toBe(200);
+      const healthBody = health.json();
+      expect(healthBody.status).toBe('healthy');
+      expect(healthBody.checks.database.status).toBe('ok');
+      expect(healthBody.checks.data_dir.status).toBe('ok');
+      expect(healthBody.checks.rust_bridge.status).toBe('ok');
+      expect(typeof healthBody.uptime_seconds).toBe('number');
 
-    await app.close();
+      const providers = await app.inject({ method: 'GET', url: '/v1/providers/health' });
+      expect(providers.statusCode).toBe(200);
+      const body = providers.json();
+      expect(body.defaultProvider).toBe('local-fallback');
+
+      await app.close();
+    } finally {
+      if (prevRustEnabled === undefined) {
+        delete process.env.RUST_CHAIN_ENABLED;
+      } else {
+        process.env.RUST_CHAIN_ENABLED = prevRustEnabled;
+      }
+      if (prevBridgePath === undefined) {
+        delete process.env.RUST_CHAIN_BRIDGE_PATH;
+      } else {
+        process.env.RUST_CHAIN_BRIDGE_PATH = prevBridgePath;
+      }
+      if (prevDataDir === undefined) {
+        delete process.env.MEMPHIS_DATA_DIR;
+      } else {
+        process.env.MEMPHIS_DATA_DIR = prevDataDir;
+      }
+    }
   });
 
   it('returns 503 when database is inaccessible', async () => {
