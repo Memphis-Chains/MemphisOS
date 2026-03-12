@@ -331,6 +331,7 @@ describe('incident bundle exporter', () => {
       expect(result.status).toBe(0);
       const emitted = JSON.parse(result.stdout) as {
         ok: boolean;
+        policy?: { queueMode?: string; requireEncryptedArtifacts?: boolean };
         encryption?: {
           enabled: boolean;
           source?: string;
@@ -339,6 +340,7 @@ describe('incident bundle exporter', () => {
         };
       };
       expect(emitted.ok).toBe(true);
+      expect(emitted.policy?.requireEncryptedArtifacts).toBe(false);
       expect(emitted.encryption?.enabled).toBe(true);
       expect(emitted.encryption?.source).toBe('arg');
       expect(emitted.encryption?.encryptedBundle?.path).toBe(bundleEncryptedPath);
@@ -372,6 +374,34 @@ describe('incident bundle exporter', () => {
     expect(encryptedBundleBlob.kdf?.name).toBe('scrypt');
     expect(typeof encryptedBundleBlob.ciphertext).toBe('string');
     expect(encryptedBundleBlob.ciphertext).not.toContain('trustRoot');
+  });
+
+  it('enforces encrypted artifact policy when requireEncryptedArtifacts=true', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-policy-encryption-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'incident-bundle.json');
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter(
+        [
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          outPath,
+        ],
+        {
+          MEMPHIS_QUEUE_MODE: 'financial',
+          MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS: 'true',
+        },
+      );
+      expect(result.status).toBe(1);
+      const parsed = JSON.parse(result.stderr) as { ok: boolean; error: string };
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error).toContain('encrypted artifacts are required by policy');
+    });
   });
 
   it('supports env-injected signing key PEM and records key-id metadata', async () => {
