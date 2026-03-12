@@ -81,11 +81,15 @@ These are available through the NAPI bridge and TS adapter (`NapiChainAdapter`).
 ## Branch Protection Ops
 
 ```bash
-# Apply protection
+# Apply protection (team profile: requires 1 approval)
 GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s ops:protect-main
 
 # Verify protection
 GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s ops:verify-main-protection
+
+# Solo operator profile (0 required approvals, quality-gate still required)
+MEMPHIS_BRANCH_PROTECTION_PROFILE=solo \
+GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s ops:protect-main
 ```
 
 ## Security Notes
