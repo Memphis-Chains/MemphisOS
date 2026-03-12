@@ -133,6 +133,8 @@ Updated: 2026-03-12
   - safe-mode denial precedence is asserted over revocation fail-closed for high-risk routes.
 - Added startup status consistency coverage:
   - startup status payload assertions now cover guard-state transitions (safe-mode network + revocation cache stale/fresh).
+- Hardened startup status contract coverage:
+  - `/v1/ops/status` integration assertions now validate `checkedAt` ISO shape and monotonic progression across guard-state updates.
 - Added operator runbook for branch-protection profile switching:
   - `docs/runbooks/BRANCH_PROTECTION_PROFILE_SWITCH.md`
   - includes apply/verify/rollback workflow for `team|solo`.
@@ -142,6 +144,10 @@ Updated: 2026-03-12
   - script: `npm run -s ops:drill-guards`
   - test coverage: `tests/ops/guard-failure-drill.test.ts`
   - runbook: `docs/runbooks/GUARD_FAILURE_DRILL.md`.
+- Added CI guard drill smoke step:
+  - `quality-gate` now executes `npm run ops:drill-guards` before TS tests.
+- Added startup guard incident triage runbook:
+  - `docs/runbooks/STARTUP_GUARD_TRIAGE.md` maps startup status fields to remediation actions.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -152,6 +158,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add `/v1/ops/status` integration assertions for startup `trustRoot`/`revocationCache`/`safeModeNetwork` timestamp monotonicity and shape contract hardening.
-2. Add a lightweight CI smoke step for `npm run -s ops:drill-guards` in `quality-gate`.
-3. Add operator runbook for startup guard incident triage that maps status payload fields to remediation actions.
+1. Add guard-drill output mode `--json` for machine-ingestable ops pipelines and alert hooks.
+2. Add CI assertion that startup drill output contains both scenario IDs (`trust-root-invalid-strict`, `revocation-stale`) to catch silent script regressions.
+3. Add runbook section for combined failure scenarios (`safe-mode degraded` + `revocation stale`) with escalation thresholds.
