@@ -244,6 +244,9 @@ Updated: 2026-03-12
   - broadcast summaries capture attempted/delivered/failed counts without breaking proposal flow.
 - Added sprint closure documentation template:
   - `docs/templates/SPRINT_CLOSURE_NOTE.md` records PRs, CI evidence, artifacts, checksums, and rollback notes.
+- Expanded CLI help/completion coverage for insights save path:
+  - system help now documents `insights [--weekly] [--input|--query] [--save]`.
+  - bash/fish completion now suggest `--weekly`, `--input`, `--query`, and `--save` for `insights`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -257,5 +260,5 @@ Updated: 2026-03-12
 1. Adopt `docs/templates/SPRINT_CLOSURE_NOTE.md` for the current sprint and commit the filled note.
 2. Implement Telegram delivery path in `src/cognitive/proactive-assistant.ts` behind explicit opt-in env flags.
 3. Add integration coverage for Model D broadcast transport under enabled/disabled runtime modes.
-4. Expand CLI completion/help hints to cover `insights --save` and `insight --period` paths consistently.
+4. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
 5. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
