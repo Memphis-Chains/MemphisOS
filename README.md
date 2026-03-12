@@ -114,11 +114,26 @@ npm run -s ops:export-incident-bundle -- \
   --manifest-out data/incident-bundle.manifest.json \
   --signing-key-path /secure/path/incident-signing-key.pem \
   --signing-key-id incident-key-v1
+npm run -s ops:export-incident-bundle -- \
+  --profile financial-strict \
+  --out data/incident-bundle.json \
+  --encryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE"
+npm run -s ops:export-incident-bundle -- \
+  --profile forensics-lite \
+  --out data/incident-bundle.json
 npm run -s ops:verify-incident-manifest -- \
   --manifest-path data/incident-bundle.manifest.json \
   --public-key-path /secure/path/incident-signing-public.pem \
   --expected-key-id incident-key-v1 \
   --require-signature
+npm run -s ops:verify-incident-manifest -- \
+  --profile trust-root-strict \
+  --manifest-path data/incident-bundle.manifest.json \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --expected-key-id incident-key-v1
+npm run -s ops:verify-incident-manifest -- \
+  --profile legacy-compat \
+  --manifest-path data/incident-bundle.manifest.json
 npm run -s ops:verify-incident-manifest -- \
   --manifest-path data/incident-bundle.manifest.json.enc \
   --decryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE" \
@@ -145,6 +160,9 @@ npm run -s ops:rotate-key-bundle -- \
 - encrypted-at-rest companion artifacts: `--encryption-passphrase`, `--encryption-passphrase-base64`, `--encryption-passphrase-file` (or matching env vars)
 - optional encrypted output overrides: `--encrypted-bundle-out`, `--encrypted-manifest-out`
 - policy gate: `--require-encrypted-artifacts` or `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true` (recommended for financial mode)
+- profiles: `--profile financial-strict|forensics-lite` (or `MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
+  - `financial-strict`: requires encrypted artifacts + writes manifest by default + higher audit/retention defaults
+  - `forensics-lite`: writes manifest by default with lighter defaults, encryption optional
 
 `ops:verify-incident-manifest` checks:
 
@@ -156,6 +174,9 @@ npm run -s ops:rotate-key-bundle -- \
 - optional detached-bundle provenance enforcement via `--require-key-bundle-signature --trust-root-path <trust_root.json>`
 - verification results are linked to immutable `system` chain events (`incident_manifest.verification`); use `--skip-chain-event` only for read-only dry runs
 - chain-link reliability controls: `--chain-event-retry-count`, `--chain-event-retry-backoff-ms`, and `MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false`
+- profiles: `--profile trust-root-strict|legacy-compat` (or `MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE`)
+  - `trust-root-strict`: enables signature + detached key-bundle provenance enforcement (strict handoff mode)
+  - `legacy-compat`: disables strict signature/provenance and treats chain-link failures as non-fatal
 
 `ops:rotate-key-bundle` does:
 
@@ -163,6 +184,22 @@ npm run -s ops:rotate-key-bundle -- \
 - appends the new public key to the detached bundle
 - signs bundle provenance with the active trust root signer (fails closed if signer root is not trusted)
 - emits machine-readable output with new key paths and signer metadata
+
+## Package And Release
+
+```bash
+npm run -s lint
+npm run -s typecheck
+npm run -s test:ops-artifacts
+npm run -s test:ts
+npm run -s test:chaos
+npm run -s test:rust
+npm pack --dry-run
+npm pack
+```
+
+Then create/push a git tag and publish release notes on GitHub using the runbook:
+`docs/runbooks/RELEASE.md`.
 
 ## Security Notes
 

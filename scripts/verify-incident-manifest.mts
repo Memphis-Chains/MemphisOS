@@ -70,6 +70,15 @@ interface VerifyOutput {
   ok: boolean;
   manifestPath: string;
   bundlePath: string;
+  policy: {
+    profile: VerifyProfileName | null;
+    requireSignature: boolean;
+    requireSignedKeyBundle: boolean;
+    skipChainEvent: boolean;
+    requireChainEvent: boolean;
+    chainEventRetries: number;
+    chainEventBackoffMs: number;
+  };
   checks: {
     schemaValid: boolean;
     manifestEncrypted: boolean;
@@ -95,6 +104,16 @@ interface VerifyOutput {
     hash?: string;
     error?: string;
   };
+}
+
+type VerifyProfileName = 'trust-root-strict' | 'legacy-compat';
+
+interface VerifyProfileDefaults {
+  requireSignature: boolean;
+  requireSignedKeyBundle: boolean;
+  requireChainEvent: boolean;
+  chainEventRetries: number;
+  chainEventBackoffMs: number;
 }
 
 function parseArg(flag: string): string | null {
@@ -130,6 +149,48 @@ function parseIntArg(flag: string, fallback: number, envName?: string): number {
   return fallback;
 }
 
+function parseOptionalBool(raw: string | undefined): boolean | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  return parseBool(raw, false);
+}
+
+function resolveVerifyProfileName(): VerifyProfileName | null {
+  const raw = parseArg('--profile') ?? process.env.MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE ?? null;
+  if (!raw) return null;
+  if (raw === 'trust-root-strict' || raw === 'legacy-compat') return raw;
+  throw new Error(
+    `unsupported verify profile: ${raw}; expected one of trust-root-strict, legacy-compat`,
+  );
+}
+
+function resolveVerifyProfileDefaults(profile: VerifyProfileName | null): VerifyProfileDefaults {
+  if (profile === 'trust-root-strict') {
+    return {
+      requireSignature: true,
+      requireSignedKeyBundle: true,
+      requireChainEvent: true,
+      chainEventRetries: 2,
+      chainEventBackoffMs: 50,
+    };
+  }
+  if (profile === 'legacy-compat') {
+    return {
+      requireSignature: false,
+      requireSignedKeyBundle: false,
+      requireChainEvent: false,
+      chainEventRetries: 0,
+      chainEventBackoffMs: 0,
+    };
+  }
+  return {
+    requireSignature: false,
+    requireSignedKeyBundle: false,
+    requireChainEvent: true,
+    chainEventRetries: 2,
+    chainEventBackoffMs: 50,
+  };
+}
+
 function resolveDecryptionPassphrase(): string | null {
   const argRaw = parseArg('--decryption-passphrase');
   const argBase64 = parseArg('--decryption-passphrase-base64');
@@ -139,14 +200,9 @@ function resolveDecryptionPassphrase(): string | null {
   const envBase64 = process.env.MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE_BASE64 ?? null;
   const envFile = process.env.MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE_FILE ?? null;
 
-  const declared = [
-    argRaw,
-    argBase64,
-    argFile,
-    envRaw,
-    envBase64,
-    envFile,
-  ].filter((value) => typeof value === 'string' && value.trim().length > 0);
+  const declared = [argRaw, argBase64, argFile, envRaw, envBase64, envFile].filter(
+    (value) => typeof value === 'string' && value.trim().length > 0,
+  );
   if (declared.length === 0) return null;
   if (declared.length > 1) {
     throw new Error(
@@ -164,7 +220,10 @@ function resolveDecryptionPassphrase(): string | null {
 }
 
 function resolveManifestPath(): string {
-  const provided = parseArg('--manifest-path') ?? parseArg('--manifest') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_MANIFEST_PATH;
+  const provided =
+    parseArg('--manifest-path') ??
+    parseArg('--manifest') ??
+    process.env.MEMPHIS_INCIDENT_BUNDLE_MANIFEST_PATH;
   if (!provided) {
     throw new Error('missing required --manifest-path (or MEMPHIS_INCIDENT_BUNDLE_MANIFEST_PATH)');
   }
@@ -193,13 +252,21 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
   if (typeof bundleObj.sha256 !== 'string' || bundleObj.sha256.length === 0) {
     throw new Error('manifest bundle.sha256 must be a non-empty string');
   }
-  if (typeof bundleObj.bytes !== 'number' || !Number.isFinite(bundleObj.bytes) || bundleObj.bytes < 0) {
+  if (
+    typeof bundleObj.bytes !== 'number' ||
+    !Number.isFinite(bundleObj.bytes) ||
+    bundleObj.bytes < 0
+  ) {
     throw new Error('manifest bundle.bytes must be a non-negative number');
   }
 
   let encryptedArtifacts: IncidentBundleManifest['encryptedArtifacts'] | undefined = undefined;
   if (value.encryptedArtifacts !== undefined) {
-    if (!value.encryptedArtifacts || typeof value.encryptedArtifacts !== 'object' || Array.isArray(value.encryptedArtifacts)) {
+    if (
+      !value.encryptedArtifacts ||
+      typeof value.encryptedArtifacts !== 'object' ||
+      Array.isArray(value.encryptedArtifacts)
+    ) {
       throw new Error('manifest encryptedArtifacts must be an object when present');
     }
     const encrypted = value.encryptedArtifacts as { [k: string]: unknown };
@@ -215,7 +282,11 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
     if (encrypted.kdf !== 'scrypt') {
       throw new Error('manifest encryptedArtifacts.kdf must be scrypt');
     }
-    if (!encrypted.bundle || typeof encrypted.bundle !== 'object' || Array.isArray(encrypted.bundle)) {
+    if (
+      !encrypted.bundle ||
+      typeof encrypted.bundle !== 'object' ||
+      Array.isArray(encrypted.bundle)
+    ) {
       throw new Error('manifest encryptedArtifacts.bundle must be an object');
     }
     const encryptedBundle = encrypted.bundle as { [k: string]: unknown };
@@ -234,7 +305,11 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
     }
     let manifestEncryptedPath: string | undefined = undefined;
     if (encrypted.manifest !== undefined) {
-      if (!encrypted.manifest || typeof encrypted.manifest !== 'object' || Array.isArray(encrypted.manifest)) {
+      if (
+        !encrypted.manifest ||
+        typeof encrypted.manifest !== 'object' ||
+        Array.isArray(encrypted.manifest)
+      ) {
         throw new Error('manifest encryptedArtifacts.manifest must be an object when present');
       }
       const encryptedManifest = encrypted.manifest as { [k: string]: unknown };
@@ -274,7 +349,8 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
     throw new Error('manifest signature must be an object when present');
   }
   const signature = value.signature as { [k: string]: unknown };
-  if (signature.algorithm !== 'ed25519') throw new Error('manifest signature.algorithm must be ed25519');
+  if (signature.algorithm !== 'ed25519')
+    throw new Error('manifest signature.algorithm must be ed25519');
   if (typeof signature.value !== 'string' || signature.value.length === 0) {
     throw new Error('manifest signature.value must be a non-empty string');
   }
@@ -284,7 +360,10 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
   if (typeof signature.keyFingerprint !== 'string' || signature.keyFingerprint.length === 0) {
     throw new Error('manifest signature.keyFingerprint must be a non-empty string');
   }
-  if (signature.keyId !== undefined && (typeof signature.keyId !== 'string' || signature.keyId.length === 0)) {
+  if (
+    signature.keyId !== undefined &&
+    (typeof signature.keyId !== 'string' || signature.keyId.length === 0)
+  ) {
     throw new Error('manifest signature.keyId must be a non-empty string when present');
   }
 
@@ -330,14 +409,19 @@ function loadManifest(options: {
     if (isEncryptedBlobJson(parsed)) {
       options.checks.manifestEncrypted = true;
       if (!options.decryptionPassphrase) {
-        options.errors.push('manifest is encrypted; provide --decryption-passphrase or matching env var');
+        options.errors.push(
+          'manifest is encrypted; provide --decryption-passphrase or matching env var',
+        );
         return { manifest: null, manifestObject: {} };
       }
       const decryptedManifest = decryptBlob({
         blob: parseEncryptedBlob(rawBytes),
         passphrase: options.decryptionPassphrase,
       });
-      const manifestObject = JSON.parse(decryptedManifest.toString('utf8')) as Record<string, unknown>;
+      const manifestObject = JSON.parse(decryptedManifest.toString('utf8')) as Record<
+        string,
+        unknown
+      >;
       const manifest = parseManifestObject(manifestObject);
       options.checks.schemaValid = true;
       return { manifest, manifestObject };
@@ -367,9 +451,10 @@ function resolveBundleBytes(options: {
       ? options.manifest.encryptedArtifacts.bundle.path
       : resolve(dirname(options.manifestPath), options.manifest.encryptedArtifacts.bundle.path)
     : null;
-  const encryptedCandidates = [encryptedPathFromManifest, resolveEncryptedCompanionPath(plainPath)].filter(
-    (value): value is string => Boolean(value),
-  );
+  const encryptedCandidates = [
+    encryptedPathFromManifest,
+    resolveEncryptedCompanionPath(plainPath),
+  ].filter((value): value is string => Boolean(value));
   const orderedCandidates = options.preferEncrypted
     ? [...encryptedCandidates, plainPath]
     : [plainPath, ...encryptedCandidates];
@@ -431,7 +516,11 @@ function parsePublicKeyBundle(raw: string): PublicKeyBundle {
 
   let provenance: PublicKeyBundleProvenance | undefined = undefined;
   if (value.provenance !== undefined) {
-    if (!value.provenance || typeof value.provenance !== 'object' || Array.isArray(value.provenance)) {
+    if (
+      !value.provenance ||
+      typeof value.provenance !== 'object' ||
+      Array.isArray(value.provenance)
+    ) {
       throw new Error('public key bundle provenance must be an object when present');
     }
     const row = value.provenance as { [k: string]: unknown };
@@ -450,8 +539,13 @@ function parsePublicKeyBundle(raw: string): PublicKeyBundle {
     if (typeof row.signature !== 'string' || row.signature.length === 0) {
       throw new Error('public key bundle provenance.signature must be a non-empty string');
     }
-    if (row.signedAt !== undefined && (typeof row.signedAt !== 'string' || row.signedAt.length === 0)) {
-      throw new Error('public key bundle provenance.signedAt must be a non-empty string when present');
+    if (
+      row.signedAt !== undefined &&
+      (typeof row.signedAt !== 'string' || row.signedAt.length === 0)
+    ) {
+      throw new Error(
+        'public key bundle provenance.signedAt must be a non-empty string when present',
+      );
     }
     provenance = {
       algorithm: 'ed25519',
@@ -488,7 +582,9 @@ function parseTrustRootManifest(raw: string): TrustRootManifest {
   if (!Array.isArray(rootIdsRaw) || rootIdsRaw.length === 0) {
     throw new Error('trust root manifest rootIds must be a non-empty array');
   }
-  const rootIds = rootIdsRaw.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  const rootIds = rootIdsRaw.filter(
+    (item): item is string => typeof item === 'string' && item.length > 0,
+  );
   if (rootIds.length !== rootIdsRaw.length) {
     throw new Error('trust root manifest rootIds entries must be non-empty strings');
   }
@@ -538,7 +634,9 @@ function verifyKeyBundleProvenance(options: {
     const signerRootId = sha256Hex(provenance.signerPublicKeyPem);
     if (signerRootId !== provenance.signerRootId) {
       options.checks.keyBundleSignatureValid = false;
-      options.errors.push('public key bundle signerRootId does not match signerPublicKeyPem fingerprint');
+      options.errors.push(
+        'public key bundle signerRootId does not match signerPublicKeyPem fingerprint',
+      );
     }
 
     const trustRootPath = resolveTrustRootPath();
@@ -570,12 +668,16 @@ function resolvePublicKeyPem(options: {
 }): { publicKeyPem: string | null; source: 'path' | 'bundle' | 'none'; errors: string[] } {
   const errors: string[] = [];
   const directPathRaw =
-    parseArg('--public-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_VERIFY_PUBLIC_KEY_PATH ?? null;
+    parseArg('--public-key-path') ??
+    process.env.MEMPHIS_INCIDENT_BUNDLE_VERIFY_PUBLIC_KEY_PATH ??
+    null;
   if (directPathRaw) {
     if (options.requireSignedBundle) {
       options.checks.keyBundleSignatureValid = false;
       options.checks.keyBundleTrustRootMatch = false;
-      errors.push('require-key-bundle-signature requires --public-key-bundle-path (direct key path is unsupported)');
+      errors.push(
+        'require-key-bundle-signature requires --public-key-bundle-path (direct key path is unsupported)',
+      );
       return { publicKeyPem: null, source: 'none', errors };
     }
     const directPath = resolve(directPathRaw);
@@ -598,7 +700,9 @@ function resolvePublicKeyPem(options: {
     if (options.requireSignedBundle) {
       options.checks.keyBundleSignatureValid = false;
       options.checks.keyBundleTrustRootMatch = false;
-      errors.push('public key bundle signature is required but --public-key-bundle-path is missing');
+      errors.push(
+        'public key bundle signature is required but --public-key-bundle-path is missing',
+      );
     }
     return { publicKeyPem: null, source: 'none', errors };
   }
@@ -652,7 +756,8 @@ function verifySignature(options: {
       options.checks.keyIdMatch = false;
       options.errors.push('expected key id provided but manifest is unsigned');
     }
-    if (options.requireSignature) options.errors.push('signature is required but manifest is unsigned');
+    if (options.requireSignature)
+      options.errors.push('signature is required but manifest is unsigned');
     return;
   }
 
@@ -772,22 +877,28 @@ async function writeVerificationChainEvent(options: {
 
 async function main(): Promise<void> {
   const manifestPath = resolveManifestPath();
-  const requireSignature = hasFlag('--require-signature');
-  const requireSignedKeyBundle = hasFlag('--require-key-bundle-signature');
+  const profile = resolveVerifyProfileName();
+  const profileDefaults = resolveVerifyProfileDefaults(profile);
+  const requireSignature = hasFlag('--require-signature') || profileDefaults.requireSignature;
+  const requireSignedKeyBundle =
+    hasFlag('--require-key-bundle-signature') || profileDefaults.requireSignedKeyBundle;
   const decryptionPassphrase = resolveDecryptionPassphrase();
   const skipChainEvent = hasFlag('--skip-chain-event');
-  const requireChainEvent = parseBool(process.env.MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED, true);
+  const requireChainEvent =
+    parseOptionalBool(process.env.MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED) ??
+    profileDefaults.requireChainEvent;
   const chainEventRetries = parseIntArg(
     '--chain-event-retry-count',
-    2,
+    profileDefaults.chainEventRetries,
     'MEMPHIS_INCIDENT_CHAIN_EVENT_RETRY_COUNT',
   );
   const chainEventBackoffMs = parseIntArg(
     '--chain-event-retry-backoff-ms',
-    50,
+    profileDefaults.chainEventBackoffMs,
     'MEMPHIS_INCIDENT_CHAIN_EVENT_RETRY_BACKOFF_MS',
   );
-  const expectedKeyId = parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
+  const expectedKeyId =
+    parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
   const checks: VerifyOutput['checks'] = {
     schemaValid: false,
     manifestEncrypted: false,
@@ -871,13 +982,24 @@ async function main(): Promise<void> {
         backoffMs: chainEventBackoffMs,
       });
   if (!skipChainEvent && chainEvent && !chainEvent.written && requireChainEvent) {
-    errors.push(`failed to append incident verification chain event: ${chainEvent.error ?? 'unknown_error'}`);
+    errors.push(
+      `failed to append incident verification chain event: ${chainEvent.error ?? 'unknown_error'}`,
+    );
   }
 
   const result: VerifyOutput = {
     ok: errors.length === 0,
     manifestPath,
     bundlePath,
+    policy: {
+      profile,
+      requireSignature,
+      requireSignedKeyBundle,
+      skipChainEvent,
+      requireChainEvent,
+      chainEventRetries,
+      chainEventBackoffMs,
+    },
     checks,
     errors,
     chainEvent,

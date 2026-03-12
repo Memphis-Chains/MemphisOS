@@ -45,6 +45,21 @@ npm run -s ops:export-incident-bundle -- \
   --encryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE"
 ```
 
+Profile presets:
+
+```bash
+# Export profile: financial strict defaults
+npm run -s ops:export-incident-bundle -- \
+  --profile financial-strict \
+  --out data/incident-bundle.json \
+  --encryption-passphrase "$MEMPHIS_INCIDENT_TRANSFER_PASSPHRASE"
+
+# Export profile: forensics-lite defaults (encryption optional)
+npm run -s ops:export-incident-bundle -- \
+  --profile forensics-lite \
+  --out data/incident-bundle.json
+```
+
 ## 3. Verify Evidence Integrity
 
 ```bash
@@ -88,6 +103,22 @@ npm run -s ops:verify-incident-manifest -- \
   --expected-key-id incident-key-v1 \
   --require-signature \
   --require-key-bundle-signature
+```
+
+Verify profile presets:
+
+```bash
+# Strict trust-root handoff mode
+npm run -s ops:verify-incident-manifest -- \
+  --profile trust-root-strict \
+  --manifest-path data/incident-bundle.manifest.json \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --expected-key-id incident-key-v2
+
+# Legacy compatibility mode (no strict signature/provenance enforcement)
+npm run -s ops:verify-incident-manifest -- \
+  --profile legacy-compat \
+  --manifest-path data/incident-bundle.manifest.json
 ```
 
 Strict chain-link mode with retry/backoff:

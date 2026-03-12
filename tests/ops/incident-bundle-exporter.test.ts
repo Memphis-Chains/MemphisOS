@@ -1,6 +1,14 @@
 import { spawn } from 'node:child_process';
 import { createHash, generateKeyPairSync, verify } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -131,40 +139,45 @@ describe('incident bundle exporter', () => {
           '--audit-lines',
           '10',
         ]);
-      expect(result.status).toBe(0);
-      const emitted = JSON.parse(result.stdout) as { ok: boolean; output: string };
-      expect(emitted.ok).toBe(true);
-      expect(emitted.output).toBe(outPath);
+        expect(result.status).toBe(0);
+        const emitted = JSON.parse(result.stdout) as { ok: boolean; output: string };
+        expect(emitted.ok).toBe(true);
+        expect(emitted.output).toBe(outPath);
 
-      const bundle = JSON.parse(readFileSync(outPath, 'utf8')) as {
-        schemaVersion: number;
-        status: {
-          ok: boolean;
-          payload?: {
-            startup?: { trustRoot?: { valid?: boolean } };
-            auth?: { apiKey?: string; authorization?: string; publicNote?: string };
+        const bundle = JSON.parse(readFileSync(outPath, 'utf8')) as {
+          schemaVersion: number;
+          status: {
+            ok: boolean;
+            payload?: {
+              startup?: { trustRoot?: { valid?: boolean } };
+              auth?: { apiKey?: string; authorization?: string; publicNote?: string };
+            };
+          };
+          securityAudit: {
+            tailLines: Array<{ action?: string; authorization?: string; openai_api_key?: string }>;
+          };
+          drill: {
+            ok: boolean;
+            result?: { schemaVersion?: number; scenarios?: Array<{ name?: string }> };
           };
         };
-        securityAudit: { tailLines: Array<{ action?: string; authorization?: string; openai_api_key?: string }> };
-        drill: { ok: boolean; result?: { schemaVersion?: number; scenarios?: Array<{ name?: string }> } };
-      };
 
-      expect(bundle.schemaVersion).toBe(1);
-      expect(bundle.status.ok).toBe(true);
-      expect(bundle.status.payload?.startup?.trustRoot?.valid).toBe(true);
-      expect(bundle.status.payload?.auth?.apiKey).toBe('[REDACTED]');
-      expect(bundle.status.payload?.auth?.authorization).toBe('[REDACTED]');
-      expect(bundle.status.payload?.auth?.publicNote).toBe('operator-visible');
-      expect(bundle.securityAudit.tailLines.length).toBe(2);
-      expect(bundle.securityAudit.tailLines[1]?.action).toBe('a2');
-      expect(bundle.securityAudit.tailLines[0]?.authorization).toBe('[REDACTED]');
-      expect(bundle.securityAudit.tailLines[1]?.openai_api_key).toBe('[REDACTED]');
-      expect(bundle.drill.ok).toBe(true);
-      expect(bundle.drill.result?.schemaVersion).toBe(1);
-      expect(bundle.drill.result?.scenarios?.map((s) => s.name).sort()).toEqual([
-        'revocation-stale',
-        'trust-root-invalid-strict',
-      ]);
+        expect(bundle.schemaVersion).toBe(1);
+        expect(bundle.status.ok).toBe(true);
+        expect(bundle.status.payload?.startup?.trustRoot?.valid).toBe(true);
+        expect(bundle.status.payload?.auth?.apiKey).toBe('[REDACTED]');
+        expect(bundle.status.payload?.auth?.authorization).toBe('[REDACTED]');
+        expect(bundle.status.payload?.auth?.publicNote).toBe('operator-visible');
+        expect(bundle.securityAudit.tailLines.length).toBe(2);
+        expect(bundle.securityAudit.tailLines[1]?.action).toBe('a2');
+        expect(bundle.securityAudit.tailLines[0]?.authorization).toBe('[REDACTED]');
+        expect(bundle.securityAudit.tailLines[1]?.openai_api_key).toBe('[REDACTED]');
+        expect(bundle.drill.ok).toBe(true);
+        expect(bundle.drill.result?.schemaVersion).toBe(1);
+        expect(bundle.drill.result?.scenarios?.map((s) => s.name).sort()).toEqual([
+          'revocation-stale',
+          'trust-root-invalid-strict',
+        ]);
       },
     );
   });
@@ -183,9 +196,21 @@ describe('incident bundle exporter', () => {
     writeFileSync(oldA.replace('.json', '.manifest.json'), '{"schemaVersion":1}', 'utf8');
     writeFileSync(oldB.replace('.json', '.manifest.json'), '{"schemaVersion":1}', 'utf8');
     writeFileSync(oldC.replace('.json', '.manifest.json'), '{"schemaVersion":1}', 'utf8');
-    writeFileSync(`${oldA}.enc`, '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}', 'utf8');
-    writeFileSync(`${oldB}.enc`, '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}', 'utf8');
-    writeFileSync(`${oldC}.enc`, '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}', 'utf8');
+    writeFileSync(
+      `${oldA}.enc`,
+      '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}',
+      'utf8',
+    );
+    writeFileSync(
+      `${oldB}.enc`,
+      '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}',
+      'utf8',
+    );
+    writeFileSync(
+      `${oldC}.enc`,
+      '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}',
+      'utf8',
+    );
     writeFileSync(
       `${oldA.replace('.json', '.manifest.json')}.enc`,
       '{"schemaVersion":1,"format":"memphis.encrypted-blob.v1"}',
@@ -228,7 +253,12 @@ describe('incident bundle exporter', () => {
     });
 
     const remainingBundles = readdirSync(dir)
-      .filter((name) => name.startsWith('incident-bundle-') && name.endsWith('.json') && !name.endsWith('.manifest.json'))
+      .filter(
+        (name) =>
+          name.startsWith('incident-bundle-') &&
+          name.endsWith('.json') &&
+          !name.endsWith('.manifest.json'),
+      )
       .sort();
     expect(remainingBundles).toEqual([
       'incident-bundle-2026-01-03T00-00-00-000Z.json',
@@ -302,7 +332,9 @@ describe('incident bundle exporter', () => {
     const signatureBytes = Buffer.from(signatureValue, 'base64');
     const verified = verify(null, Buffer.from(payload, 'utf8'), pair.publicKey, signatureBytes);
     expect(verified).toBe(true);
-    expect(manifest.signature?.payloadSha256).toBe(createHash('sha256').update(payload).digest('hex'));
+    expect(manifest.signature?.payloadSha256).toBe(
+      createHash('sha256').update(payload).digest('hex'),
+    );
   });
 
   it('can emit encrypted bundle + manifest companions for off-host transfer', async () => {
@@ -384,14 +416,7 @@ describe('incident bundle exporter', () => {
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
       const result = await runIncidentBundleExporter(
-        [
-          '--status-url',
-          statusUrl,
-          '--audit-path',
-          auditPath,
-          '--out',
-          outPath,
-        ],
+        ['--status-url', statusUrl, '--audit-path', auditPath, '--out', outPath],
         {
           MEMPHIS_QUEUE_MODE: 'financial',
           MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS: 'true',
@@ -460,5 +485,87 @@ describe('incident bundle exporter', () => {
     const signatureBytes = Buffer.from(signatureValue, 'base64');
     const verified = verify(null, Buffer.from(payload, 'utf8'), pair.publicKey, signatureBytes);
     expect(verified).toBe(true);
+  });
+
+  it('supports financial-strict export profile and fails closed without encryption passphrase', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-profile-financial-strict-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'incident-bundle.json');
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter([
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        outPath,
+        '--profile',
+        'financial-strict',
+      ]);
+      expect(result.status).toBe(1);
+      const parsed = JSON.parse(result.stderr) as { ok: boolean; error: string };
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error).toContain('encrypted artifacts are required by policy');
+    });
+  });
+
+  it('supports forensics-lite export profile with automatic manifest output', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-profile-forensics-lite-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'incident-bundle.json');
+    const inferredManifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter([
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        outPath,
+        '--profile',
+        'forensics-lite',
+      ]);
+      expect(result.status).toBe(0);
+      const emitted = JSON.parse(result.stdout) as {
+        ok: boolean;
+        manifest: string | null;
+        policy?: { profile?: string | null; manifestRequested?: boolean };
+      };
+      expect(emitted.ok).toBe(true);
+      expect(emitted.manifest).toBe(inferredManifestPath);
+      expect(emitted.policy?.profile).toBe('forensics-lite');
+      expect(emitted.policy?.manifestRequested).toBe(true);
+    });
+
+    expect(existsSync(outPath)).toBe(true);
+    expect(existsSync(inferredManifestPath)).toBe(true);
+  });
+
+  it('fails on unsupported export profile names', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-profile-invalid-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'incident-bundle.json');
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter([
+        '--status-url',
+        statusUrl,
+        '--audit-path',
+        auditPath,
+        '--out',
+        outPath,
+        '--profile',
+        'invalid-profile',
+      ]);
+      expect(result.status).toBe(1);
+      const parsed = JSON.parse(result.stderr) as { ok: boolean; error: string };
+      expect(parsed.ok).toBe(false);
+      expect(parsed.error).toContain('unsupported export profile');
+    });
   });
 });
