@@ -247,6 +247,13 @@ Updated: 2026-03-12
 - Expanded CLI help/completion coverage for insights save path:
   - system help now documents `insights [--weekly] [--input|--query] [--save]`.
   - bash/fish completion now suggest `--weekly`, `--input`, `--query`, and `--save` for `insights`.
+- Added proactive-assistant Telegram delivery path behind explicit opt-in controls:
+  - requires `MEMPHIS_PROACTIVE_TELEGRAM_ENABLED=true` plus token/chat credentials.
+  - delivery remains fail-safe when disabled, unconfigured, or transport errors occur.
+  - unit coverage validates disabled-by-default and enabled delivery paths.
+- Added integration coverage for Model D coordinator broadcast behavior:
+  - broadcast-enabled mode now has non-blocking failure-path assertions.
+  - partial delivery failures are recorded without interrupting proposal creation.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -258,7 +265,7 @@ Updated: 2026-03-12
 ## Next Priority Tasks (Post v0.1.0)
 
 1. Adopt `docs/templates/SPRINT_CLOSURE_NOTE.md` for the current sprint and commit the filled note.
-2. Implement Telegram delivery path in `src/cognitive/proactive-assistant.ts` behind explicit opt-in env flags.
-3. Add integration coverage for Model D broadcast transport under enabled/disabled runtime modes.
-4. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
-5. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
+2. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
+3. Add operator-facing runbook section for proactive Telegram delivery env vars and failure handling.
+4. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
+5. Consolidate legacy `src/cli/commands/*` entrypoints with `infra/cli` routing or remove dead paths.
