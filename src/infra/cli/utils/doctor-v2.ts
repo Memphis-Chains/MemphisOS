@@ -414,6 +414,33 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
   const queueMode = (process.env.MEMPHIS_QUEUE_MODE ?? 'financial').trim().toLowerCase();
   const queueResumePolicy = (process.env.MEMPHIS_QUEUE_RESUME_POLICY ?? 'keep').trim().toLowerCase();
   const queueResumeRisk = queueMode === 'financial' && queueResumePolicy === 'redispatch';
+  const pagerDutyKey = (process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY ?? '').trim();
+  const pagerDutyEndpoint = (process.env.MEMPHIS_ALERT_PAGERDUTY_ENDPOINT ?? '').trim();
+  const opsGenieKey = (process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY ?? '').trim();
+  const opsGenieEndpoint = (process.env.MEMPHIS_ALERT_OPSGENIE_ENDPOINT ?? '').trim();
+  const pagerDutyConfigured = pagerDutyKey.length > 0;
+  const opsGenieConfigured = opsGenieKey.length > 0;
+  const alertTransportCount =
+    (pagerDutyConfigured ? 1 : 0) + (opsGenieConfigured ? 1 : 0);
+  const invalidAlertConfig =
+    (!pagerDutyConfigured && pagerDutyEndpoint.length > 0) ||
+    (!opsGenieConfigured && opsGenieEndpoint.length > 0);
+  const weakAlertKey =
+    (pagerDutyConfigured && pagerDutyKey.length < 16) ||
+    (opsGenieConfigured && opsGenieKey.length < 16);
+  const alertConfigLevel = invalidAlertConfig
+    ? 'fail'
+    : alertTransportCount === 0 || weakAlertKey
+      ? 'warn'
+      : 'pass';
+  const alertConfigOk = !invalidAlertConfig;
+  const alertConfigDetail = invalidAlertConfig
+    ? `inconsistent alert config (endpoint without key): pagerdutyEndpoint=${pagerDutyEndpoint.length > 0}, opsgenieEndpoint=${opsGenieEndpoint.length > 0}`
+    : alertTransportCount === 0
+      ? 'no external alert transport configured'
+      : weakAlertKey
+        ? `configured transports=${alertTransportCount}, key length check failed`
+        : `configured transports=${alertTransportCount}`;
 
   checks.push({
     id: 't4-vault-encrypted',
@@ -464,6 +491,16 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
       ? `mode=${queueMode}, resume=${queueResumePolicy} (high replay risk for financial side effects)`
       : `mode=${queueMode}, resume=${queueResumePolicy}`,
     fix: 'For financial mode, prefer MEMPHIS_QUEUE_RESUME_POLICY=keep',
+  });
+  checks.push({
+    id: 't4-alert-transport-config',
+    tier: 4,
+    title: 'Alert transport config',
+    level: alertConfigLevel,
+    ok: alertConfigOk,
+    required: false,
+    detail: alertConfigDetail,
+    fix: 'Set MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY and/or MEMPHIS_ALERT_OPSGENIE_API_KEY with valid keys',
   });
 
   // Tier 5

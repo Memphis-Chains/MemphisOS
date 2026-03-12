@@ -1,3 +1,7 @@
+import type {
+  RevocationCacheStartupStatus,
+  TrustRootStartupStatus,
+} from './startup-guards.js';
 import type { TaskQueueResumePolicy } from '../storage/task-queue-service.js';
 
 export interface StartupQueueResumeStatus {
@@ -24,6 +28,8 @@ export interface SafeModeNetworkStatus {
 
 let startupQueueResumeStatus: StartupQueueResumeStatus | null = null;
 let startupSafeModeNetworkStatus: SafeModeNetworkStatus | null = null;
+let startupTrustRootStatus: TrustRootStartupStatus | null = null;
+let startupRevocationCacheStatus: RevocationCacheStartupStatus | null = null;
 
 export function setStartupQueueResumeStatus(
   input: Omit<StartupQueueResumeStatus, 'completedAt'> & { completedAt?: string },
@@ -59,7 +65,39 @@ export function getStartupSafeModeNetworkStatus(): SafeModeNetworkStatus | null 
   return { ...startupSafeModeNetworkStatus };
 }
 
+export function setStartupTrustRootStatus(
+  input: Omit<TrustRootStartupStatus, 'checkedAt'> & { checkedAt?: string },
+): TrustRootStartupStatus {
+  startupTrustRootStatus = {
+    ...input,
+    checkedAt: input.checkedAt ?? new Date().toISOString(),
+  };
+  return getStartupTrustRootStatus() as TrustRootStartupStatus;
+}
+
+export function getStartupTrustRootStatus(): TrustRootStartupStatus | null {
+  if (!startupTrustRootStatus) return null;
+  return { ...startupTrustRootStatus };
+}
+
+export function setStartupRevocationCacheStatus(
+  input: Omit<RevocationCacheStartupStatus, 'checkedAt'> & { checkedAt?: string },
+): RevocationCacheStartupStatus {
+  startupRevocationCacheStatus = {
+    ...input,
+    checkedAt: input.checkedAt ?? new Date().toISOString(),
+  };
+  return getStartupRevocationCacheStatus() as RevocationCacheStartupStatus;
+}
+
+export function getStartupRevocationCacheStatus(): RevocationCacheStartupStatus | null {
+  if (!startupRevocationCacheStatus) return null;
+  return { ...startupRevocationCacheStatus };
+}
+
 export function resetStartupRuntimeStateForTests(): void {
   startupQueueResumeStatus = null;
   startupSafeModeNetworkStatus = null;
+  startupTrustRootStatus = null;
+  startupRevocationCacheStatus = null;
 }
