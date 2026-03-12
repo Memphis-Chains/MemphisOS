@@ -26,6 +26,7 @@
     "format:check": "prettier --check .",
     "test": "npm run test:ts",
     "test:ts": "vitest run",
+    "test:chaos": "vitest run tests/unit/wal-chaos-gate.test.ts",
     "test:rust": "bash -lc 'command -v cargo >/dev/null 2>&1 || source $HOME/.cargo/env; cargo test --workspace'",
     "build:rust": "bash -lc 'command -v cargo >/dev/null 2>&1 || source $HOME/.cargo/env; cargo build --workspace'",
     "build": "npm run build:rust && tsc -p tsconfig.json",

@@ -7,6 +7,8 @@ describe('safe mode network enforcement', () => {
     const out = enforceSafeModeNoEgress({ MEMPHIS_SAFE_MODE: 'false' } as NodeJS.ProcessEnv);
     expect(out.attempted).toBe(false);
     expect(out.enforced).toBe(false);
+    expect(out.mode).toBe('disabled');
+    expect(out.backend).toBe('none');
   });
 
   it('returns degraded result when iptables is unavailable', () => {
@@ -16,5 +18,7 @@ describe('safe mode network enforcement', () => {
     } as NodeJS.ProcessEnv);
     expect(out.attempted).toBe(true);
     expect(out.enforced).toBe(false);
+    expect(out.mode).toBe('degraded');
+    expect(out.backend).toBe('iptables');
   });
 });

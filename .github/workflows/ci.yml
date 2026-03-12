@@ -18,6 +18,15 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Setup Rust
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
+          fi
+          source "$HOME/.cargo/env"
+          rustup toolchain install stable --profile minimal --no-self-update
+          rustup default stable
+
       - name: Install
         run: npm ci
 
@@ -29,6 +38,9 @@ jobs:
 
       - name: Test (TS)
         run: npm run test:ts
+
+      - name: Chaos gate (WAL fault injection)
+        run: npm run test:chaos
 
       - name: Test (Rust)
         run: npm run test:rust
