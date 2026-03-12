@@ -316,4 +316,80 @@ describe('S3.4 Ops status endpoint', () => {
 
     await app.close();
   });
+
+  it('reports combined degraded+stale startup guard shape for triage workflows', async () => {
+    resetStartupRuntimeStateForTests();
+    const dir = mkdtempSync(join(tmpdir(), 'mv4-s3ops-combined-guard-shape-'));
+    const conf = cfg(join(dir, 'ops-combined-guard-shape.db'));
+    const c = createAppContainer(conf);
+    const app = createHttpServer(conf, c.orchestration, {
+      sessionRepository: c.sessionRepository,
+      generationEventRepository: c.generationEventRepository,
+      dualApprovalRepository: c.dualApprovalRepository,
+      taskQueue: c.taskQueue,
+    });
+
+    setStartupSafeModeNetworkStatus({
+      enabled: true,
+      attempted: true,
+      enforced: false,
+      backend: 'iptables',
+      mode: 'degraded',
+      reason: 'no CAP_NET_ADMIN',
+    });
+
+    await runStartupSecurityGuards(
+      {
+        MEMPHIS_STRICT_MODE: 'false',
+        MEMPHIS_TRUST_ROOT_REQUIRED: 'false',
+        MEMPHIS_REVOCATION_CACHE_REQUIRED: 'true',
+        MEMPHIS_REVOCATION_CACHE_MAX_STALE_MS: '30000',
+        MEMPHIS_REVOCATION_CACHE_LAST_SYNC_MS: String(1000),
+      } as NodeJS.ProcessEnv,
+      {
+        nowMs: 100_000,
+        writeSecurityEvent: async () => ({
+          wroteChain: false,
+          wroteSyslog: false,
+          wroteEmergency: false,
+        }),
+      },
+    );
+
+    const res = await app.inject({ method: 'GET', url: '/v1/ops/status' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      startup?: {
+        safeModeNetwork?: {
+          enabled?: boolean;
+          mode?: string;
+          reason?: string;
+        } | null;
+        revocationCache?: {
+          enabled?: boolean;
+          stale?: boolean;
+          ageMs?: number | null;
+          maxStaleMs?: number;
+          reason?: string;
+        } | null;
+      };
+    };
+
+    expect(body.startup?.safeModeNetwork).toMatchObject({
+      enabled: true,
+      mode: 'degraded',
+      reason: 'no CAP_NET_ADMIN',
+    });
+    expect(body.startup?.revocationCache).toMatchObject({
+      enabled: true,
+      stale: true,
+      ageMs: 99_000,
+      maxStaleMs: 30_000,
+    });
+    expect((body.startup?.revocationCache?.ageMs ?? 0) > (body.startup?.revocationCache?.maxStaleMs ?? 0)).toBe(
+      true,
+    );
+
+    await app.close();
+  });
 });

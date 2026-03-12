@@ -96,6 +96,7 @@ async function main(): Promise<void> {
     console.log(
       JSON.stringify(
         {
+          schemaVersion: 1,
           ok: results.every((result) => result.ok),
           scenarios: results,
         },
