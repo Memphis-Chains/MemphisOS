@@ -77,6 +77,9 @@ Updated: 2026-03-12
 - Added bootstrap startup queue-resume drill:
   - integration test executes the real startup resume path via `resumeRecoveredQueueTasksOnStartup`
   - validates `queue.resume.startup` audit payload fields, including safe-mode `redispatch -> keep` override.
+- Surfaced startup queue-recovery decision in `/v1/ops/status`:
+  - top-level `startup.queueResume` now exposes policy, safe-mode override, counters, and completion timestamp from bootstrap runtime.
+  - integration coverage validates both null default and populated startup status paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -87,7 +90,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Surface latest startup recovery decision in `/v1/ops/status` as a top-level `startup.queueResume` block (policy, safe-mode override, scanned counters) so operators do not need to parse audit logs.
-2. Extend `doctor` checks with queue policy risk rules:
+1. Extend `doctor` checks with queue policy risk rules:
    - warn when `MEMPHIS_QUEUE_MODE=financial` and `MEMPHIS_QUEUE_RESUME_POLICY=redispatch`
    - suggest `keep` as default for financial profiles.

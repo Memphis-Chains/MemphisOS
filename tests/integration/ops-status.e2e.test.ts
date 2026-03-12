@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { createAppContainer } from '../../src/app/container.js';
 import type { AppConfig } from '../../src/infra/config/schema.js';
 import { createHttpServer } from '../../src/infra/http/server.js';
+import { resetStartupRuntimeStateForTests } from '../../src/infra/runtime/startup-state.js';
 
 function cfg(db: string): AppConfig {
   return {
@@ -31,6 +32,7 @@ function cfg(db: string): AppConfig {
 
 describe('S3.4 Ops status endpoint', () => {
   it('returns combined runtime status', async () => {
+    resetStartupRuntimeStateForTests();
     const dir = mkdtempSync(join(tmpdir(), 'mv4-s3ops-'));
     const conf = cfg(join(dir, 'ops.db'));
     const c = createAppContainer(conf);
@@ -69,6 +71,7 @@ describe('S3.4 Ops status endpoint', () => {
           completedAt: string;
         } | null;
       } | null;
+      startup?: { queueResume: unknown | null };
       dualApproval: {
         pending: number;
         approved: number;
@@ -88,6 +91,7 @@ describe('S3.4 Ops status endpoint', () => {
     expect(body.queue?.lastResume?.policy).toBe('keep');
     expect(body.queue?.lastResume?.scanned).toBe(resumeSummary.scanned);
     expect(typeof body.queue?.lastResume?.completedAt).toBe('string');
+    expect(body.startup?.queueResume ?? null).toBeNull();
     expect(body.dualApproval?.pending).toBe(0);
 
     await app.close();
