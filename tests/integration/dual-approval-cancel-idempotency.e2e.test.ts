@@ -75,9 +75,11 @@ describe('dual approval cancel idempotency', () => {
     expect(firstCancel.statusCode).toBe(200);
     const firstBody = firstCancel.json() as {
       request: { requestId: string; state: string; stateVersion: number };
+      replayed: boolean;
     };
     expect(firstBody.request.state).toBe('canceled');
     expect(firstBody.request.stateVersion).toBe(1);
+    expect(firstBody.replayed).toBe(false);
 
     const replayCancel = await app.inject({
       method: 'POST',
@@ -88,10 +90,12 @@ describe('dual approval cancel idempotency', () => {
     expect(replayCancel.statusCode).toBe(200);
     const replayBody = replayCancel.json() as {
       request: { requestId: string; state: string; stateVersion: number };
+      replayed: boolean;
     };
     expect(replayBody.request.requestId).toBe(created.request.requestId);
     expect(replayBody.request.state).toBe('canceled');
     expect(replayBody.request.stateVersion).toBe(1);
+    expect(replayBody.replayed).toBe(true);
 
     const detailRes = await app.inject({
       method: 'GET',
