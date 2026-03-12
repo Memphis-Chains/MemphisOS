@@ -125,14 +125,23 @@ Updated: 2026-03-12
   - failed alert delivery falls back to emergency log with `[ALERT_FALLBACK]`.
 - Added strict-mode trust-root failure guard coverage:
   - startup guard now has explicit test asserting `ERR_TRUST_ROOT=103` on invalid trust root in strict mode.
+- Added strict-mode status + exit-code drill coverage:
+  - `/v1/ops/status` now has integration assertions for invalid trust-root startup state.
+  - strict trust-root failure path is verified through `resolveExitCode(...) == 103`.
 - Extended revocation guard integration coverage:
   - runtime env freshness toggles are respected without restart (`stale -> fresh` transition).
   - safe-mode denial precedence is asserted over revocation fail-closed for high-risk routes.
+- Added startup status consistency coverage:
+  - startup status payload assertions now cover guard-state transitions (safe-mode network + revocation cache stale/fresh).
 - Added operator runbook for branch-protection profile switching:
   - `docs/runbooks/BRANCH_PROTECTION_PROFILE_SWITCH.md`
   - includes apply/verify/rollback workflow for `team|solo`.
 - Added invalid-profile coverage for branch-protection ops scripts:
   - `ops:protect-main` and `ops:verify-main-protection` now have fixture tests asserting exit code `2` on invalid `MEMPHIS_BRANCH_PROTECTION_PROFILE`.
+- Added operator guard-failure drill tooling:
+  - script: `npm run -s ops:drill-guards`
+  - test coverage: `tests/ops/guard-failure-drill.test.ts`
+  - runbook: `docs/runbooks/GUARD_FAILURE_DRILL.md`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -143,6 +152,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add health/status assertions for strict-mode trust-root failure path (status payload + exit-code mapping drill).
-2. Add integration coverage for startup status payload consistency after revocation/safe-mode guard state changes.
-3. Add operator drill script for guard-failure simulation (`trust-root invalid`, `revocation stale`) and expected outcomes.
+1. Add `/v1/ops/status` integration assertions for startup `trustRoot`/`revocationCache`/`safeModeNetwork` timestamp monotonicity and shape contract hardening.
+2. Add a lightweight CI smoke step for `npm run -s ops:drill-guards` in `quality-gate`.
+3. Add operator runbook for startup guard incident triage that maps status payload fields to remediation actions.

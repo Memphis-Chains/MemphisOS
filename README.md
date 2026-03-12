@@ -102,6 +102,12 @@ MEMPHIS_BRANCH_PROTECTION_PROFILE=solo \
 GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s ops:protect-main
 ```
 
+## Guard Failure Drill
+
+```bash
+npm run -s ops:drill-guards
+```
+
 ## Security Notes
 
 - Never commit `.env` or raw tokens.
