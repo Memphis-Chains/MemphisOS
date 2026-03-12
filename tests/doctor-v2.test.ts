@@ -43,4 +43,44 @@ describe('doctor v2', () => {
     const report = await doctor.runDoctorChecks();
     expect(report.checks.length).toBeGreaterThanOrEqual(25);
   });
+
+  it('warns when financial mode uses redispatch resume policy', async () => {
+    const prevMode = process.env.MEMPHIS_QUEUE_MODE;
+    const prevPolicy = process.env.MEMPHIS_QUEUE_RESUME_POLICY;
+    process.env.MEMPHIS_QUEUE_MODE = 'financial';
+    process.env.MEMPHIS_QUEUE_RESUME_POLICY = 'redispatch';
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((c) => c.id === 't4-queue-resume-policy');
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('warn');
+      expect(check?.detail).toContain('mode=financial');
+      expect(check?.detail).toContain('resume=redispatch');
+    } finally {
+      if (prevMode === undefined) delete process.env.MEMPHIS_QUEUE_MODE;
+      else process.env.MEMPHIS_QUEUE_MODE = prevMode;
+      if (prevPolicy === undefined) delete process.env.MEMPHIS_QUEUE_RESUME_POLICY;
+      else process.env.MEMPHIS_QUEUE_RESUME_POLICY = prevPolicy;
+    }
+  });
+
+  it('passes queue resume policy check for financial keep policy', async () => {
+    const prevMode = process.env.MEMPHIS_QUEUE_MODE;
+    const prevPolicy = process.env.MEMPHIS_QUEUE_RESUME_POLICY;
+    process.env.MEMPHIS_QUEUE_MODE = 'financial';
+    process.env.MEMPHIS_QUEUE_RESUME_POLICY = 'keep';
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((c) => c.id === 't4-queue-resume-policy');
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('pass');
+      expect(check?.detail).toContain('mode=financial');
+      expect(check?.detail).toContain('resume=keep');
+    } finally {
+      if (prevMode === undefined) delete process.env.MEMPHIS_QUEUE_MODE;
+      else process.env.MEMPHIS_QUEUE_MODE = prevMode;
+      if (prevPolicy === undefined) delete process.env.MEMPHIS_QUEUE_RESUME_POLICY;
+      else process.env.MEMPHIS_QUEUE_RESUME_POLICY = prevPolicy;
+    }
+  });
 });

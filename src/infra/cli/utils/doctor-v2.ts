@@ -411,6 +411,9 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
   const pepper = process.env.MEMPHIS_VAULT_PEPPER ?? '';
   const pepperStrong =
     pepper.length >= 32 && /[A-Z]/.test(pepper) && /[a-z]/.test(pepper) && /[0-9]/.test(pepper);
+  const queueMode = (process.env.MEMPHIS_QUEUE_MODE ?? 'financial').trim().toLowerCase();
+  const queueResumePolicy = (process.env.MEMPHIS_QUEUE_RESUME_POLICY ?? 'keep').trim().toLowerCase();
+  const queueResumeRisk = queueMode === 'financial' && queueResumePolicy === 'redispatch';
 
   checks.push({
     id: 't4-vault-encrypted',
@@ -449,6 +452,18 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
     ok: pepperStrong,
     required: true,
     detail: pepperStrong ? `strong (${pepper.length} chars)` : `weak (${pepper.length} chars)`,
+  });
+  checks.push({
+    id: 't4-queue-resume-policy',
+    tier: 4,
+    title: 'Queue resume policy risk',
+    level: queueResumeRisk ? 'warn' : 'pass',
+    ok: !queueResumeRisk,
+    required: false,
+    detail: queueResumeRisk
+      ? `mode=${queueMode}, resume=${queueResumePolicy} (high replay risk for financial side effects)`
+      : `mode=${queueMode}, resume=${queueResumePolicy}`,
+    fix: 'For financial mode, prefer MEMPHIS_QUEUE_RESUME_POLICY=keep',
   });
 
   // Tier 5
