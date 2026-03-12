@@ -87,9 +87,20 @@ function dirSizeBytes(path: string): number {
   if (!existsSync(path)) return 0;
   let total = 0;
   const walk = (p: string): void => {
-    for (const name of readdirSync(p)) {
+    let names: string[] = [];
+    try {
+      names = readdirSync(p);
+    } catch {
+      return;
+    }
+    for (const name of names) {
       const abs = join(p, name);
-      const st = statSync(abs);
+      let st;
+      try {
+        st = statSync(abs);
+      } catch {
+        continue;
+      }
       if (st.isDirectory()) walk(abs);
       else total += st.size;
     }
