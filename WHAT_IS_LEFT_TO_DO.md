@@ -74,6 +74,9 @@ Updated: 2026-03-12
   - `POST /v1/admin/dual-approval/approve` returns `replayed: boolean`
   - `POST /v1/admin/dual-approval/cancel` returns `replayed: boolean`
   - integration tests cover first-call (`replayed=false`) vs idempotent retry (`replayed=true`).
+- Added bootstrap startup queue-resume drill:
+  - integration test executes the real startup resume path via `resumeRecoveredQueueTasksOnStartup`
+  - validates `queue.resume.startup` audit payload fields, including safe-mode `redispatch -> keep` override.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -84,8 +87,7 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add an integration bootstrap drill that executes real startup queue recovery (including `MEMPHIS_SAFE_MODE=true` override behavior) and asserts `queue.resume.startup` audit payload fields.
-2. Surface latest startup recovery decision in `/v1/ops/status` as a top-level `startup.queueResume` block (policy, safe-mode override, scanned counters) so operators do not need to parse audit logs.
-3. Extend `doctor` checks with queue policy risk rules:
+1. Surface latest startup recovery decision in `/v1/ops/status` as a top-level `startup.queueResume` block (policy, safe-mode override, scanned counters) so operators do not need to parse audit logs.
+2. Extend `doctor` checks with queue policy risk rules:
    - warn when `MEMPHIS_QUEUE_MODE=financial` and `MEMPHIS_QUEUE_RESUME_POLICY=redispatch`
    - suggest `keep` as default for financial profiles.
