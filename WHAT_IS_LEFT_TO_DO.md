@@ -161,6 +161,11 @@ Updated: 2026-03-12
   - `npm run -s ops:export-incident-bundle`
   - exports startup status payload + security-audit tail + guard drill JSON result.
   - integration test coverage in `tests/ops/incident-bundle-exporter.test.ts`.
+- Hardened incident bundle export pipeline:
+  - sensitive status/audit fields are redacted by default (`[REDACTED]`)
+  - retention/rotation pruning now cleans old `incident-bundle-*` artifacts and paired manifests
+  - optional signed manifest output supported via `--manifest-out` + `--signing-key-path`
+  - integration coverage added for redaction, pruning, and signature verification.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -171,6 +176,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add bundle export redaction rules for sensitive status/audit fields before writing incident artifacts.
-2. Add retention/rotation policy for generated incident bundles in `data/`.
-3. Add optional signed bundle manifest output for forensic chain-of-custody.
+1. Add manifest verification helper (`ops:verify-incident-manifest`) for operators to validate signature + bundle hash post-export.
+2. Add manifest/signature checks into CI ops tests (fixture-driven positive/negative cases).
+3. Add secure key-source support for manifest signing (file path + env-injected key material + key-id metadata).
