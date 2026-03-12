@@ -457,8 +457,10 @@ export function createHttpServer(
       process.env,
     );
 
+    const eventsBefore = repo.listEvents(parsed.data.requestId).length;
     const record = repo.approve(parsed.data);
-    const transition = repo.listEvents(record.requestId).at(-1);
+    const eventsAfter = repo.listEvents(record.requestId);
+    const transition = eventsAfter.length > eventsBefore ? eventsAfter.at(-1) : undefined;
     if (transition) {
       metrics.recordDualApprovalTransition(record.action, transition.toState);
       await writeDualApprovalChainEvent(
@@ -519,8 +521,10 @@ export function createHttpServer(
       process.env,
     );
 
+    const eventsBefore = repo.listEvents(parsed.data.requestId).length;
     const record = repo.cancel(parsed.data);
-    const transition = repo.listEvents(record.requestId).at(-1);
+    const eventsAfter = repo.listEvents(record.requestId);
+    const transition = eventsAfter.length > eventsBefore ? eventsAfter.at(-1) : undefined;
     if (transition) {
       metrics.recordDualApprovalTransition(record.action, transition.toState);
       await writeDualApprovalChainEvent(

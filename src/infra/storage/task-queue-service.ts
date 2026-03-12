@@ -30,11 +30,13 @@ export interface QueueTicket {
 
 export interface TaskQueueSnapshot {
   mode: TaskQueueMode;
+  resumePolicy: TaskQueueResumePolicy;
   maxPendingTasks: number;
   pendingTasks: number;
   recoveredPendingTasks: number;
   totalEnqueued: number;
   totalFinished: number;
+  lastResume: TaskQueueResumeSummary | null;
 }
 
 export interface QueuePendingTask {
@@ -51,6 +53,10 @@ export interface TaskQueueResumeResult {
   canceled: number;
   kept: number;
   errors: string[];
+}
+
+export interface TaskQueueResumeSummary extends TaskQueueResumeResult {
+  completedAt: string;
 }
 
 type QueueEnvelope =
@@ -114,6 +120,7 @@ export class TaskQueueService {
   private readonly defaultResumePolicy: TaskQueueResumePolicy;
   private readonly pending = new Map<string, PendingTask>();
   private readonly recoveredTaskIds = new Set<string>();
+  private lastResume: TaskQueueResumeSummary | null = null;
   private totalEnqueued = 0;
   private totalFinished = 0;
 
@@ -180,11 +187,13 @@ export class TaskQueueService {
   public snapshot(): TaskQueueSnapshot {
     return {
       mode: this.mode,
+      resumePolicy: this.defaultResumePolicy,
       maxPendingTasks: this.maxPendingTasks,
       pendingTasks: this.pending.size,
       recoveredPendingTasks: this.recoveredTaskIds.size,
       totalEnqueued: this.totalEnqueued,
       totalFinished: this.totalFinished,
+      lastResume: this.lastResume ? { ...this.lastResume, errors: [...this.lastResume.errors] } : null,
     };
   }
 
@@ -215,19 +224,19 @@ export class TaskQueueService {
       errors: [],
     };
 
-    if (recovered.length === 0) return out;
+    if (recovered.length === 0) return this.recordLastResume(out);
 
     if (policy === 'keep') {
       out.kept = recovered.length;
       this.recoveredTaskIds.clear();
-      return out;
+      return this.recordLastResume(out);
     }
 
     if (policy === 'redispatch' && !input?.redispatch) {
       out.kept = recovered.length;
       out.errors.push('resume redispatch requested but no redispatch handler was provided');
       this.recoveredTaskIds.clear();
-      return out;
+      return this.recordLastResume(out);
     }
 
     for (const task of recovered) {
@@ -267,7 +276,7 @@ export class TaskQueueService {
       }
     }
 
-    return out;
+    return this.recordLastResume(out);
   }
 
   private recover(): void {
@@ -291,6 +300,15 @@ export class TaskQueueService {
       this.recoveredTaskIds.delete(envelope.taskId);
       this.totalFinished += 1;
     }
+  }
+
+  private recordLastResume(result: TaskQueueResumeResult): TaskQueueResumeResult {
+    this.lastResume = {
+      ...result,
+      errors: [...result.errors],
+      completedAt: new Date().toISOString(),
+    };
+    return result;
   }
 }
 

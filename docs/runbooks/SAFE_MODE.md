@@ -41,7 +41,7 @@ For production service wrappers, pass the flag in `ExecStart`.
 2. Inspect queue/chain/vault status.
 3. Correct root cause (config, trust root, storage, permissions).
 4. Stop safe mode and restart normal mode.
-5. Confirm queue resume policy behavior via `queue.resume.startup` audit event.
+5. Confirm queue resume policy behavior via `queue.resume.startup` audit event (`redispatch` is forced to `keep` in safe mode).
 
 ## Escalation
 
