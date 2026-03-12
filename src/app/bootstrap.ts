@@ -16,6 +16,7 @@ import { writeSecurityCriticalEvent } from '../infra/runtime/security-critical.j
 import { verifyChainIntegrity } from '../infra/storage/chain-adapter.js';
 import type {
   QueuePendingTask,
+  TaskQueueResumeResult,
   TaskQueueResumePolicy,
   TaskQueueStatus,
 } from '../infra/storage/task-queue-service.js';
@@ -159,11 +160,50 @@ function parseQueuedChatPayload(value: unknown):
   };
 }
 
-function selectResumePolicy(config: AppConfig, rawEnv: NodeJS.ProcessEnv): TaskQueueResumePolicy {
+export interface StartupQueueResumeSelection {
+  policy: TaskQueueResumePolicy;
+  safeModeOverrideApplied: boolean;
+}
+
+interface StartupQueueResumer {
+  resumeRecoveredPending(input?: {
+    policy?: TaskQueueResumePolicy;
+    redispatch?: (
+      task: QueuePendingTask,
+    ) => Promise<TaskQueueStatus | void> | TaskQueueStatus | void;
+  }): Promise<TaskQueueResumeResult>;
+}
+
+export function resolveStartupQueueResumePolicy(
+  config: Pick<AppConfig, 'MEMPHIS_QUEUE_RESUME_POLICY'>,
+  rawEnv: NodeJS.ProcessEnv,
+): StartupQueueResumeSelection {
   if (safeModeEnabled(rawEnv) && config.MEMPHIS_QUEUE_RESUME_POLICY === 'redispatch') {
-    return 'keep';
+    return { policy: 'keep', safeModeOverrideApplied: true };
   }
-  return config.MEMPHIS_QUEUE_RESUME_POLICY;
+  return {
+    policy: config.MEMPHIS_QUEUE_RESUME_POLICY,
+    safeModeOverrideApplied: false,
+  };
+}
+
+export async function runStartupQueueResume(
+  queue: StartupQueueResumer,
+  config: Pick<AppConfig, 'MEMPHIS_QUEUE_RESUME_POLICY'>,
+  rawEnv: NodeJS.ProcessEnv,
+  redispatch: (
+    task: QueuePendingTask,
+  ) => Promise<TaskQueueStatus | void> | TaskQueueStatus | void,
+): Promise<TaskQueueResumeResult & { safeModeOverrideApplied: boolean }> {
+  const selection = resolveStartupQueueResumePolicy(config, rawEnv);
+  const resumed = await queue.resumeRecoveredPending({
+    policy: selection.policy,
+    redispatch,
+  });
+  return {
+    ...resumed,
+    safeModeOverrideApplied: selection.safeModeOverrideApplied,
+  };
 }
 
 async function redispatchRecoveredTask(
@@ -217,11 +257,12 @@ async function resumeRecoveredQueueTasks(
   config: AppConfig,
   rawEnv: NodeJS.ProcessEnv,
 ): Promise<void> {
-  const policy = selectResumePolicy(config, rawEnv);
-  const resumed = await container.taskQueue.resumeRecoveredPending({
-    policy,
-    redispatch: async (task) => redispatchRecoveredTask(task, container),
-  });
+  const resumed = await runStartupQueueResume(
+    container.taskQueue,
+    config,
+    rawEnv,
+    async (task) => redispatchRecoveredTask(task, container),
+  );
 
   if (resumed.scanned === 0) return;
 
@@ -229,7 +270,8 @@ async function resumeRecoveredQueueTasks(
     action: 'queue.resume.startup',
     status: resumed.errors.length > 0 ? 'error' : 'allowed',
     details: {
-      policy,
+      policy: resumed.policy,
+      safeModeOverrideApplied: resumed.safeModeOverrideApplied,
       scanned: resumed.scanned,
       redispatched: resumed.redispatched,
       failed: resumed.failed,

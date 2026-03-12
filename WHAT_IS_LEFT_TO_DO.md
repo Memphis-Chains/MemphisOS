@@ -58,6 +58,18 @@ Updated: 2026-03-12
   - HTTP endpoints: `POST /v1/soul/replay`, `POST /v1/soul/loop-step`
   - CLI commands: `memphis soul replay`, `memphis soul step`
   - Added replay block loader/normalizer utility for chain-backed replays.
+- Added direct bootstrap queue-resume coverage:
+  - exported startup resume policy resolver (`safe-mode + redispatch => keep` override)
+  - unit tests for startup queue resume dispatch path.
+- Added API-level idempotency replay coverage for `dual-approval/cancel`:
+  - replay with same `approvalRequestId` returns stable state
+  - no duplicate dual-approval transition metric on replay.
+- Exposed queue resume runtime state in `/v1/ops/status`:
+  - `queue.resumePolicy` (configured default)
+  - `queue.lastResume` summary (`policy`, counters, `errors`, `completedAt`).
+- Added runbook for queue resume controls and mode expectations:
+  - `docs/runbooks/QUEUE_RESUME_POLICY.md`
+  - includes `MEMPHIS_QUEUE_RESUME_POLICY` and `financial` vs `standard` guidance.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -68,9 +80,9 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add direct tests for bootstrap startup queue-resume path (including `safe-mode + redispatch -> keep` policy override).
-2. Add API-level tests for `dual-approval/cancel` idempotency replay using `approvalRequestId`.
-3. Expose queue resume policy and last-run summary in `/v1/ops/status` payload.
-4. Add operational docs for queue resume env controls:
-   - `MEMPHIS_QUEUE_RESUME_POLICY`
-   - expectations for financial vs standard queue modes.
+1. Add explicit `replayed: boolean` to `dual-approval/approve` and `dual-approval/cancel` responses so clients can distinguish fresh transitions vs idempotent replays without diffing state.
+2. Add an integration bootstrap drill that executes real startup queue recovery (including `MEMPHIS_SAFE_MODE=true` override behavior) and asserts `queue.resume.startup` audit payload fields.
+3. Surface latest startup recovery decision in `/v1/ops/status` as a top-level `startup.queueResume` block (policy, safe-mode override, scanned counters) so operators do not need to parse audit logs.
+4. Extend `doctor` checks with queue policy risk rules:
+   - warn when `MEMPHIS_QUEUE_MODE=financial` and `MEMPHIS_QUEUE_RESUME_POLICY=redispatch`
+   - suggest `keep` as default for financial profiles.

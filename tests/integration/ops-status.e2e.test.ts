@@ -40,6 +40,7 @@ describe('S3.4 Ops status endpoint', () => {
       dualApprovalRepository: c.dualApprovalRepository,
       taskQueue: c.taskQueue,
     });
+    const resumeSummary = await c.taskQueue.resumeRecoveredPending({ policy: 'keep' });
 
     const res = await app.inject({ method: 'GET', url: '/v1/ops/status' });
     expect(res.statusCode).toBe(200);
@@ -54,8 +55,19 @@ describe('S3.4 Ops status endpoint', () => {
       };
       queue: {
         mode: 'financial' | 'standard';
+        resumePolicy: 'keep' | 'fail' | 'redispatch';
         maxPendingTasks: number;
         pendingTasks: number;
+        lastResume: {
+          policy: 'keep' | 'fail' | 'redispatch';
+          scanned: number;
+          redispatched: number;
+          failed: number;
+          canceled: number;
+          kept: number;
+          errors: string[];
+          completedAt: string;
+        } | null;
       } | null;
       dualApproval: {
         pending: number;
@@ -71,7 +83,11 @@ describe('S3.4 Ops status endpoint', () => {
     expect(body.adapters.chain.backend).toBe('ts-legacy');
     expect(typeof body.adapters.vault.rustEnabled).toBe('boolean');
     expect(typeof body.adapters.vault.vaultApiAvailable).toBe('boolean');
+    expect(body.queue?.resumePolicy).toBe('keep');
     expect(body.queue?.maxPendingTasks).toBeGreaterThan(0);
+    expect(body.queue?.lastResume?.policy).toBe('keep');
+    expect(body.queue?.lastResume?.scanned).toBe(resumeSummary.scanned);
+    expect(typeof body.queue?.lastResume?.completedAt).toBe('string');
     expect(body.dualApproval?.pending).toBe(0);
 
     await app.close();

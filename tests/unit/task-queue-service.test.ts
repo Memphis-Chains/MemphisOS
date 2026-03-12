@@ -23,9 +23,11 @@ describe('task queue service', () => {
     expect(queue.finish('unknown', 'completed')).toBe(false);
 
     const snapshotBeforeRestart = queue.snapshot();
+    expect(snapshotBeforeRestart.resumePolicy).toBe('keep');
     expect(snapshotBeforeRestart.pendingTasks).toBe(1);
     expect(snapshotBeforeRestart.totalEnqueued).toBe(2);
     expect(snapshotBeforeRestart.totalFinished).toBe(1);
+    expect(snapshotBeforeRestart.lastResume).toBeNull();
 
     const queueAfterRestart = new TaskQueueService({
       walPath,
@@ -98,6 +100,8 @@ describe('task queue service', () => {
     expect(after.pendingTasks).toBe(0);
     expect(after.recoveredPendingTasks).toBe(0);
     expect(after.totalFinished).toBe(1);
+    expect(after.lastResume?.policy).toBe('fail');
+    expect(after.lastResume?.scanned).toBe(1);
   });
 
   it('applies redispatch resume policy with deterministic outcomes', async () => {
@@ -147,5 +151,8 @@ describe('task queue service', () => {
     expect(snapshot.pendingTasks).toBe(0);
     expect(snapshot.recoveredPendingTasks).toBe(0);
     expect(snapshot.totalFinished).toBe(2);
+    expect(snapshot.resumePolicy).toBe('redispatch');
+    expect(snapshot.lastResume?.policy).toBe('redispatch');
+    expect(snapshot.lastResume?.scanned).toBe(2);
   });
 });
