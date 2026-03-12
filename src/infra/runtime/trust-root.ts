@@ -33,7 +33,11 @@ export function validateTrustRootTransition(
     };
   }
 
-  if (!Array.isArray(next.rootIds) || next.rootIds.length === 0 || !hasDistinctEntries(next.rootIds)) {
+  if (
+    !Array.isArray(next.rootIds) ||
+    next.rootIds.length === 0 ||
+    !hasDistinctEntries(next.rootIds)
+  ) {
     return { ok: false, error: 'invalid next trust root ids' };
   }
 

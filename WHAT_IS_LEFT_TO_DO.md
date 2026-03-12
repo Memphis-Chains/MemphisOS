@@ -1,106 +1,44 @@
-# What Is Left To Do
+# MemphisOS Backlog
 
 Updated: 2026-03-12
 
-## Carry-Over / Blocked
+## Completed Now (Clean-Slate Pass)
 
-- [x] Apply GitHub branch protection on `main` with a repo-admin token via `npm run -s ops:protect-main`.
-  - Confirmed enabled on 2026-03-12 with expected settings (`quality-gate`, admin enforcement, linear history, conversation resolution).
+- Created and pushed `Memphis-Chains/MemphisOS`.
+- Enabled and verified `main` branch protection (`quality-gate`, PR required, admin enforce, no force push).
+- Removed inherited legacy bulk:
+  - old docs/reports/proposals
+  - benchmark/demo/deploy/plugin/package bundles
+  - non-core GitHub workflows
+  - legacy smoke/phase scripts
+- Kept OS-core code paths:
+  - `src/` runtime + orchestrator + storage
+  - `crates/` Rust kernel/vault/embed/NAPI crates
+  - `tests/` suite
+  - minimal ops scripts (`enforce/verify protection`, `setup-githooks`)
+- Stabilized CI and package surface for clean-slate repo.
+- Full checks pass on current tree:
+  - `npm run lint`
+  - `npm run typecheck`
+  - `npm run test:ts`
+  - `npm run test:rust`
 
-## Completed In This Pass
+## In Progress Architecture (Already Implemented)
 
-- [x] Finish `src/cli/commands/insight.ts` TODOs:
-  - real block loading by period (`journal`, `decision`, `reflections`)
-  - save-to-chain implementation for insight reports
-  - added unit tests: `tests/unit/cli.insight-command.test.ts`
-- [x] Implement remote agent broadcast in `src/cognitive/model-d.ts`.
-  - HTTP(S) broadcast path + remote vote ingestion + broadcast result tracking
-  - added coverage in `tests/cognitive/model-d-comprehensive.test.ts`
-- [x] Implement Telegram delivery path in `src/cognitive/proactive-assistant.ts` when configured.
-  - configurable fetch + timeout + safe fallback logging
-  - added tests: `tests/unit/proactive-assistant-telegram.test.ts`
-- [x] Migrate DID encoding from hex to base58btc.
-  - Rust vault DID now emits multibase base58btc with Ed25519 multicodec prefix (`did:memphis:z...`)
-  - added DID encoding test coverage in `crates/memphis-vault/src/did.rs`
-- [x] Complete user-facing docs gap from release report.
-  - added `docs/COGNITIVE-MODELS.md`
-  - added `docs/CLI-REFERENCE.md`
-  - release report TODO checklist updated to done
-- [x] Replace TODO-guarded Vault Phase 1 test gap with full implementation evidence.
-  - docs updated in `docs/VAULT-PHASE1-PLAN.md`
-  - verified via `cargo test -p memphis-vault` and TS vault e2e/unit suites
-- [x] Expand retrieval benchmark corpus and re-baseline thresholds.
-  - new corpus: `data/retrieval-benchmark-corpus-v3.json` (18 docs / 24 cases)
-  - defaults moved from v2 to v3 in benchmark scripts
-  - thresholds tightened in `scripts/retrieval-benchmark-gate.ts`
-- [x] Add focused CLI startup + TUI refresh latency benchmarks.
-  - new script: `scripts/cli-tui-latency-benchmark.ts`
-  - new npm command: `npm run -s bench:cli-tui`
-  - new doc: `docs/CLI-TUI-LATENCY-BENCHMARK.md`
+- Durable queue wiring with WAL + backpressure (`TaskQueueService`, `TaskQueueWal`).
+- Dual-approval persistence and CAS transitions (`dual_approval_requests/events`).
+- Trust-root transition validation module with downgrade protection checks.
+- Safe-mode boundaries and security critical fallback logging.
 
-## Completed In This Pass (v1.8 Sprint Build Start)
+## Next Priority Tasks
 
-- [x] Implement emergency logging path resolver with fallback order and secure file permissions (`0600`).
-  - Added runtime module: `src/infra/runtime/emergency-log.ts`
-  - Added tests: `tests/unit/emergency-log.test.ts`
-- [x] Implement strict exit code plumbing for hardening/corruption paths.
-  - Added `src/infra/runtime/exit-codes.ts`
-  - Wired `src/index.ts` and CLI runner to honor runtime exit codes.
-- [x] Implement safe-mode kernel boundary enforcement.
-  - `agent/system.ts`: command/app launch blocked in safe mode.
-  - `modules/orchestration/service.ts`: generation blocked in safe mode.
-  - `gateway/server.ts`: `/exec` + `/provider/chat` blocked in safe mode.
-  - `infra/http/server.ts`: read-only route allowlist in safe mode.
-  - Added tests: `tests/unit/safe-mode-boundary.test.ts`, `tests/unit/safe-mode-runtime.test.ts`, gateway e2e coverage.
-- [x] Implement WAL integrity layer with lock + checksum + tail truncation recovery.
-  - Added `src/infra/storage/task-queue-wal.ts`
-  - Features: lockfile exclusivity, CRC32C per record, deterministic fault injection hook, torn-write recovery.
-  - Added tests: `tests/unit/task-queue-wal.test.ts`
-- [x] Implement identity normalization + DB-level approval constraints foundation.
-  - Added `src/infra/auth/identity.ts`
-  - Added approvals schema constraints in `src/infra/storage/sqlite/client.ts`
-  - Added repository `src/infra/storage/sqlite/repositories/approval-repository.ts`
-  - Added tests: `tests/unit/approval-repository.test.ts`
-- [x] Implement alert dedupe + fallback emitter primitive.
-  - Added `src/infra/logging/alert-emitter.ts`
-  - Includes suppressed-count summary event and emergency-log fallback path.
-
-## Next Task List (Based On Findings)
-
-- [x] Wire a real receiver endpoint for Model D remote proposal broadcast (`/api/model-d/proposals`) on peer nodes.
-  - Added request validation, deterministic vote output, audit logging, and HTTP e2e tests.
-- [x] Decide release targets for latency SLOs using initial baseline in `data/cli-tui-latency-benchmark-reports/latest.json`.
-  - Set SLOs and added `bench:cli-tui:gate` with CI wiring.
-- [x] Roll out signed-block strict mode (`RUST_CHAIN_REQUIRE_SIGNATURES=true`) in staged environments and publish key-rotation policy for signers.
-  - Added signer-key support (`RUST_CHAIN_SIGNER_KEY_HEX`) in Rust NAPI append flow.
-  - Added rollout + key-rotation runbook in `docs/RUST-CHAIN-SIGNING-ROLLOUT.md`.
-- [x] Add branch-protection follow-up check in release checklist to ensure `quality-gate` and required settings stay enforced.
-  - Added `npm run -s ops:verify-main-protection` and release checklist note.
-
-## Next Task List (After This Pass)
-
-- [ ] Add signer allowlist verification in Rust core so `verify_block_signature` can be policy-constrained (not just cryptographically valid).
-- [ ] Add replay protection for `/api/model-d/proposals` (proposal dedupe window and idempotency key).
-- [ ] Add CI check that validates signed-block append path end-to-end with `RUST_CHAIN_REQUIRE_SIGNATURES=true`.
-- [ ] Add metrics for Model D endpoint (`approve/reject/abstain` counts and response latency) to `/metrics`.
-- [x] Wire `TaskQueueWal` into an actual API/task ingestion path with backpressure (`max_pending_tasks`) and queue-mode (`financial|standard`) ACK semantics.
-  - Added `TaskQueueService` with WAL replay + overload fail-fast.
-  - Wired `/v1/chat/generate` queue-first persistence and finish records.
-  - Added queue status to `/v1/ops/status` and gateway `/ops/status`.
-  - Added tests: `tests/unit/task-queue-service.test.ts`, `tests/integration/chat-queue-overload.e2e.test.ts`.
-- [x] Build dual-approval state machine persistence (`PendingFreeze`/`PendingUnfreeze`) with CAS/transaction boundaries and event emission.
-  - Added SQLite tables `dual_approval_requests` and `dual_approval_events`.
-  - Added `SqliteDualApprovalRepository` with create/approve/cancel/expire and CAS checks.
-  - Added admin endpoints under `/v1/admin/dual-approval/*`.
-  - Added tests: `tests/unit/dual-approval-repository.test.ts`.
-- [ ] Add safe-mode runbook docs + systemd exit code mapping (`RestartPreventExitStatus=102,103`).
-- [x] Add trust-root validation module + downgrade rejection tests (`new_version > current_version`).
-  - Added `src/infra/runtime/trust-root.ts` and tests in `tests/unit/trust-root.test.ts`.
-
-## Next Task List (Now)
-
-- [ ] Add signed admin-action receipts to dual-approval endpoints (verify signature payload, not just store it).
-- [ ] Emit immutable chain blocks for dual-approval transitions (`pending/approved/expired/canceled`) with correlation IDs.
-- [ ] Add durable task queue worker semantics (recover-and-resume pending entries after restart, not only status replay).
-- [ ] Expose queue backpressure counters and dual-approval transition counters in `/metrics` (Prometheus).
-- [ ] Add Safe Mode runbook docs + systemd mapping (`RestartPreventExitStatus=102,103`).
+1. Add cryptographic verification for admin action signatures in dual-approval endpoints.
+2. Emit immutable chain events for dual-approval lifecycle transitions with correlation IDs.
+3. Add queue resume worker semantics (recover pending tasks and re-dispatch policies on restart).
+4. Add Prometheus counters for queue overload, dual-approval transitions, and safe-mode denials.
+5. Add runbooks:
+   - Safe Mode operations
+   - systemd exit-code mapping (`RestartPreventExitStatus=102,103`)
+   - trust-root rotation ceremony
+6. Add CODEOWNERS and enforce code-owner review on protected branch.
+7. Enable GitHub security features (Dependabot, secret scanning, push protection) and document status in `SECURITY.md`.

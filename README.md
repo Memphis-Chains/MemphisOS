@@ -1,124 +1,64 @@
-# Memphis v5 △⬡◈
+# MemphisOS
 
-![Beta](https://img.shields.io/badge/release-0.2.0--beta.1-blue) ![IPFS](https://img.shields.io/badge/hosted-IPFS-purple)
+MemphisOS is a hybrid agent operating system:
 
-> **OpenClaw executes. Memphis remembers.**
+- Rust kernel crates for integrity, vault, and deterministic core primitives.
+- TypeScript orchestrator/runtime for HTTP, CLI, routing, and policy enforcement.
+- Safety-first execution model with safe mode, branch protection ops, queue durability, and dual-approval controls.
 
-**[🌐 Live Landing Page on IPFS](https://gateway.pinata.cloud/ipfs/Qmc98DXcFZuojcJp9gz2rak51bLPgL7wSn7SthdEVDYQh7?pinataGatewayToken=pYz8qHNMf7oJF5U_Qz24K3fWuRlSUpBqQZGNWh4cvnOMGFfl-lS5_rno-tKZnF3X)** — Decentralized, permanent, censorship-resistant.
+## Repository Scope (Clean-Slate)
 
-Memphis v5 is a production-ready, local-first cognitive memory layer for agent systems.
-It provides persistent memory, semantic recall, encrypted secrets, and operational tooling for reliable AI workflows.
+This repository was cleaned to keep only OS-core components.
 
-## Vision
+Kept:
 
-Memphis exists to make AI systems durable, auditable, and sovereign:
+- `src/` runtime, orchestration, storage, auth, gateway, CLI
+- `crates/` Rust core crates
+- `tests/` unit/integration coverage
+- `.github/workflows/ci.yml` quality gate
+- `scripts/enforce-branch-protection.sh`
+- `scripts/verify-branch-protection.sh`
+- `scripts/setup-githooks.mjs`
 
-- **Durable**: memory survives sessions and restarts
-- **Auditable**: decision and history flows are traceable
-- **Sovereign**: data and crypto stay under operator control
+Removed:
 
-## Quick Start (3 commands)
+- legacy benchmark/demo/deploy/plugin/package bulk
+- old release artifacts and non-core docs/workflows
 
-```bash
-git clone https://github.com/Memphis-Chains/memphis.git
-cd memphis-v5
-./scripts/install.sh && npm run -s cli -- configure
-```
-
-Then run `npm run -s cli -- doctor --json`. If it returns `"ok": true`, your runtime is healthy.
-
-### Configuration defaults
-
-- `DEFAULT_PROVIDER` is optional and defaults to `ollama` in `.env.example`.
-- If required API keys for hosted providers are missing, Memphis prints a clear warning and falls back to `local-fallback`.
-- If Ollama is not installed, install still succeeds with guidance; run `ollama pull nomic-embed-text` before using Ollama embedding mode.
-
-## Features
-
-- **Local-first memory runtime** (TypeScript shell + Rust core bridge)
-- **Semantic retrieval pipeline** for context recall
-- **Cryptographic safety path** (Argon2id, AES-256-GCM, Ed25519 tracks)
-- **CLI + ops automation** for smoke gates, closure checks, and release validation
-- **MCP server support** for tool integration (stdio / HTTP transport)
-- **Production hardening**: auth policy, rate limiting, health/status endpoints
-
-## Architecture (high-level)
-
-```text
-┌───────────────────────────────────────────────────────────┐
-│                    Clients / Operators                    │
-│              CLI • TUI • API • MCP consumers             │
-└──────────────────────────┬────────────────────────────────┘
-                           │
-┌──────────────────────────▼────────────────────────────────┐
-│              TypeScript Runtime Orchestration            │
-│  config profiles • provider policy • ops • observability │
-└──────────────────────────┬────────────────────────────────┘
-                           │ N-API bridge
-┌──────────────────────────▼────────────────────────────────┐
-│                        Rust Core                         │
-│     chain integrity • secure vault • native primitives   │
-└──────────────────────────┬────────────────────────────────┘
-                           │
-┌──────────────────────────▼────────────────────────────────┐
-│                    Local Data Storage                     │
-│           chain state • vault state • retrieval index     │
-└───────────────────────────────────────────────────────────┘
-```
-
-## Installation options
-
-- **Fast local install**: `./scripts/install.sh`
-- **Interactive first-run setup**: `npm run -s cli -- configure`
-- **Non-interactive defaults**: `npm run -s cli -- configure --non-interactive`
-- **Preview actions only**: `npm run -s cli -- configure --dry-run`
-- **Manual setup**:
-  1. Install Node.js 20+ and Rust/Cargo
-  2. Install Ollama (`https://ollama.com/download`) and pull `nomic-embed-text` for default local embeddings
-  3. `npm install`
-  4. `npm run build`
-- **Package-oriented flow**: `npm pack --dry-run` then consume tarball in controlled environments
-
-## Core commands
+## Quick Start
 
 ```bash
-npm run -s cli -- help
-npm run -s cli -- doctor --json
-npm run -s cli -- health --json
-npm test
-npm run build
+npm ci
+npm run lint
+npm run typecheck
+npm run test:ts
+npm run test:rust
 ```
 
-## Documentation
+Run API:
 
-- **[Documentation Index](docs/README.md)** — central navigation for all setup, testing, and integration docs
+```bash
+npm run dev
+```
 
-### Quick Start Guide
+Run CLI:
 
-1. [Prerequisites](docs/PREREQUISITES.md)
-2. [Installation Guide](docs/INSTALLATION.md)
-3. [Post-Installation](docs/POST-INSTALLATION.md)
-4. [Testing & Verification](docs/TESTING-VERIFICATION.md)
+```bash
+npm run cli
+```
 
-### Key Docs
+## Branch Protection Ops
 
-- [Getting Started](docs/GETTING-STARTED.md)
-- [Configuration](docs/CONFIGURATION.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [OpenClaw Integration](docs/OPENCLAW-INTEGRATION.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Quickstart](docs/QUICKSTART.md)
-- [User Guide](docs/USER-GUIDE.md)
-- [Architecture Map](docs/ARCHITECTURE-MAP.md)
-- [Release Process](docs/RELEASE-PROCESS.md)
-- [Operator 5-min Runbook](docs/OPERATOR-5MIN-RUNBOOK.md)
-- [Debug Commands](docs/DEBUG-COMMANDS.md)
-- [CLI Command Matrix](docs/CLI-COMMAND-MATRIX.md)
-- [Performance Tuning](docs/PERFORMANCE-TUNING.md)
-- [Contributing Guide](CONTRIBUTING.md)
-- [Security Policy](SECURITY.md)
-- [Changelog](CHANGELOG.md)
+```bash
+# Apply protection
+GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s ops:protect-main
 
-## License
+# Verify protection
+GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s ops:verify-main-protection
+```
 
-MIT — see [LICENSE](LICENSE).
+## Security Notes
+
+- Never commit `.env` or raw tokens.
+- Use short-lived tokens where possible.
+- Keep `main` protected and require `quality-gate`.

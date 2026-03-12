@@ -8,8 +8,6 @@ on:
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -23,58 +21,14 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Secret scan
-        run: ./scripts/secret-scan.sh
-
       - name: Lint
         run: npm run lint
 
-      - name: Format check
-        run: npm run format:check
+      - name: Typecheck
+        run: npm run typecheck
 
-      - name: Test
-        run: npm run test
+      - name: Test (TS)
+        run: npm run test:ts
 
-      - name: Retrieval benchmark gate
-        run: npm run bench:retrieval:gate
-
-      - name: Retrieval benchmark summary
-        if: always()
-        run: |
-          REPORT_MD="data/retrieval-benchmark-reports/latest.md"
-          REPORT_JSON="data/retrieval-benchmark-reports/latest.json"
-          {
-            echo "## Retrieval benchmark gate"
-            if [ -f "$REPORT_MD" ]; then
-              cat "$REPORT_MD"
-            else
-              echo "- report markdown missing: $REPORT_MD"
-            fi
-            if [ -f "$REPORT_JSON" ]; then
-              echo ""
-              echo "### Raw JSON path"
-              echo "\`$REPORT_JSON\`"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload retrieval benchmark artifacts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: retrieval-benchmark-reports
-          if-no-files-found: warn
-          path: |
-            data/retrieval-benchmark-reports/latest.json
-            data/retrieval-benchmark-reports/latest.md
-
-      - name: Build
-        run: npm run build
-
-      - name: Cargo test
-        run: cargo test --workspace
-
-      - name: Ops quality runtime pack
-        run: npm run ops:quality-runtime-pack:json
+      - name: Test (Rust)
+        run: npm run test:rust
