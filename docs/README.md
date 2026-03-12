@@ -15,5 +15,6 @@ Minimal documentation set for the clean-slate MemphisOS repository.
 - `runbooks/SYSTEMD_EXIT_CODES.md`: exit-code to systemd behavior mapping.
 - `runbooks/TRUST_ROOT_ROTATION.md`: trust-root rotation ceremony.
 - `templates/SPRINT_CLOSURE_NOTE.md`: closure template for release evidence, checksums, and follow-ups.
+- `sprints/SPRINT_CLOSURE_2026-03-12.md`: current sprint closure record.
 - `../SECURITY.md`: security policy baseline.
 - `../WHAT_IS_LEFT_TO_DO.md`: active implementation backlog.

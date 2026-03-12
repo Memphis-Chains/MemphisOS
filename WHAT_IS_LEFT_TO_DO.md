@@ -256,6 +256,9 @@ Updated: 2026-03-12
   - partial delivery failures are recorded without interrupting proposal creation.
 - Added operator runbook for proactive Telegram delivery:
   - `docs/runbooks/PROACTIVE_TELEGRAM_DELIVERY.md` documents opt-in env vars, failure triage, and rollback.
+- Added filled sprint closure record using the new template:
+  - `docs/sprints/SPRINT_CLOSURE_2026-03-12.md`
+  - captures delivered commits, validation evidence, and rollback references.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -266,8 +269,8 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Adopt `docs/templates/SPRINT_CLOSURE_NOTE.md` for the current sprint and commit the filled note.
-2. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
-3. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
-4. Consolidate legacy `src/cli/commands/*` entrypoints with `infra/cli` routing or remove dead paths.
-5. Add end-to-end CLI tests that exercise `insights --save` + `reflect --save` persistence on a fresh data dir.
+1. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
+2. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
+3. Consolidate legacy `src/cli/commands/*` entrypoints with `infra/cli` routing or remove dead paths.
+4. Add end-to-end CLI tests that exercise `insights --save` + `reflect --save` persistence on a fresh data dir.
+5. Add explicit operator guidance for rotating Telegram bot credentials without downtime.
