@@ -63,6 +63,9 @@ describe('Prometheus metrics endpoint', () => {
     expect(text).toContain('chain_blocks_total 2');
     expect(text).toContain('embed_queries_total');
     expect(text).toContain('ask_requests_total{provider="local-fallback"}');
+    expect(text).toContain('queue_overload_total');
+    expect(text).toContain('safe_mode_denials_total');
+    expect(text).toContain('dual_approval_transitions_total');
 
     await app.close();
     process.env.METRICS_CHAIN_SCAN_DIR = prevMetricsScanDir;

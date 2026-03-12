@@ -22,6 +22,17 @@ Updated: 2026-03-12
   - `npm run typecheck`
   - `npm run test:ts`
   - `npm run test:rust`
+- Added admin signature verification for dual-approval endpoints:
+  - `MEMPHIS_ADMIN_PUBLIC_KEYS_JSON` key registry
+  - `MEMPHIS_ADMIN_SIGNATURE_REQUIRED` fail-closed mode
+- Added immutable `system` chain events for dual-approval lifecycle transitions with correlation IDs.
+- Added Prometheus counters and `/v1/metrics` snapshot fields for:
+  - queue overload rejects
+  - safe-mode denials
+  - dual-approval transitions
+- Added integration/unit coverage for signature enforcement and new metrics.
+- Added/enforced CODEOWNERS + code-owner review on protected `main`.
+- Enabled GitHub security controls (Dependabot alerts/updates, secret scanning, push protection).
 
 ## In Progress Architecture (Already Implemented)
 
@@ -32,13 +43,11 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add cryptographic verification for admin action signatures in dual-approval endpoints.
-2. Emit immutable chain events for dual-approval lifecycle transitions with correlation IDs.
-3. Add queue resume worker semantics (recover pending tasks and re-dispatch policies on restart).
-4. Add Prometheus counters for queue overload, dual-approval transitions, and safe-mode denials.
-5. Add runbooks:
+1. Add queue resume worker semantics (recover pending tasks and re-dispatch policies on restart).
+2. Add runbooks:
    - Safe Mode operations
    - systemd exit-code mapping (`RestartPreventExitStatus=102,103`)
    - trust-root rotation ceremony
-6. Add CODEOWNERS and enforce code-owner review on protected branch.
-7. Enable GitHub security features (Dependabot, secret scanning, push protection) and document status in `SECURITY.md`.
+3. Document admin signature key rotation and bootstrap in `SECURITY.md`.
+4. Extend dual-approval signing to include explicit `approval_request_id` idempotency checks in API contracts.
+5. Add restart drill test for queue recovery policy (crash with pending task, restart, deterministic outcome).
