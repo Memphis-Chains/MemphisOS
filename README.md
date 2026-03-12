@@ -125,6 +125,14 @@ npm run -s ops:verify-incident-manifest -- \
   --public-key-path /secure/path/incident-signing-public.pem \
   --expected-key-id incident-key-v1 \
   --require-signature
+npm run -s ops:rotate-key-bundle -- \
+  --trust-root-path config/trust_root.json \
+  --trust-root-signing-key-path /secure/path/trust-root-signer.pem \
+  --base-bundle-path data/public-key-bundle.json \
+  --bundle-out data/public-key-bundle.json \
+  --new-key-id incident-key-v2 \
+  --new-private-key-out /secure/path/incident-key-v2.pem \
+  --new-public-key-out data/incident-key-v2.pub.pem
 ```
 
 `ops:export-incident-bundle` defaults:
@@ -148,6 +156,13 @@ npm run -s ops:verify-incident-manifest -- \
 - optional detached-bundle provenance enforcement via `--require-key-bundle-signature --trust-root-path <trust_root.json>`
 - verification results are linked to immutable `system` chain events (`incident_manifest.verification`); use `--skip-chain-event` only for read-only dry runs
 - chain-link reliability controls: `--chain-event-retry-count`, `--chain-event-retry-backoff-ms`, and `MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false`
+
+`ops:rotate-key-bundle` does:
+
+- generates a new Ed25519 incident-signing keypair
+- appends the new public key to the detached bundle
+- signs bundle provenance with the active trust root signer (fails closed if signer root is not trusted)
+- emits machine-readable output with new key paths and signer metadata
 
 ## Security Notes
 

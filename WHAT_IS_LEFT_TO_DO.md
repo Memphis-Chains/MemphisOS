@@ -208,6 +208,11 @@ Updated: 2026-03-12
   - verifier supports `--chain-event-retry-count` + `--chain-event-retry-backoff-ms`
   - enforcement toggle via `MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false`
   - integration coverage verifies retry attempts + fail-closed behavior when append remains unavailable.
+- Added key-bundle rotation tooling with trust-root-signed provenance:
+  - `npm run -s ops:rotate-key-bundle`
+  - generates new Ed25519 incident-signing keypairs and rotates detached key bundles
+  - fails closed when trust-root signer is not trusted by active `trust_root.json`
+  - adds runbook `docs/runbooks/KEY_BUNDLE_ROTATION.md` and ops regression coverage.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -218,6 +223,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add key-bundle rotation tooling (generate new bundle + signed provenance from current trust root).
-2. Add export-side policy profile presets (`financial-strict`, `forensics-lite`) to reduce operator flag churn.
-3. Add verify command profile presets (`trust-root-strict`, `legacy-compat`) for faster operator workflows.
+1. Add export-side policy profile presets (`financial-strict`, `forensics-lite`) to reduce operator flag churn.
+2. Add verify command profile presets (`trust-root-strict`, `legacy-compat`) for faster operator workflows.

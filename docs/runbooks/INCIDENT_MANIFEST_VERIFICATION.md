@@ -65,6 +65,19 @@ npm run -s ops:verify-incident-manifest -- \
   --require-signature
 ```
 
+Rotate detached key bundles (before switching signer ids):
+
+```bash
+npm run -s ops:rotate-key-bundle -- \
+  --trust-root-path config/trust_root.json \
+  --trust-root-signing-key-path /secure/path/trust-root-signer.pem \
+  --base-bundle-path data/public-key-bundle.json \
+  --bundle-out data/public-key-bundle.json \
+  --new-key-id incident-key-v2 \
+  --new-private-key-out /secure/path/incident-key-v2.pem \
+  --new-public-key-out data/incident-key-v2.pub.pem
+```
+
 Strict provenance mode (recommended for production handoffs):
 
 ```bash
