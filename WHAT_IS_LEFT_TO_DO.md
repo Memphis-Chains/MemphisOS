@@ -50,6 +50,10 @@ Updated: 2026-03-12
   - `memphis-core`: `harness` (deterministic replay + snapshot), `loop_engine`, `memory`
   - `memphis-napi`: `soul_replay`, `soul_loop_step`
   - TS adapter methods + unit coverage for replay/loop paths.
+- Added runtime TaskExecutor loop integration:
+  - `OrchestrationService.generate` now runs through `TaskExecutor` (Think -> Act -> Observe)
+  - System/tool/error lifecycle events are persisted to `system` chain
+  - Queue redispatch passes stable `runId` and reuses cached `task.tool_result` events to avoid re-running completed tool calls after restart.
 
 ## In Progress Architecture (Already Implemented)
 
