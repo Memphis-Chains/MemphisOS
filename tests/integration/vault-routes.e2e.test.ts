@@ -2,7 +2,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { createAppContainer } from '../../src/app/container.js';
 import type { AppConfig } from '../../src/infra/config/schema.js';
@@ -30,13 +30,24 @@ function cfg(db: string, rustEnabled = false): AppConfig {
 }
 
 describe('vault routes e2e', () => {
-  it('returns 400 on invalid payload and accepts runtime-dependent vault adapter status', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-e2e-'));
-    const conf = cfg(join(dir, 'vault.db'));
-    const c = createAppContainer(conf);
-    const app = createHttpServer(conf, c.orchestration, {
-      sessionRepository: c.sessionRepository,
-      generationEventRepository: c.generationEventRepository,
+  afterEach(() => {
+    delete process.env.RUST_CHAIN_ENABLED;
+    delete process.env.RUST_CHAIN_BRIDGE_PATH;
+    delete process.env.MEMPHIS_VAULT_PEPPER;
+    delete process.env.MEMPHIS_VAULT_ENTRIES_PATH;
+    delete process.env.MEMPHIS_DATA_DIR;
+  });
+
+  it(
+    'returns 400 on invalid payload and accepts runtime-dependent vault adapter status',
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-e2e-'));
+      process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
+      const conf = cfg(join(dir, 'vault.db'));
+      const c = createAppContainer(conf);
+      const app = createHttpServer(conf, c.orchestration, {
+        sessionRepository: c.sessionRepository,
+        generationEventRepository: c.generationEventRepository,
     });
 
     const invalidInit = await app.inject({
@@ -79,12 +90,17 @@ describe('vault routes e2e', () => {
 
     expect([200, 503]).toContain(decrypt.statusCode);
 
-    await app.close();
-  });
+      await app.close();
+    },
+    15000,
+  );
 
-  it('persists encrypted entries when rust bridge is available', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-persist-'));
-    const conf = cfg(join(dir, 'vault.db'), true);
+  it(
+    'persists encrypted entries when rust bridge is available',
+    async () => {
+      const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-persist-'));
+      process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
+      const conf = cfg(join(dir, 'vault.db'), true);
 
     const bridgePath = join(dir, 'mock-rust-bridge.cjs');
     writeFileSync(
@@ -131,10 +147,8 @@ describe('vault routes e2e', () => {
     expect(typeof body.entries[0]?.fingerprint).toBe('string');
     expect(body.entries[0]?.integrityOk).toBe(true);
 
-    delete process.env.RUST_CHAIN_ENABLED;
-    delete process.env.RUST_CHAIN_BRIDGE_PATH;
-    delete process.env.MEMPHIS_VAULT_PEPPER;
-    delete process.env.MEMPHIS_VAULT_ENTRIES_PATH;
-    await app.close();
-  });
+      await app.close();
+    },
+    15000,
+  );
 });

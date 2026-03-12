@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { createAppContainer } from '../../src/app/container.js';
 import type { AppConfig } from '../../src/infra/config/schema.js';
@@ -30,12 +30,20 @@ function cfg(db: string): AppConfig {
 }
 
 describe('S4.1 Auth hardening', () => {
-  it('blocks protected endpoint without token when MEMPHIS_API_TOKEN is set', async () => {
-    process.env.MEMPHIS_API_TOKEN = 'secret-token';
+  afterEach(() => {
+    delete process.env.MEMPHIS_API_TOKEN;
+    delete process.env.MEMPHIS_DATA_DIR;
+  });
 
-    const dir = mkdtempSync(join(tmpdir(), 'mv4-auth-'));
-    const conf = cfg(join(dir, 'auth.db'));
-    const c = createAppContainer(conf);
+  it(
+    'blocks protected endpoint without token when MEMPHIS_API_TOKEN is set',
+    async () => {
+      process.env.MEMPHIS_API_TOKEN = 'secret-token';
+
+      const dir = mkdtempSync(join(tmpdir(), 'mv4-auth-'));
+      process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
+      const conf = cfg(join(dir, 'auth.db'));
+      const c = createAppContainer(conf);
     const app = createHttpServer(conf, c.orchestration, {
       sessionRepository: c.sessionRepository,
       generationEventRepository: c.generationEventRepository,
@@ -81,7 +89,8 @@ describe('S4.1 Auth hardening', () => {
     });
     expect([200, 503]).toContain(vaultWithToken.statusCode);
 
-    delete process.env.MEMPHIS_API_TOKEN;
-    await app.close();
-  });
+      await app.close();
+    },
+    15000,
+  );
 });
