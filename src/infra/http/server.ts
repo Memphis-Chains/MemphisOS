@@ -443,6 +443,7 @@ export function createHttpServer(
         actorId: parsed.data.approverId,
         signature: parsed.data.signature,
         payload: {
+          approvalRequestId: parsed.data.approvalRequestId,
           requestId: parsed.data.requestId,
           expectedStateVersion: parsed.data.expectedStateVersion,
         },
@@ -504,6 +505,7 @@ export function createHttpServer(
         actorId: parsed.data.actorId,
         signature: parsed.data.signature,
         payload: {
+          approvalRequestId: parsed.data.approvalRequestId,
           requestId: parsed.data.requestId,
           expectedStateVersion: parsed.data.expectedStateVersion,
         },

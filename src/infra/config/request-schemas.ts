@@ -48,6 +48,7 @@ export const dualApprovalRequestSchema = z.object({
 });
 
 export const dualApprovalApproveSchema = z.object({
+  approvalRequestId: z.string().uuid(),
   requestId: z.string().uuid(),
   approverId: z.string().min(1).max(256),
   expectedStateVersion: z.number().int().min(0),
@@ -55,6 +56,7 @@ export const dualApprovalApproveSchema = z.object({
 });
 
 export const dualApprovalCancelSchema = z.object({
+  approvalRequestId: z.string().uuid(),
   requestId: z.string().uuid(),
   actorId: z.string().min(1).max(256),
   expectedStateVersion: z.number().int().min(0),

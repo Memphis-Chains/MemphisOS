@@ -35,15 +35,13 @@ describe('S4.1 Auth hardening', () => {
     delete process.env.MEMPHIS_DATA_DIR;
   });
 
-  it(
-    'blocks protected endpoint without token when MEMPHIS_API_TOKEN is set',
-    async () => {
-      process.env.MEMPHIS_API_TOKEN = 'secret-token';
+  it('blocks protected endpoint without token when MEMPHIS_API_TOKEN is set', async () => {
+    process.env.MEMPHIS_API_TOKEN = 'secret-token';
 
-      const dir = mkdtempSync(join(tmpdir(), 'mv4-auth-'));
-      process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
-      const conf = cfg(join(dir, 'auth.db'));
-      const c = createAppContainer(conf);
+    const dir = mkdtempSync(join(tmpdir(), 'mv4-auth-'));
+    process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
+    const conf = cfg(join(dir, 'auth.db'));
+    const c = createAppContainer(conf);
     const app = createHttpServer(conf, c.orchestration, {
       sessionRepository: c.sessionRepository,
       generationEventRepository: c.generationEventRepository,
@@ -89,8 +87,6 @@ describe('S4.1 Auth hardening', () => {
     });
     expect([200, 503]).toContain(vaultWithToken.statusCode);
 
-      await app.close();
-    },
-    15000,
-  );
+    await app.close();
+  }, 15000);
 });

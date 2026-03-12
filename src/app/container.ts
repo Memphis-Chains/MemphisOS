@@ -32,6 +32,7 @@ export function createAppContainer(config: AppConfig) {
   const taskQueue = new TaskQueueService({
     walPath: config.MEMPHIS_QUEUE_WAL_PATH ?? defaultWalPath(config.DATABASE_URL),
     mode: config.MEMPHIS_QUEUE_MODE ?? 'financial',
+    resumePolicy: config.MEMPHIS_QUEUE_RESUME_POLICY ?? 'keep',
     maxPendingTasks: config.MEMPHIS_MAX_PENDING_TASKS ?? 100,
     maxWalBytes: config.MEMPHIS_QUEUE_WAL_MAX_BYTES,
     faultInject: config.MEMPHIS_FAULT_INJECT,

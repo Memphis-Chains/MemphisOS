@@ -1,9 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
 import { createAppContainer } from './container.js';
 import { AppError, errorTemplates } from '../core/errors.js';
+import type { GenerateInput, GenerateOptions, ProviderName } from '../core/types.js';
 import { checkOllama, checkRustToolchain } from '../infra/cli/utils/dependencies.js';
 import { loadConfig } from '../infra/config/env.js';
+import type { AppConfig } from '../infra/config/schema.js';
 import { createHttpServer } from '../infra/http/server.js';
 import { writeSecurityAudit } from '../infra/logging/security-audit.js';
 import { inStrictMode } from '../infra/runtime/emergency-log.js';
@@ -11,6 +14,11 @@ import { EXIT_CODES, MemphisExitError } from '../infra/runtime/exit-codes.js';
 import { enforceSafeModeNoEgress, safeModeEnabled } from '../infra/runtime/safe-mode.js';
 import { writeSecurityCriticalEvent } from '../infra/runtime/security-critical.js';
 import { verifyChainIntegrity } from '../infra/storage/chain-adapter.js';
+import type {
+  QueuePendingTask,
+  TaskQueueResumePolicy,
+  TaskQueueStatus,
+} from '../infra/storage/task-queue-service.js';
 
 export async function bootstrap(): Promise<void> {
   if (!existsSync('.env')) {
@@ -79,6 +87,7 @@ export async function bootstrap(): Promise<void> {
   }
 
   const container = createAppContainer(config);
+  await resumeRecoveredQueueTasks(container, config, process.env);
   const app = createHttpServer(config, container.orchestration, {
     sessionRepository: container.sessionRepository,
     generationEventRepository: container.generationEventRepository,
@@ -87,4 +96,140 @@ export async function bootstrap(): Promise<void> {
   });
 
   await app.listen({ host: config.HOST, port: config.PORT });
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function parseProviderName(value: unknown): ProviderName | undefined {
+  if (
+    value === 'shared-llm' ||
+    value === 'decentralized-llm' ||
+    value === 'local-fallback' ||
+    value === 'ollama'
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function parseGenerateOptions(value: unknown): GenerateOptions | undefined {
+  if (!isObject(value)) return undefined;
+  const out: GenerateOptions = {};
+  if (typeof value.temperature === 'number') out.temperature = value.temperature;
+  if (typeof value.maxTokens === 'number') out.maxTokens = Math.trunc(value.maxTokens);
+  if (typeof value.timeoutMs === 'number') out.timeoutMs = Math.trunc(value.timeoutMs);
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function parseQueuedChatPayload(value: unknown):
+  | (GenerateInput & {
+      provider?: 'auto' | ProviderName;
+    })
+  | null {
+  if (!isObject(value)) return null;
+  if (typeof value.input !== 'string' || value.input.trim().length === 0) return null;
+
+  const provider =
+    value.provider === 'auto'
+      ? 'auto'
+      : value.provider === null || value.provider === undefined
+        ? undefined
+        : parseProviderName(value.provider);
+  if (value.provider !== undefined && value.provider !== null && !provider) {
+    return null;
+  }
+
+  const strategy =
+    value.strategy === 'latency-aware'
+      ? 'latency-aware'
+      : value.strategy === 'default' || value.strategy === null || value.strategy === undefined
+        ? 'default'
+        : null;
+  if (!strategy) return null;
+
+  return {
+    input: value.input,
+    provider,
+    model: typeof value.model === 'string' ? value.model : undefined,
+    sessionId: typeof value.sessionId === 'string' ? value.sessionId : undefined,
+    options: parseGenerateOptions(value.options),
+    strategy,
+  };
+}
+
+function selectResumePolicy(config: AppConfig, rawEnv: NodeJS.ProcessEnv): TaskQueueResumePolicy {
+  if (safeModeEnabled(rawEnv) && config.MEMPHIS_QUEUE_RESUME_POLICY === 'redispatch') {
+    return 'keep';
+  }
+  return config.MEMPHIS_QUEUE_RESUME_POLICY;
+}
+
+async function redispatchRecoveredTask(
+  task: QueuePendingTask,
+  container: ReturnType<typeof createAppContainer>,
+): Promise<TaskQueueStatus> {
+  if (task.task.type !== 'chat.generate') {
+    return 'failed';
+  }
+
+  const queuedInput = parseQueuedChatPayload(task.task.payload);
+  if (!queuedInput) {
+    return 'failed';
+  }
+
+  if (queuedInput.sessionId) {
+    container.sessionRepository.ensureSession(queuedInput.sessionId);
+  }
+
+  const result = await container.orchestration.generate({
+    input: queuedInput.input,
+    provider: queuedInput.provider,
+    model: queuedInput.model,
+    sessionId: queuedInput.sessionId,
+    options: queuedInput.options,
+    strategy: queuedInput.strategy,
+  });
+
+  const requestIdFromMetadata =
+    typeof task.task.metadata?.requestId === 'string' ? task.task.metadata.requestId : undefined;
+  container.generationEventRepository.create({
+    id: result.id || `gen_${randomUUID()}`,
+    sessionId: queuedInput.sessionId,
+    providerUsed: result.providerUsed,
+    modelUsed: result.modelUsed,
+    timingMs: result.timingMs,
+    requestId: task.task.requestId ?? requestIdFromMetadata,
+  });
+
+  return 'completed';
+}
+
+async function resumeRecoveredQueueTasks(
+  container: ReturnType<typeof createAppContainer>,
+  config: AppConfig,
+  rawEnv: NodeJS.ProcessEnv,
+): Promise<void> {
+  const policy = selectResumePolicy(config, rawEnv);
+  const resumed = await container.taskQueue.resumeRecoveredPending({
+    policy,
+    redispatch: async (task) => redispatchRecoveredTask(task, container),
+  });
+
+  if (resumed.scanned === 0) return;
+
+  writeSecurityAudit({
+    action: 'queue.resume.startup',
+    status: resumed.errors.length > 0 ? 'error' : 'allowed',
+    details: {
+      policy,
+      scanned: resumed.scanned,
+      redispatched: resumed.redispatched,
+      failed: resumed.failed,
+      canceled: resumed.canceled,
+      kept: resumed.kept,
+      errors: resumed.errors,
+    },
+  });
 }

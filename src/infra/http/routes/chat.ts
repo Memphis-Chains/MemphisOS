@@ -56,6 +56,14 @@ export async function registerChatRoutes(
           inputDigest: createHash('sha256').update(payload.input).digest('hex'),
           inputBytes: Buffer.byteLength(payload.input, 'utf8'),
         },
+        payload: {
+          input: payload.input,
+          provider: payload.provider ?? 'auto',
+          model: payload.model ?? null,
+          sessionId: payload.sessionId ?? null,
+          options: payload.options ?? null,
+          strategy: payload.strategy ?? 'default',
+        },
       });
     } catch (error) {
       if (error instanceof AppError && error.code === 'OVERLOAD') {

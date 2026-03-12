@@ -38,16 +38,14 @@ describe('vault routes e2e', () => {
     delete process.env.MEMPHIS_DATA_DIR;
   });
 
-  it(
-    'returns 400 on invalid payload and accepts runtime-dependent vault adapter status',
-    async () => {
-      const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-e2e-'));
-      process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
-      const conf = cfg(join(dir, 'vault.db'));
-      const c = createAppContainer(conf);
-      const app = createHttpServer(conf, c.orchestration, {
-        sessionRepository: c.sessionRepository,
-        generationEventRepository: c.generationEventRepository,
+  it('returns 400 on invalid payload and accepts runtime-dependent vault adapter status', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-e2e-'));
+    process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
+    const conf = cfg(join(dir, 'vault.db'));
+    const c = createAppContainer(conf);
+    const app = createHttpServer(conf, c.orchestration, {
+      sessionRepository: c.sessionRepository,
+      generationEventRepository: c.generationEventRepository,
     });
 
     const invalidInit = await app.inject({
@@ -90,17 +88,13 @@ describe('vault routes e2e', () => {
 
     expect([200, 503]).toContain(decrypt.statusCode);
 
-      await app.close();
-    },
-    15000,
-  );
+    await app.close();
+  }, 15000);
 
-  it(
-    'persists encrypted entries when rust bridge is available',
-    async () => {
-      const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-persist-'));
-      process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
-      const conf = cfg(join(dir, 'vault.db'), true);
+  it('persists encrypted entries when rust bridge is available', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'mv4-vault-persist-'));
+    process.env.MEMPHIS_DATA_DIR = join(dir, '.memphis-data');
+    const conf = cfg(join(dir, 'vault.db'), true);
 
     const bridgePath = join(dir, 'mock-rust-bridge.cjs');
     writeFileSync(
@@ -147,8 +141,6 @@ describe('vault routes e2e', () => {
     expect(typeof body.entries[0]?.fingerprint).toBe('string');
     expect(body.entries[0]?.integrityOk).toBe(true);
 
-      await app.close();
-    },
-    15000,
-  );
+    await app.close();
+  }, 15000);
 });

@@ -29,6 +29,7 @@ describe('dual approval repository', () => {
     expect(request.stateVersion).toBe(0);
 
     const approved = repo.approve({
+      approvalRequestId: '0f5e52f4-9631-423d-ad34-845d446ec316',
       requestId: request.requestId,
       approverId: 'Admin-B',
       expectedStateVersion: 0,
@@ -53,6 +54,7 @@ describe('dual approval repository', () => {
 
     try {
       repo.approve({
+        approvalRequestId: '1edfe6fd-c912-4f4f-b69b-31ce9559214b',
         requestId: request.requestId,
         approverId: 'user_a',
         expectedStateVersion: 0,
@@ -76,6 +78,7 @@ describe('dual approval repository', () => {
     });
 
     const first = repo.approve({
+      approvalRequestId: '26d2ad73-d95f-49c4-8ecf-a6d77b4ecf66',
       requestId: request.requestId,
       approverId: 'admin-b',
       expectedStateVersion: 0,
@@ -85,6 +88,7 @@ describe('dual approval repository', () => {
 
     try {
       repo.approve({
+        approvalRequestId: '31f16b77-31f0-4356-beaf-3ec9dc41a61d',
         requestId: request.requestId,
         approverId: 'admin-c',
         expectedStateVersion: 0,
@@ -110,6 +114,7 @@ describe('dual approval repository', () => {
     });
 
     const late = repo.approve({
+      approvalRequestId: '0d11b8f0-cce8-4a0b-b8dd-7415742adab9',
       requestId: request.requestId,
       approverId: 'admin-b',
       expectedStateVersion: 0,
@@ -119,5 +124,34 @@ describe('dual approval repository', () => {
 
     const events = repo.listEvents(request.requestId);
     expect(events.map((e) => e.toState)).toEqual(['pending', 'expired']);
+  });
+
+  it('treats duplicate approvalRequestId retries as idempotent for same actor', () => {
+    const repo = createRepo();
+    const request = repo.createRequest({
+      action: 'freeze',
+      initiatorId: 'admin-a',
+      nowMs: 1000,
+    });
+
+    const approvalRequestId = '4f9f7dfd-c9df-4e2e-8f05-4bad382ad42f';
+    const first = repo.approve({
+      approvalRequestId,
+      requestId: request.requestId,
+      approverId: 'admin-b',
+      expectedStateVersion: 0,
+      nowMs: 1100,
+    });
+    expect(first.state).toBe('approved');
+
+    const retry = repo.approve({
+      approvalRequestId,
+      requestId: request.requestId,
+      approverId: 'admin-b',
+      expectedStateVersion: 0,
+      nowMs: 1200,
+    });
+    expect(retry.state).toBe('approved');
+    expect(retry.stateVersion).toBe(1);
   });
 });

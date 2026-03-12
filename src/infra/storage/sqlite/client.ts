@@ -100,6 +100,17 @@ export function runMigrations(db: Database.Database): void {
 
     CREATE INDEX IF NOT EXISTS idx_dual_approval_events_request_created
       ON dual_approval_events(request_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS dual_approval_idempotency (
+      approval_request_id TEXT PRIMARY KEY,
+      request_id TEXT NOT NULL,
+      action TEXT NOT NULL CHECK (action IN ('approve', 'cancel')),
+      actor_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_dual_approval_idempotency_request
+      ON dual_approval_idempotency(request_id, created_at DESC);
   `);
 
   db.prepare(

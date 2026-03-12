@@ -7,6 +7,7 @@ import { normalizeIdentity } from '../../../auth/identity.js';
 
 export type DualApprovalAction = 'freeze' | 'unfreeze';
 export type DualApprovalState = 'pending' | 'approved' | 'expired' | 'canceled';
+type DualApprovalTransitionAction = 'approve' | 'cancel';
 
 export interface DualApprovalRequest {
   requestId: string;
@@ -34,6 +35,14 @@ interface DualApprovalRow {
   state_version: number;
   created_at: string;
   updated_at: string;
+}
+
+interface DualApprovalIdempotencyRow {
+  approval_request_id: string;
+  request_id: string;
+  action: DualApprovalTransitionAction;
+  actor_id: string;
+  created_at: string;
 }
 
 function mapRow(row: DualApprovalRow): DualApprovalRequest {
@@ -101,6 +110,7 @@ export class SqliteDualApprovalRepository {
   }
 
   public approve(input: {
+    approvalRequestId: string;
     requestId: string;
     approverId: string;
     expectedStateVersion: number;
@@ -112,6 +122,17 @@ export class SqliteDualApprovalRepository {
     const normalizedApprover = normalizeIdentity(input.approverId);
 
     const tx = this.db.transaction(() => {
+      if (
+        this.isIdempotentReplay({
+          approvalRequestId: input.approvalRequestId,
+          requestId: input.requestId,
+          action: 'approve',
+          actorId: normalizedApprover,
+        })
+      ) {
+        return this.getOrThrow(input.requestId);
+      }
+
       const current = this.getOrThrow(input.requestId);
       if (current.state !== 'pending') {
         throw new AppError('VALIDATION_ERROR', 'TransitionAlreadyApplied', 409, {
@@ -122,6 +143,18 @@ export class SqliteDualApprovalRepository {
       }
 
       if (nowMs > current.expiresAtMs) {
+        if (
+          !this.reserveIdempotency({
+            approvalRequestId: input.approvalRequestId,
+            requestId: input.requestId,
+            action: 'approve',
+            actorId: normalizedApprover,
+            createdAt: nowIso,
+          })
+        ) {
+          return this.getOrThrow(input.requestId);
+        }
+
         const changed = this.db
           .prepare(
             `UPDATE dual_approval_requests
@@ -159,6 +192,18 @@ export class SqliteDualApprovalRepository {
         });
       }
 
+      if (
+        !this.reserveIdempotency({
+          approvalRequestId: input.approvalRequestId,
+          requestId: input.requestId,
+          action: 'approve',
+          actorId: normalizedApprover,
+          createdAt: nowIso,
+        })
+      ) {
+        return this.getOrThrow(input.requestId);
+      }
+
       const changed = this.db
         .prepare(
           `UPDATE dual_approval_requests
@@ -194,6 +239,7 @@ export class SqliteDualApprovalRepository {
   }
 
   public cancel(input: {
+    approvalRequestId: string;
     requestId: string;
     actorId: string;
     expectedStateVersion: number;
@@ -204,6 +250,17 @@ export class SqliteDualApprovalRepository {
     const nowIso = new Date(nowMs).toISOString();
     const normalizedActor = normalizeIdentity(input.actorId);
     const tx = this.db.transaction(() => {
+      if (
+        this.isIdempotentReplay({
+          approvalRequestId: input.approvalRequestId,
+          requestId: input.requestId,
+          action: 'cancel',
+          actorId: normalizedActor,
+        })
+      ) {
+        return this.getOrThrow(input.requestId);
+      }
+
       const current = this.getOrThrow(input.requestId);
       if (current.state !== 'pending') {
         throw new AppError('VALIDATION_ERROR', 'TransitionAlreadyApplied', 409, {
@@ -219,6 +276,18 @@ export class SqliteDualApprovalRepository {
           expectedStateVersion: input.expectedStateVersion,
           actualStateVersion: current.stateVersion,
         });
+      }
+
+      if (
+        !this.reserveIdempotency({
+          approvalRequestId: input.approvalRequestId,
+          requestId: input.requestId,
+          action: 'cancel',
+          actorId: normalizedActor,
+          createdAt: nowIso,
+        })
+      ) {
+        return this.getOrThrow(input.requestId);
       }
 
       const changed = this.db
@@ -377,5 +446,87 @@ export class SqliteDualApprovalRepository {
         input.signature,
         input.createdAt,
       );
+  }
+
+  private reserveIdempotency(input: {
+    approvalRequestId: string;
+    requestId: string;
+    action: DualApprovalTransitionAction;
+    actorId: string;
+    createdAt: string;
+  }): boolean {
+    const inserted = this.db
+      .prepare(
+        `INSERT INTO dual_approval_idempotency(
+          approval_request_id, request_id, action, actor_id, created_at
+        ) VALUES (?, ?, ?, ?, ?) ON CONFLICT(approval_request_id) DO NOTHING`,
+      )
+      .run(
+        input.approvalRequestId,
+        input.requestId,
+        input.action,
+        input.actorId,
+        input.createdAt,
+      ).changes;
+
+    if (inserted === 1) {
+      return true;
+    }
+
+    const existing = this.db
+      .prepare(
+        `SELECT approval_request_id, request_id, action, actor_id, created_at
+         FROM dual_approval_idempotency
+         WHERE approval_request_id = ?`,
+      )
+      .get(input.approvalRequestId) as DualApprovalIdempotencyRow | undefined;
+
+    if (
+      existing &&
+      existing.request_id === input.requestId &&
+      existing.action === input.action &&
+      existing.actor_id === input.actorId
+    ) {
+      return false;
+    }
+
+    throw new AppError('VALIDATION_ERROR', 'approval_request_id already used', 409, {
+      approvalRequestId: input.approvalRequestId,
+      requestId: input.requestId,
+      action: input.action,
+    });
+  }
+
+  private isIdempotentReplay(input: {
+    approvalRequestId: string;
+    requestId: string;
+    action: DualApprovalTransitionAction;
+    actorId: string;
+  }): boolean {
+    const existing = this.db
+      .prepare(
+        `SELECT approval_request_id, request_id, action, actor_id, created_at
+         FROM dual_approval_idempotency
+         WHERE approval_request_id = ?`,
+      )
+      .get(input.approvalRequestId) as DualApprovalIdempotencyRow | undefined;
+
+    if (!existing) {
+      return false;
+    }
+
+    if (
+      existing.request_id === input.requestId &&
+      existing.action === input.action &&
+      existing.actor_id === input.actorId
+    ) {
+      return true;
+    }
+
+    throw new AppError('VALIDATION_ERROR', 'approval_request_id already used', 409, {
+      approvalRequestId: input.approvalRequestId,
+      requestId: input.requestId,
+      action: input.action,
+    });
   }
 }
