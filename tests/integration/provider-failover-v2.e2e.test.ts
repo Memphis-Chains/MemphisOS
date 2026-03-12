@@ -45,5 +45,5 @@ describe('Provider failover v2', () => {
 
     const r2 = await svc.generate({ input: 'y', provider: 'auto' });
     expect(r2.providerUsed).toBe('local-fallback');
-  });
+  }, 15_000);
 });

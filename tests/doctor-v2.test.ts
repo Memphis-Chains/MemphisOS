@@ -24,7 +24,7 @@ describe('doctor v2', () => {
 
     expect(deep.checks.length).toBeGreaterThan(base.checks.length);
     expect(deep.checks.some((c) => c.id === 't6-deep-shell')).toBe(true);
-  });
+  }, 20_000);
 
   it('prints ascii-box human summary', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);

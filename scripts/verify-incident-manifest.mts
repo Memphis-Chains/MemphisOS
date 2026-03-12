@@ -23,6 +23,16 @@ interface IncidentBundleManifest {
   signature?: SignatureDescriptor;
 }
 
+interface PublicKeyBundleEntry {
+  keyId: string;
+  publicKeyPem: string;
+}
+
+interface PublicKeyBundle {
+  schemaVersion: number;
+  keys: PublicKeyBundleEntry[];
+}
+
 interface VerifyOutput {
   ok: boolean;
   manifestPath: string;
@@ -146,10 +156,87 @@ function resolveBundlePath(bundlePath: string, manifestPath: string): string {
   return resolve(dirname(manifestPath), bundlePath);
 }
 
+function parsePublicKeyBundle(raw: string): PublicKeyBundle {
+  const parsed = JSON.parse(raw) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('public key bundle must be a JSON object');
+  }
+  const value = parsed as { [k: string]: unknown };
+  if (value.schemaVersion !== 1) throw new Error('public key bundle schemaVersion must be 1');
+  if (!Array.isArray(value.keys)) throw new Error('public key bundle keys must be an array');
+  const keys: PublicKeyBundleEntry[] = [];
+  for (const entry of value.keys) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      throw new Error('public key bundle entry must be an object');
+    }
+    const row = entry as { [k: string]: unknown };
+    if (typeof row.keyId !== 'string' || row.keyId.length === 0) {
+      throw new Error('public key bundle entry keyId must be a non-empty string');
+    }
+    if (typeof row.publicKeyPem !== 'string' || row.publicKeyPem.length === 0) {
+      throw new Error('public key bundle entry publicKeyPem must be a non-empty string');
+    }
+    keys.push({ keyId: row.keyId, publicKeyPem: row.publicKeyPem });
+  }
+  return { schemaVersion: 1, keys };
+}
+
+function resolvePublicKeyPem(options: {
+  manifest: IncidentBundleManifest;
+  expectedKeyId: string | null;
+}): { publicKeyPem: string | null; source: 'path' | 'bundle' | 'none'; errors: string[] } {
+  const errors: string[] = [];
+  const directPathRaw =
+    parseArg('--public-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_VERIFY_PUBLIC_KEY_PATH ?? null;
+  if (directPathRaw) {
+    const directPath = resolve(directPathRaw);
+    if (!existsSync(directPath)) {
+      errors.push(`public key file not found: ${directPath}`);
+      return { publicKeyPem: null, source: 'none', errors };
+    }
+    return {
+      publicKeyPem: readFileSync(directPath, 'utf8'),
+      source: 'path',
+      errors,
+    };
+  }
+
+  const bundlePathRaw =
+    parseArg('--public-key-bundle-path') ??
+    process.env.MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH ??
+    null;
+  if (!bundlePathRaw) return { publicKeyPem: null, source: 'none', errors };
+
+  const keyId = options.manifest.signature?.keyId ?? options.expectedKeyId;
+  if (!keyId) {
+    errors.push('public key bundle lookup requires signature.keyId or --expected-key-id');
+    return { publicKeyPem: null, source: 'none', errors };
+  }
+
+  const bundlePath = resolve(bundlePathRaw);
+  if (!existsSync(bundlePath)) {
+    errors.push(`public key bundle not found: ${bundlePath}`);
+    return { publicKeyPem: null, source: 'none', errors };
+  }
+
+  try {
+    const bundle = parsePublicKeyBundle(readFileSync(bundlePath, 'utf8'));
+    const key = bundle.keys.find((entry) => entry.keyId === keyId);
+    if (!key) {
+      errors.push(`public key bundle missing keyId: ${keyId}`);
+      return { publicKeyPem: null, source: 'none', errors };
+    }
+    return { publicKeyPem: key.publicKeyPem, source: 'bundle', errors };
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+    return { publicKeyPem: null, source: 'none', errors };
+  }
+}
+
 function verifySignature(options: {
   manifest: IncidentBundleManifest;
   manifestObject: Record<string, unknown>;
-  publicKeyPath: string | null;
+  publicKeyPem: string | null;
   expectedKeyId: string | null;
   requireSignature: boolean;
   checks: VerifyOutput['checks'];
@@ -185,20 +272,14 @@ function verifySignature(options: {
     options.errors.push('signature payload hash mismatch');
   }
 
-  if (!options.publicKeyPath) {
-    options.errors.push('signature is present but --public-key-path is missing');
-    return;
-  }
-
-  if (!existsSync(options.publicKeyPath)) {
-    options.errors.push(`public key file not found: ${options.publicKeyPath}`);
+  if (!options.publicKeyPem) {
+    options.errors.push('signature is present but no public key source is available');
     return;
   }
 
   try {
-    const publicKeyPem = readFileSync(options.publicKeyPath, 'utf8');
-    const publicKey = createPublicKey(publicKeyPem);
-    const expectedFingerprint = sha256Hex(publicKeyPem);
+    const publicKey = createPublicKey(options.publicKeyPem);
+    const expectedFingerprint = sha256Hex(options.publicKeyPem);
     options.checks.keyFingerprintMatch = expectedFingerprint === signature.keyFingerprint;
     if (!options.checks.keyFingerprintMatch) {
       options.errors.push('signature key fingerprint mismatch');
@@ -222,8 +303,6 @@ function verifySignature(options: {
 function main(): void {
   const manifestPath = resolveManifestPath();
   const requireSignature = hasFlag('--require-signature');
-  const publicKeyPath =
-    parseArg('--public-key-path') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_VERIFY_PUBLIC_KEY_PATH ?? null;
   const expectedKeyId = parseArg('--expected-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPECTED_KEY_ID ?? null;
   const checks: VerifyOutput['checks'] = {
     schemaValid: false,
@@ -267,10 +346,13 @@ function main(): void {
       }
     }
 
+    const keyResolution = resolvePublicKeyPem({ manifest, expectedKeyId });
+    errors.push(...keyResolution.errors);
+
     verifySignature({
       manifest,
       manifestObject,
-      publicKeyPath: publicKeyPath ? resolve(publicKeyPath) : null,
+      publicKeyPem: keyResolution.publicKeyPem,
       expectedKeyId,
       requireSignature,
       checks,
