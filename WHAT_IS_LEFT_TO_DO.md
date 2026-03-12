@@ -208,6 +208,22 @@ Updated: 2026-03-12
   - verifier supports `--chain-event-retry-count` + `--chain-event-retry-backoff-ms`
   - enforcement toggle via `MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false`
   - integration coverage verifies retry attempts + fail-closed behavior when append remains unavailable.
+- Added key-bundle rotation tooling with trust-root-signed provenance:
+  - `npm run -s ops:rotate-key-bundle`
+  - generates new Ed25519 incident-signing keypairs and rotates detached key bundles
+  - fails closed when trust-root signer is not trusted by active `trust_root.json`
+  - adds runbook `docs/runbooks/KEY_BUNDLE_ROTATION.md` and ops regression coverage.
+- Added export-side incident policy profile presets:
+  - `ops:export-incident-bundle --profile financial-strict|forensics-lite`
+  - profile defaults now reduce encryption/manifest/retention flag churn
+  - profile selection supports env override (`MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
+  - ops regression coverage added for strict/lite/invalid profile behavior.
+- Added verify-side incident policy profile presets:
+  - `ops:verify-incident-manifest --profile trust-root-strict|legacy-compat`
+  - strict profile enforces signature + detached key-bundle provenance path
+  - legacy profile supports non-strict compatibility mode for incident review workflows
+  - profile selection supports env override (`MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE`)
+  - verifier output now reports resolved policy settings.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -218,6 +234,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add key-bundle rotation tooling (generate new bundle + signed provenance from current trust root).
-2. Add export-side policy profile presets (`financial-strict`, `forensics-lite`) to reduce operator flag churn.
-3. Add verify command profile presets (`trust-root-strict`, `legacy-compat`) for faster operator workflows.
+1. Add profile-aware CLI help/completion hints for ops profile flags and env variables.
+2. Automate package/tag/release-note publication as a guarded GitHub workflow (`draft release` mode).

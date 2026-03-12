@@ -37,6 +37,7 @@ describe('Provider failover v2', () => {
       fallbackProvider: 'local-fallback',
       maxRetries: 0,
       providerCooldownMs: 10_000,
+      rawEnv: { ...process.env, MEMPHIS_TASK_EXECUTOR_SKIP_CHAIN: 'true' },
       providers: [new AlwaysFailShared(), new LocalOk()],
     });
 

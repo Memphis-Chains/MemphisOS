@@ -14,6 +14,7 @@ describe('CLI ask session mode', () => {
     const env = {
       DEFAULT_PROVIDER: 'local-fallback',
       ASK_SESSIONS_DIR: sessionsDir,
+      MEMPHIS_TASK_EXECUTOR_SKIP_CHAIN: 'true',
     };
 
     const first = JSON.parse(

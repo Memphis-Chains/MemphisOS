@@ -94,6 +94,17 @@ interface EncryptedArtifactManifestDescriptor {
   bytes: number;
 }
 
+type ExportProfileName = 'financial-strict' | 'forensics-lite';
+
+interface ExportProfileDefaults {
+  redactSensitive: boolean;
+  requireEncryptedArtifacts: boolean;
+  writeManifest: boolean;
+  auditLines: number;
+  retentionCount: number;
+  retentionDays: number;
+}
+
 const REDACTED = '[REDACTED]';
 const INCIDENT_BUNDLE_PREFIX = 'incident-bundle-';
 const MANIFEST_SUFFIX = '.manifest.json';
@@ -149,6 +160,51 @@ function parseIntArg(flag: string, fallback: number, envName?: string): number {
   return fallback;
 }
 
+function resolveExportProfileName(): ExportProfileName | null {
+  const raw = parseArg('--profile') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE ?? null;
+  if (!raw) return null;
+  if (raw === 'financial-strict' || raw === 'forensics-lite') return raw;
+  throw new Error(
+    `unsupported export profile: ${raw}; expected one of financial-strict, forensics-lite`,
+  );
+}
+
+function resolveExportProfileDefaults(profile: ExportProfileName | null): ExportProfileDefaults {
+  if (profile === 'financial-strict') {
+    return {
+      redactSensitive: true,
+      requireEncryptedArtifacts: true,
+      writeManifest: true,
+      auditLines: 100,
+      retentionCount: 60,
+      retentionDays: 30,
+    };
+  }
+  if (profile === 'forensics-lite') {
+    return {
+      redactSensitive: true,
+      requireEncryptedArtifacts: false,
+      writeManifest: true,
+      auditLines: 75,
+      retentionCount: 30,
+      retentionDays: 14,
+    };
+  }
+  return {
+    redactSensitive: true,
+    requireEncryptedArtifacts: false,
+    writeManifest: false,
+    auditLines: 50,
+    retentionCount: 20,
+    retentionDays: 14,
+  };
+}
+
+function parseOptionalBool(raw: string | undefined): boolean | null {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
+  return parseBool(raw, false);
+}
+
 function tailLines(input: string, count: number): string[] {
   const lines = input
     .split('\n')
@@ -202,9 +258,12 @@ function resolveSigningKeySpec(): SigningKeySpec | null {
     parseArg('--signing-key-pem-base64') ??
     process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM_BASE64 ??
     null;
-  const keyId = parseArg('--signing-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID ?? null;
+  const keyId =
+    parseArg('--signing-key-id') ?? process.env.MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID ?? null;
 
-  const presentSources = [Boolean(pathRaw), Boolean(pemRaw), Boolean(pemBase64Raw)].filter(Boolean).length;
+  const presentSources = [Boolean(pathRaw), Boolean(pemRaw), Boolean(pemBase64Raw)].filter(
+    Boolean,
+  ).length;
   if (presentSources > 1) {
     throw new Error(
       'multiple signing key sources provided; use exactly one of --signing-key-path, --signing-key-pem, --signing-key-pem-base64',
@@ -276,7 +335,11 @@ function inferManifestPath(bundlePath: string): string {
 }
 
 function isIncidentBundleFile(name: string): boolean {
-  return name.startsWith(INCIDENT_BUNDLE_PREFIX) && name.endsWith('.json') && !name.endsWith(MANIFEST_SUFFIX);
+  return (
+    name.startsWith(INCIDENT_BUNDLE_PREFIX) &&
+    name.endsWith('.json') &&
+    !name.endsWith(MANIFEST_SUFFIX)
+  );
 }
 
 function manifestNameForBundle(bundleName: string): string {
@@ -297,7 +360,11 @@ function safeUnlink(filePath: string): boolean {
   }
 }
 
-function pruneIncidentBundleHistory(outPath: string, retentionCount: number, retentionDays: number): string[] {
+function pruneIncidentBundleHistory(
+  outPath: string,
+  retentionCount: number,
+  retentionDays: number,
+): string[] {
   const outDir = dirname(outPath);
   let names: string[] = [];
   try {
@@ -325,19 +392,26 @@ function pruneIncidentBundleHistory(outPath: string, retentionCount: number, ret
 
     if (safeUnlink(bundle.fullPath)) removed.push(bundle.fullPath);
     const bundleEncryptedPath = encryptedCompanionPath(bundle.fullPath);
-    if (existsSync(bundleEncryptedPath) && safeUnlink(bundleEncryptedPath)) removed.push(bundleEncryptedPath);
+    if (existsSync(bundleEncryptedPath) && safeUnlink(bundleEncryptedPath))
+      removed.push(bundleEncryptedPath);
 
     const manifestPath = resolve(outDir, manifestNameForBundle(bundle.name));
     if (existsSync(manifestPath) && safeUnlink(manifestPath)) removed.push(manifestPath);
     const manifestEncryptedPath = encryptedCompanionPath(manifestPath);
-    if (existsSync(manifestEncryptedPath) && safeUnlink(manifestEncryptedPath)) removed.push(manifestEncryptedPath);
+    if (existsSync(manifestEncryptedPath) && safeUnlink(manifestEncryptedPath))
+      removed.push(manifestEncryptedPath);
   }
 
   return removed;
 }
 
 function readDrillSchemaVersion(drill: IncidentBundle['drill']): number | null {
-  if (!drill.ok || !drill.result || typeof drill.result !== 'object' || Array.isArray(drill.result)) {
+  if (
+    !drill.ok ||
+    !drill.result ||
+    typeof drill.result !== 'object' ||
+    Array.isArray(drill.result)
+  ) {
     return null;
   }
   const value = (drill.result as { schemaVersion?: unknown }).schemaVersion;
@@ -395,7 +469,9 @@ function writeManifest(options: {
 
   if (options.signingKey) {
     const privateKey = createPrivateKey(options.signingKey.privateKeyPem);
-    const publicKeyPem = createPublicKey(privateKey).export({ format: 'pem', type: 'spki' }).toString();
+    const publicKeyPem = createPublicKey(privateKey)
+      .export({ format: 'pem', type: 'spki' })
+      .toString();
     const payload = JSON.stringify(manifestBase);
     const signatureBytes = signDetached(null, Buffer.from(payload, 'utf8'), privateKey);
     manifestBase.signature = {
@@ -437,7 +513,10 @@ function writeEncryptedArtifact(options: {
   };
 }
 
-async function fetchStatus(url: string, redactSensitive: boolean): Promise<IncidentBundle['status']> {
+async function fetchStatus(
+  url: string,
+  redactSensitive: boolean,
+): Promise<IncidentBundle['status']> {
   try {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(3_000),
@@ -508,27 +587,47 @@ function readAuditTail(auditPath: string, count: number, redactSensitive: boolea
 async function main(): Promise<void> {
   const moduleDir = dirname(fileURLToPath(import.meta.url));
   const repoRoot = resolve(moduleDir, '..');
-  const redactSensitive = !hasFlag('--no-redact');
+  const profile = resolveExportProfileName();
+  const profileDefaults = resolveExportProfileDefaults(profile);
+  const redactSensitive = hasFlag('--no-redact') ? false : profileDefaults.redactSensitive;
   const statusUrl = parseArg('--status-url') ?? 'http://127.0.0.1:8080/v1/ops/status';
-  const auditPath = resolve(parseArg('--audit-path') ?? process.env.MEMPHIS_SECURITY_AUDIT_LOG_PATH ?? 'data/security-audit.jsonl');
+  const auditPath = resolve(
+    parseArg('--audit-path') ??
+      process.env.MEMPHIS_SECURITY_AUDIT_LOG_PATH ??
+      'data/security-audit.jsonl',
+  );
   const outPath = resolve(
     parseArg('--out') ??
       `data/incident-bundle-${new Date().toISOString().replace(/[:.]/g, '-')}.json`,
   );
-  const auditLines = parseIntArg('--audit-lines', 50);
-  const retentionCount = parseIntArg('--retention-count', 20, 'MEMPHIS_INCIDENT_BUNDLE_RETENTION_COUNT');
-  const retentionDays = parseIntArg('--retention-days', 14, 'MEMPHIS_INCIDENT_BUNDLE_RETENTION_DAYS');
+  const auditLines = parseIntArg('--audit-lines', profileDefaults.auditLines);
+  const retentionCount = parseIntArg(
+    '--retention-count',
+    profileDefaults.retentionCount,
+    'MEMPHIS_INCIDENT_BUNDLE_RETENTION_COUNT',
+  );
+  const retentionDays = parseIntArg(
+    '--retention-days',
+    profileDefaults.retentionDays,
+    'MEMPHIS_INCIDENT_BUNDLE_RETENTION_DAYS',
+  );
   const manifestOut = parseArg('--manifest-out');
   const signingKey = resolveSigningKeySpec();
   const encryptionPassphrase = resolveEncryptionPassphraseSpec();
   const encryptedBundleOut = parseArg('--encrypted-bundle-out');
   const encryptedManifestOut = parseArg('--encrypted-manifest-out');
   const queueMode = (process.env.MEMPHIS_QUEUE_MODE ?? 'financial').trim().toLowerCase();
-  const requireEncryptedArtifacts =
-    hasFlag('--require-encrypted-artifacts') ||
-    parseBool(process.env.MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS, false);
+  const requireEncryptedArtifactsEnv = parseOptionalBool(
+    process.env.MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS,
+  );
+  const requireEncryptedArtifacts = hasFlag('--require-encrypted-artifacts')
+    ? true
+    : (requireEncryptedArtifactsEnv ?? profileDefaults.requireEncryptedArtifacts);
   const writeManifestRequested =
-    manifestOut !== null || signingKey !== null || requireEncryptedArtifacts;
+    manifestOut !== null ||
+    signingKey !== null ||
+    requireEncryptedArtifacts ||
+    profileDefaults.writeManifest;
   if (requireEncryptedArtifacts && !encryptionPassphrase) {
     throw new Error(
       'encrypted artifacts are required by policy; provide --encryption-passphrase (or matching env source)',
@@ -604,8 +703,10 @@ async function main(): Promise<void> {
         signingKeySource: signingKey?.source ?? null,
         signingKeyId: signingKey?.keyId ?? null,
         policy: {
+          profile,
           queueMode,
           requireEncryptedArtifacts,
+          manifestRequested: writeManifestRequested,
         },
         encryption: encryptionPassphrase
           ? {

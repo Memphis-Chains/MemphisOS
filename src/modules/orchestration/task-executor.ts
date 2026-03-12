@@ -96,7 +96,11 @@ function asGenerateResult(value: unknown): GenerateResult | null {
   if (!providerUsed) return null;
   if (typeof value.id !== 'string' || value.id.length === 0) return null;
   if (typeof value.output !== 'string') return null;
-  if (typeof value.timingMs !== 'number' || !Number.isFinite(value.timingMs) || value.timingMs < 0) {
+  if (
+    typeof value.timingMs !== 'number' ||
+    !Number.isFinite(value.timingMs) ||
+    value.timingMs < 0
+  ) {
     return null;
   }
 
@@ -109,6 +113,10 @@ function asGenerateResult(value: unknown): GenerateResult | null {
     timingMs: Math.trunc(value.timingMs),
     trace: isObject(value.trace) ? (value.trace as GenerateResult['trace']) : undefined,
   };
+}
+
+function isTrue(raw: string | undefined): boolean {
+  return (raw ?? '').trim().toLowerCase() === 'true';
 }
 
 function applyFallbackLoopStep(
@@ -193,7 +201,8 @@ export class TaskExecutor {
 
     let loopState = { ...DEFAULT_LOOP_STATE };
     const inputDigest = createHash('sha256').update(request.input).digest('hex');
-    const replayDedupeEnabled = request.execution?.enableReplayDedupe ?? Boolean(request.execution?.runId);
+    const replayDedupeEnabled =
+      request.execution?.enableReplayDedupe ?? Boolean(request.execution?.runId);
 
     await this.emit('system_event', 'task.created', correlationBase, {
       source,
@@ -343,6 +352,10 @@ export class TaskExecutor {
     correlation: TaskEventCorrelation,
     payload: Record<string, unknown>,
   ): Promise<void> {
+    if (isTrue(this.rawEnv.MEMPHIS_TASK_EXECUTOR_SKIP_CHAIN)) {
+      return;
+    }
+
     const envelope: TaskEventEnvelope = {
       schemaVersion: 1,
       eventId: this.idFactory(),
@@ -381,7 +394,10 @@ export class TaskExecutor {
     }
   }
 
-  private async findCachedResult(runId: string, toolCallId: string): Promise<GenerateResult | null> {
+  private async findCachedResult(
+    runId: string,
+    toolCallId: string,
+  ): Promise<GenerateResult | null> {
     const chainDir = getChainPath(this.chainName, this.rawEnv);
     let files: string[] = [];
 

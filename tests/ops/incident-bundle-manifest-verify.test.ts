@@ -108,36 +108,42 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-        '--signing-key-id',
-        keyId,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          keyId,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-path',
-      verifyKeyPath,
-      '--require-signature',
-      '--expected-key-id',
-      keyId,
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-path',
+        verifyKeyPath,
+        '--require-signature',
+        '--expected-key-id',
+        keyId,
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(0);
 
     const parsed = JSON.parse(verifyResult.stdout) as {
@@ -189,32 +195,38 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-path',
-      verifyKeyPath,
-      '--require-signature',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-path',
+        verifyKeyPath,
+        '--require-signature',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(0);
     const parsed = JSON.parse(verifyResult.stdout) as {
       ok: boolean;
@@ -228,10 +240,16 @@ describe('incident manifest verifier', () => {
 
     const chainDir = path.join(commandEnv.MEMPHIS_DATA_DIR, 'chains', 'system');
     expect(existsSync(chainDir)).toBe(true);
-    const files = readdirSync(chainDir).filter((name) => name.endsWith('.json')).sort();
+    const files = readdirSync(chainDir)
+      .filter((name) => name.endsWith('.json'))
+      .sort();
     expect(files.length).toBeGreaterThan(0);
     const last = JSON.parse(readFileSync(path.join(chainDir, files.at(-1) ?? ''), 'utf8')) as {
-      data?: { type?: string; event?: string; payload?: { ok?: boolean; manifestPath?: string; bundlePath?: string } };
+      data?: {
+        type?: string;
+        event?: string;
+        payload?: { ok?: boolean; manifestPath?: string; bundlePath?: string };
+      };
     };
     expect(last.data?.type).toBe('system_event');
     expect(last.data?.event).toBe('incident_manifest.verification');
@@ -263,20 +281,23 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-      ], exportEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+        ],
+        exportEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
@@ -287,19 +308,22 @@ describe('incident manifest verifier', () => {
       MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED: 'true',
     };
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-path',
-      verifyKeyPath,
-      '--require-signature',
-      '--chain-event-retry-count',
-      '2',
-      '--chain-event-retry-backoff-ms',
-      '1',
-    ], verifyEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-path',
+        verifyKeyPath,
+        '--require-signature',
+        '--chain-event-retry-count',
+        '2',
+        '--chain-event-retry-backoff-ms',
+        '1',
+      ],
+      verifyEnv,
+    );
     expect(verifyResult.status).toBe(1);
     const parsed = JSON.parse(verifyResult.stdout) as {
       ok: boolean;
@@ -311,9 +335,11 @@ describe('incident manifest verifier', () => {
     expect(parsed.chainEvent?.written).toBe(false);
     expect(parsed.chainEvent?.attempts).toBe(3);
     expect(typeof parsed.chainEvent?.error).toBe('string');
-    expect(parsed.errors.some((item) => item.includes('failed to append incident verification chain event'))).toBe(
-      true,
-    );
+    expect(
+      parsed.errors.some((item) =>
+        item.includes('failed to append incident verification chain event'),
+      ),
+    ).toBe(true);
   });
 
   it('fails verification when bundle content is tampered after manifest export', async () => {
@@ -325,30 +351,31 @@ describe('incident manifest verifier', () => {
     writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
     const original = readFileSync(bundlePath, 'utf8');
     writeFileSync(bundlePath, `${original}\n`, 'utf8');
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      ['ops:verify-incident-manifest', '--', '--manifest-path', manifestPath],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(1);
 
     const parsed = JSON.parse(verifyResult.stdout) as {
@@ -374,28 +401,34 @@ describe('incident manifest verifier', () => {
     writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--require-signature',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--require-signature',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(1);
 
     const parsed = JSON.parse(verifyResult.stdout) as { ok: boolean; errors: string[] };
@@ -426,36 +459,42 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-        '--signing-key-id',
-        'actual-key',
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          'actual-key',
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-path',
-      verifyKeyPath,
-      '--require-signature',
-      '--expected-key-id',
-      'expected-key',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-path',
+        verifyKeyPath,
+        '--require-signature',
+        '--expected-key-id',
+        'expected-key',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(1);
 
     const parsed = JSON.parse(verifyResult.stdout) as {
@@ -500,36 +539,42 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-        '--signing-key-id',
-        keyId,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          keyId,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-bundle-path',
-      publicKeyBundlePath,
-      '--expected-key-id',
-      keyId,
-      '--require-signature',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-bundle-path',
+        publicKeyBundlePath,
+        '--expected-key-id',
+        keyId,
+        '--require-signature',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(0);
 
     const parsed = JSON.parse(verifyResult.stdout) as {
@@ -563,10 +608,14 @@ describe('incident manifest verifier', () => {
       'utf8',
     );
 
-    const bundlePublicKeyPem = manifestPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    const bundlePublicKeyPem = manifestPair.publicKey
+      .export({ format: 'pem', type: 'spki' })
+      .toString();
 
     const trustRootSigner = generateKeyPairSync('ed25519');
-    const signerPublicKeyPem = trustRootSigner.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    const signerPublicKeyPem = trustRootSigner.publicKey
+      .export({ format: 'pem', type: 'spki' })
+      .toString();
     const signerRootId = sha256Hex(signerPublicKeyPem);
     const unsignedBundle = {
       schemaVersion: 1,
@@ -605,39 +654,45 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-        '--signing-key-id',
-        keyId,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          keyId,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-bundle-path',
-      publicKeyBundlePath,
-      '--trust-root-path',
-      trustRootPath,
-      '--expected-key-id',
-      keyId,
-      '--require-signature',
-      '--require-key-bundle-signature',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-bundle-path',
+        publicKeyBundlePath,
+        '--trust-root-path',
+        trustRootPath,
+        '--expected-key-id',
+        keyId,
+        '--require-signature',
+        '--require-key-bundle-signature',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(0);
 
     const parsed = JSON.parse(verifyResult.stdout) as {
@@ -670,10 +725,14 @@ describe('incident manifest verifier', () => {
       'utf8',
     );
 
-    const bundlePublicKeyPem = manifestPair.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    const bundlePublicKeyPem = manifestPair.publicKey
+      .export({ format: 'pem', type: 'spki' })
+      .toString();
 
     const trustRootSigner = generateKeyPairSync('ed25519');
-    const signerPublicKeyPem = trustRootSigner.publicKey.export({ format: 'pem', type: 'spki' }).toString();
+    const signerPublicKeyPem = trustRootSigner.publicKey
+      .export({ format: 'pem', type: 'spki' })
+      .toString();
     const signerRootId = sha256Hex(signerPublicKeyPem);
     const unsignedBundle = {
       schemaVersion: 1,
@@ -713,39 +772,45 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-        '--signing-key-id',
-        keyId,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          keyId,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-bundle-path',
-      publicKeyBundlePath,
-      '--trust-root-path',
-      trustRootPath,
-      '--expected-key-id',
-      keyId,
-      '--require-signature',
-      '--require-key-bundle-signature',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-bundle-path',
+        publicKeyBundlePath,
+        '--trust-root-path',
+        trustRootPath,
+        '--expected-key-id',
+        keyId,
+        '--require-signature',
+        '--require-key-bundle-signature',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(1);
     const parsed = JSON.parse(verifyResult.stdout) as {
       ok: boolean;
@@ -755,7 +820,11 @@ describe('incident manifest verifier', () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.checks.keyBundleSignatureValid).toBe(false);
     expect(parsed.checks.keyBundleTrustRootMatch).toBe(true);
-    expect(parsed.errors.some((item) => item.includes('public key bundle signature verification failed'))).toBe(true);
+    expect(
+      parsed.errors.some((item) =>
+        item.includes('public key bundle signature verification failed'),
+      ),
+    ).toBe(true);
   });
 
   it('fails detached public-key bundle lookup when key id is missing', async () => {
@@ -789,40 +858,48 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-        '--signing-key-id',
-        'expected-key',
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          'expected-key',
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      manifestPath,
-      '--public-key-bundle-path',
-      publicKeyBundlePath,
-      '--expected-key-id',
-      'expected-key',
-      '--require-signature',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-bundle-path',
+        publicKeyBundlePath,
+        '--expected-key-id',
+        'expected-key',
+        '--require-signature',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(1);
     const parsed = JSON.parse(verifyResult.stdout) as { ok: boolean; errors: string[] };
     expect(parsed.ok).toBe(false);
-    expect(parsed.errors.some((item) => item.includes('public key bundle missing keyId'))).toBe(true);
+    expect(parsed.errors.some((item) => item.includes('public key bundle missing keyId'))).toBe(
+      true,
+    );
   });
 
   it('verifies encrypted manifest + bundle companions with decryption passphrase', async () => {
@@ -851,40 +928,46 @@ describe('incident manifest verifier', () => {
     );
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--signing-key-path',
-        signingKeyPath,
-        '--signing-key-id',
-        keyId,
-        '--encryption-passphrase',
-        passphrase,
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          keyId,
+          '--encryption-passphrase',
+          passphrase,
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
 
-    const verifyResult = await runCommand([
-      'ops:verify-incident-manifest',
-      '--',
-      '--manifest-path',
-      encryptedManifestPath,
-      '--decryption-passphrase',
-      passphrase,
-      '--public-key-path',
-      verifyKeyPath,
-      '--expected-key-id',
-      keyId,
-      '--require-signature',
-    ], commandEnv);
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        encryptedManifestPath,
+        '--decryption-passphrase',
+        passphrase,
+        '--public-key-path',
+        verifyKeyPath,
+        '--expected-key-id',
+        keyId,
+        '--require-signature',
+      ],
+      commandEnv,
+    );
     expect(verifyResult.status).toBe(0);
     const parsed = JSON.parse(verifyResult.stdout) as {
       ok: boolean;
@@ -912,32 +995,199 @@ describe('incident manifest verifier', () => {
     writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
 
     await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
-      const exportResult = await runCommand([
-        'ops:export-incident-bundle',
-        '--',
-        '--status-url',
-        statusUrl,
-        '--audit-path',
-        auditPath,
-        '--out',
-        bundlePath,
-        '--manifest-out',
-        manifestPath,
-        '--encryption-passphrase',
-        'missing-passphrase-test',
-      ], commandEnv);
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--encryption-passphrase',
+          'missing-passphrase-test',
+        ],
+        commandEnv,
+      );
       expect(exportResult.status).toBe(0);
     });
+
+    const verifyResult = await runCommand(
+      ['ops:verify-incident-manifest', '--', '--manifest-path', encryptedManifestPath],
+      commandEnv,
+    );
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as { ok: boolean; errors: string[] };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors.some((item) => item.includes('manifest is encrypted'))).toBe(true);
+  });
+
+  it('supports trust-root-strict verify profile and enforces detached key-bundle provenance', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-profile-trust-root-strict-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const signingKeyPath = path.join(dir, 'signing-private.pem');
+    const verifyKeyPath = path.join(dir, 'signing-public.pem');
+    const commandEnv = { MEMPHIS_DATA_DIR: path.join(dir, '.memphis-data') };
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    const pair = generateKeyPairSync('ed25519');
+    writeFileSync(
+      signingKeyPath,
+      pair.privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
+      'utf8',
+    );
+    writeFileSync(
+      verifyKeyPath,
+      pair.publicKey.export({ format: 'pem', type: 'spki' }).toString(),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--signing-key-path',
+          signingKeyPath,
+        ],
+        commandEnv,
+      );
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--public-key-path',
+        verifyKeyPath,
+        '--profile',
+        'trust-root-strict',
+      ],
+      commandEnv,
+    );
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      policy: {
+        profile: string | null;
+        requireSignature: boolean;
+        requireSignedKeyBundle: boolean;
+      };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.policy.profile).toBe('trust-root-strict');
+    expect(parsed.policy.requireSignature).toBe(true);
+    expect(parsed.policy.requireSignedKeyBundle).toBe(true);
+    expect(
+      parsed.errors.some((item) =>
+        item.includes('require-key-bundle-signature requires --public-key-bundle-path'),
+      ),
+    ).toBe(true);
+  });
+
+  it('supports legacy-compat verify profile with non-blocking chain-link failures', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-profile-legacy-compat-');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const exportEnv = { MEMPHIS_DATA_DIR: path.join(dir, '.memphis-data') };
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+        ],
+        exportEnv,
+      );
+      expect(exportResult.status).toBe(0);
+    });
+
+    const blockedDataPath = path.join(dir, 'blocked-data-dir');
+    writeFileSync(blockedDataPath, 'not-a-directory', 'utf8');
+    const verifyEnv = { MEMPHIS_DATA_DIR: blockedDataPath };
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--profile',
+        'legacy-compat',
+      ],
+      verifyEnv,
+    );
+    expect(verifyResult.status).toBe(0);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      policy: {
+        profile: string | null;
+        requireSignature: boolean;
+        requireSignedKeyBundle: boolean;
+        requireChainEvent: boolean;
+      };
+      chainEvent?: { written?: boolean };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.policy.profile).toBe('legacy-compat');
+    expect(parsed.policy.requireSignature).toBe(false);
+    expect(parsed.policy.requireSignedKeyBundle).toBe(false);
+    expect(parsed.policy.requireChainEvent).toBe(false);
+    expect(parsed.chainEvent?.written).toBe(false);
+    expect(parsed.errors).toEqual([]);
+  });
+
+  it('fails on unsupported verify profile names', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-profile-invalid-');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: '2026-03-12T00:00:00.000Z',
+        bundle: { path: 'missing.json', sha256: 'deadbeef', bytes: 0 },
+      }),
+      'utf8',
+    );
 
     const verifyResult = await runCommand([
       'ops:verify-incident-manifest',
       '--',
       '--manifest-path',
-      encryptedManifestPath,
-    ], commandEnv);
+      manifestPath,
+      '--profile',
+      'invalid-profile',
+    ]);
     expect(verifyResult.status).toBe(1);
-    const parsed = JSON.parse(verifyResult.stdout) as { ok: boolean; errors: string[] };
+    const parsed = JSON.parse(verifyResult.stderr) as { ok: boolean; error: string };
     expect(parsed.ok).toBe(false);
-    expect(parsed.errors.some((item) => item.includes('manifest is encrypted'))).toBe(true);
+    expect(parsed.error).toContain('unsupported verify profile');
   });
 });

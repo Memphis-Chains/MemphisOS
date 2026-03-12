@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { TaskExecutor } from '../../src/modules/orchestration/task-executor.js';
 
@@ -81,5 +81,36 @@ describe('TaskExecutor', () => {
     expect(providerRuns).toBe(1);
     expect(second.output).toBe(first.output);
     expect(second.providerUsed).toBe(first.providerUsed);
+  });
+
+  it('skips chain writes when MEMPHIS_TASK_EXECUTOR_SKIP_CHAIN=true', async () => {
+    const appendChain = vi.fn(async () => ({ index: 1, hash: 'h1' }));
+    const rawEnv = {
+      ...process.env,
+      MEMPHIS_TASK_EXECUTOR_SKIP_CHAIN: 'true',
+      RUST_CHAIN_ENABLED: 'false',
+    } as NodeJS.ProcessEnv;
+    const executor = new TaskExecutor({ rawEnv, appendChain });
+
+    await executor.execute(
+      {
+        input: 'skip chain write',
+        provider: 'auto',
+        execution: {
+          taskId: 'task-skip',
+          runId: 'run-skip',
+          source: 'unit.test',
+        },
+      },
+      async () => ({
+        id: 'gen-skip',
+        providerUsed: 'local-fallback',
+        modelUsed: 'local',
+        output: 'ok',
+        timingMs: 1,
+      }),
+    );
+
+    expect(appendChain).not.toHaveBeenCalled();
   });
 });
