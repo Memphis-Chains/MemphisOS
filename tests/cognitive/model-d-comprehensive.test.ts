@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentCoordinator, ModelD_CollectiveCoordination } from '../../src/cognitive/model-d.js';
 import type { AgentConfig } from '../../src/cognitive/types.js';
@@ -151,5 +151,45 @@ describe('Model D — comprehensive', () => {
     expect(stats.localAgent).toBe('Memphis');
     expect(stats.remoteAgents).toBe(2);
     expect(stats.consensusThreshold).toBe(0.6);
+    expect(stats.broadcastEnabled).toBe(false);
+    expect(coordinator.getLastBroadcastSummary()).toBeNull();
+  });
+
+  it('broadcasts proposals when enabled and records delivery failures without throwing', async () => {
+    const broadcaster = {
+      broadcastProposal: vi.fn().mockImplementation(async ({ to }: { to: AgentConfig }) => {
+        if (to.id === 'atlas') {
+          throw new Error('network timeout');
+        }
+      }),
+    };
+
+    const coordinator = new AgentCoordinator(agents[0], [agents[1], agents[2]], 0.6, {
+      broadcastEnabled: true,
+      broadcaster,
+    });
+
+    const proposal = await coordinator.proposeToNetwork('Broadcast check', 'Ensure fan-out safety');
+    const summary = coordinator.getLastBroadcastSummary();
+    const stats = coordinator.getStats();
+
+    expect(proposal.id).toContain('proposal-');
+    expect(broadcaster.broadcastProposal).toHaveBeenCalledTimes(2);
+    expect(summary).toMatchObject({
+      proposalId: proposal.id,
+      attempted: 2,
+      delivered: 1,
+      failed: 1,
+    });
+    expect(summary?.results.some((item) => item.agentId === 'atlas' && item.delivered === false)).toBe(
+      true,
+    );
+    expect(stats.broadcastEnabled).toBe(true);
+    expect(stats.lastBroadcast).toMatchObject({
+      proposalId: proposal.id,
+      attempted: 2,
+      delivered: 1,
+      failed: 1,
+    });
   });
 });

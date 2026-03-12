@@ -13,5 +13,6 @@ Minimal documentation set for the clean-slate MemphisOS repository.
 - `runbooks/STARTUP_GUARD_TRIAGE.md`: startup status-field triage map and remediation actions.
 - `runbooks/SYSTEMD_EXIT_CODES.md`: exit-code to systemd behavior mapping.
 - `runbooks/TRUST_ROOT_ROTATION.md`: trust-root rotation ceremony.
+- `templates/SPRINT_CLOSURE_NOTE.md`: closure template for release evidence, checksums, and follow-ups.
 - `../SECURITY.md`: security policy baseline.
 - `../WHAT_IS_LEFT_TO_DO.md`: active implementation backlog.

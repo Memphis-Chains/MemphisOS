@@ -5,11 +5,62 @@ import { KnowledgeSynthesizer } from '../../../cognitive/knowledge-synthesizer.j
 import { getLearningStorage } from '../../../cognitive/learning.js';
 import { ProactiveSuggestionEngine } from '../../../cognitive/proactive-suggestions.js';
 import { ReflectionEngine } from '../../../reflection/engine.js';
+import { appendBlock, type AppendBlockResult } from '../../storage/chain-adapter.js';
 import type { CliContext } from '../context.js';
 import { loadCognitiveBlocks } from '../utils/cognitive.js';
 import { print } from '../utils/render.js';
 
 type CognitiveHandler = (context: CliContext) => Promise<boolean>;
+type InsightWindow = 'daily' | 'weekly' | 'topic';
+
+function summarizeInsights(
+  insights: Awaited<ReturnType<InsightGenerator['generateDailyInsights']>>,
+): Array<{
+  type: string;
+  title: string;
+  confidence: number;
+  actionable: boolean;
+  actions: string[];
+  evidenceCount: number;
+}> {
+  return insights.slice(0, 10).map((item) => ({
+    type: item.type,
+    title: item.title,
+    confidence: item.confidence,
+    actionable: item.actionable,
+    actions: item.actions ?? [],
+    evidenceCount: item.evidence.length,
+  }));
+}
+
+function buildInsightSavePayload(
+  window: InsightWindow,
+  insights: Awaited<ReturnType<InsightGenerator['generateDailyInsights']>>,
+  topic: string | undefined,
+): Record<string, unknown> {
+  const summary = `${insights.length} insight(s) generated for ${window}${topic ? `:${topic}` : ''}`;
+  return {
+    type: 'insight_report',
+    source: 'cli.insights',
+    content: `Insight Report: ${summary}`,
+    tags: ['insight', 'report', window, ...(topic ? [topic] : [])],
+    report: {
+      generatedAt: new Date().toISOString(),
+      window,
+      topic,
+      count: insights.length,
+      insights: summarizeInsights(insights),
+    },
+  };
+}
+
+async function saveInsightsReport(
+  window: InsightWindow,
+  insights: Awaited<ReturnType<InsightGenerator['generateDailyInsights']>>,
+  topic: string | undefined,
+): Promise<AppendBlockResult> {
+  return appendBlock('journal', buildInsightSavePayload(window, insights, topic), process.env);
+}
 
 export async function handleCognitiveCommand(context: CliContext): Promise<boolean> {
   const command = context.args.command;
@@ -35,23 +86,44 @@ async function handleLearnCommand(context: CliContext): Promise<boolean> {
 
 async function handleInsightsCommand(context: CliContext): Promise<boolean> {
   const { argv, args } = context;
-  const { json, input, query, subcommand } = args;
+  const { json, input, query, subcommand, save } = args;
   const generator = new InsightGenerator(await loadCognitiveBlocks());
   const topic = input ?? query;
-  const insights = topic
-    ? await generator.generateTopicInsights(topic)
+  const window: InsightWindow = topic
+    ? 'topic'
     : subcommand === '--weekly' || argv.includes('--weekly')
-      ? await generator.generateWeeklyInsights()
-      : await generator.generateDailyInsights();
+      ? 'weekly'
+      : 'daily';
+  const insights =
+    window === 'topic'
+      ? await generator.generateTopicInsights(topic ?? 'unknown')
+      : window === 'weekly'
+        ? await generator.generateWeeklyInsights()
+        : await generator.generateDailyInsights();
+  const savedBlock = save ? await saveInsightsReport(window, insights, topic) : null;
 
   if (json) {
-    print({ ok: true, mode: 'insights', count: insights.length, insights }, true);
+    print(
+      {
+        ok: true,
+        mode: 'insights',
+        window,
+        count: insights.length,
+        insights,
+        saved: Boolean(savedBlock),
+        savedBlock,
+      },
+      true,
+    );
     return true;
   }
 
   for (const item of insights) {
     console.log(`• [${item.type}] ${item.title} (${Math.round(item.confidence * 100)}%)`);
     console.log(`  ${item.description}`);
+  }
+  if (savedBlock) {
+    console.log(`💾 Saved insight report to ${savedBlock.chain}#${savedBlock.index}`);
   }
   return true;
 }
