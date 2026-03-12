@@ -1,11 +1,13 @@
 node_modules/
 dist/
 coverage/
+.env
 .env.local
 .env.*.local
 *.secret
 *.log
 .DS_Store
+.config/memphis/tokens/
 
 # internal backups / VCS snapshots
 .git.backup*

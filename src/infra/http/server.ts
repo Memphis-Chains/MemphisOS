@@ -449,25 +449,28 @@ export function createHttpServer(
     return { ok: true, request: record };
   });
 
-  app.get<{ Params: { requestId: string } }>('/v1/admin/dual-approval/:requestId', async (request) => {
-    const repo = repos?.dualApprovalRepository;
-    if (!repo) {
-      throw new AppError('INTERNAL_ERROR', 'dual approval repository unavailable', 503);
-    }
+  app.get<{ Params: { requestId: string } }>(
+    '/v1/admin/dual-approval/:requestId',
+    async (request) => {
+      const repo = repos?.dualApprovalRepository;
+      if (!repo) {
+        throw new AppError('INTERNAL_ERROR', 'dual approval repository unavailable', 503);
+      }
 
-    const record = repo.get(request.params.requestId);
-    if (!record) {
-      throw new AppError('VALIDATION_ERROR', 'dual approval request not found', 404, {
-        requestId: request.params.requestId,
-      });
-    }
+      const record = repo.get(request.params.requestId);
+      if (!record) {
+        throw new AppError('VALIDATION_ERROR', 'dual approval request not found', 404, {
+          requestId: request.params.requestId,
+        });
+      }
 
-    return {
-      ok: true,
-      request: record,
-      events: repo.listEvents(record.requestId),
-    };
-  });
+      return {
+        ok: true,
+        request: record,
+        events: repo.listEvents(record.requestId),
+      };
+    },
+  );
 
   app.get('/v1/sessions', async () => {
     if (!repos) return { sessions: [] };
