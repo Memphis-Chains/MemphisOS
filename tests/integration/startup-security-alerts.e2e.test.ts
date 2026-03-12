@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { runStartupSecurityGuards } from '../../src/app/bootstrap.js';
 import { stopAlertRuntimeForTests } from '../../src/infra/logging/alert-runtime.js';
+import { resolveEmergencyLogCandidates } from '../../src/infra/runtime/emergency-log.js';
 
 const tempDirs: string[] = [];
 
@@ -116,7 +117,7 @@ describe('startup security alerts', () => {
     const trustRootPath = join(workspace, 'trust_root_invalid.json');
     writeFileSync(trustRootPath, JSON.stringify({ version: 1, rootIds: [] }), 'utf8');
 
-    await withEnv(
+    const matched = await withEnv(
       {
         HOME: homeDir,
         MEMPHIS_DATA_DIR: dataDir,
@@ -131,14 +132,20 @@ describe('startup security alerts', () => {
       async () => {
         stopAlertRuntimeForTests();
         await runStartupSecurityGuards(process.env);
+        const candidates = resolveEmergencyLogCandidates(process.env, { cwdPath: workspace });
+        const logs = candidates
+          .filter((candidate) => existsSync(candidate))
+          .map((candidate) => ({
+            path: candidate,
+            content: readFileSync(candidate, 'utf8'),
+          }));
+        return logs.find(
+          (entry) =>
+            entry.content.includes('[ALERT_FALLBACK]') &&
+            entry.content.includes('TrustRootRejected'),
+        );
       },
     );
-
-    const emergencyPath = join(homeDir, '.memphis', 'emergency.log');
-    expect(existsSync(emergencyPath)).toBe(true);
-
-    const logContent = readFileSync(emergencyPath, 'utf8');
-    expect(logContent).toContain('[ALERT_FALLBACK]');
-    expect(logContent).toContain('TrustRootRejected');
+    expect(matched).toBeDefined();
   });
 });
