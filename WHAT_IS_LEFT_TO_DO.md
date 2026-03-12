@@ -180,6 +180,9 @@ Updated: 2026-03-12
   - signer metadata `--signing-key-id` is embedded in manifest signature block
   - verifier supports `--expected-key-id` enforcement and reports `keyIdMatch` in checks
   - coverage added for env-pem signing and key-id mismatch failure paths.
+- Added dedicated manifest verification runbook:
+  - `docs/runbooks/INCIDENT_MANIFEST_VERIFICATION.md`
+  - defines export/sign/verify/handoff steps and failure handling for incident evidence packages.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -190,6 +193,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add dedicated manifest verification runbook focused on incident handoff and evidence packaging.
-2. Add optional verify-mode support for detached public-key bundles (embedded key-id registry + fingerprint mapping).
-3. Add encrypted-at-rest storage option for exported incident bundles/manifests before off-host transfer.
+1. Add optional verify-mode support for detached public-key bundles (embedded key-id registry + fingerprint mapping).
+2. Add encrypted-at-rest storage option for exported incident bundles/manifests before off-host transfer.
+3. Add immutable audit linkage from manifest verification results into system chain events.
