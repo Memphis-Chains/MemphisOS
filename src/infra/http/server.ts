@@ -461,6 +461,7 @@ export function createHttpServer(
     const record = repo.approve(parsed.data);
     const eventsAfter = repo.listEvents(record.requestId);
     const transition = eventsAfter.length > eventsBefore ? eventsAfter.at(-1) : undefined;
+    const replayed = !transition;
     if (transition) {
       metrics.recordDualApprovalTransition(record.action, transition.toState);
       await writeDualApprovalChainEvent(
@@ -487,11 +488,12 @@ export function createHttpServer(
         action: record.action,
         state: record.state,
         stateVersion: record.stateVersion,
+        replayed,
         signatureVerified: signatureCheck.verified,
       },
     });
 
-    return { ok: true, request: record };
+    return { ok: true, request: record, replayed };
   });
 
   app.post<{ Body: unknown }>('/v1/admin/dual-approval/cancel', async (request, reply) => {
@@ -525,6 +527,7 @@ export function createHttpServer(
     const record = repo.cancel(parsed.data);
     const eventsAfter = repo.listEvents(record.requestId);
     const transition = eventsAfter.length > eventsBefore ? eventsAfter.at(-1) : undefined;
+    const replayed = !transition;
     if (transition) {
       metrics.recordDualApprovalTransition(record.action, transition.toState);
       await writeDualApprovalChainEvent(
@@ -551,11 +554,12 @@ export function createHttpServer(
         action: record.action,
         state: record.state,
         stateVersion: record.stateVersion,
+        replayed,
         signatureVerified: signatureCheck.verified,
       },
     });
 
-    return { ok: true, request: record };
+    return { ok: true, request: record, replayed };
   });
 
   app.get<{ Params: { requestId: string } }>(

@@ -148,6 +148,32 @@ describe('dual approval signature verification', () => {
       },
     });
     expect(approveRes.statusCode).toBe(200);
+    const approveBody = approveRes.json() as {
+      request: { state: string; stateVersion: number };
+      replayed: boolean;
+    };
+    expect(approveBody.request.state).toBe('approved');
+    expect(approveBody.request.stateVersion).toBe(1);
+    expect(approveBody.replayed).toBe(false);
+
+    const replayApproveRes = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/dual-approval/approve',
+      headers: { authorization: 'Bearer tok' },
+      payload: {
+        ...approvePayload,
+        approverId: approver,
+        signature: `ed25519:${approveSignature}`,
+      },
+    });
+    expect(replayApproveRes.statusCode).toBe(200);
+    const replayApproveBody = replayApproveRes.json() as {
+      request: { state: string; stateVersion: number };
+      replayed: boolean;
+    };
+    expect(replayApproveBody.request.state).toBe('approved');
+    expect(replayApproveBody.request.stateVersion).toBe(1);
+    expect(replayApproveBody.replayed).toBe(true);
 
     const metricsRes = await app.inject({
       method: 'GET',
