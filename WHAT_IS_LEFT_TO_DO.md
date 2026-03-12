@@ -106,6 +106,16 @@ Updated: 2026-03-12
   - alert transport fallback semantics
   - alert runtime flush loop
   - safe-mode runtime status shape in ops status.
+- Enforced revocation fail-closed behavior for high-risk routes:
+  - blocks dual-approval + vault mutation endpoints when revocation cache is stale
+  - emits `revocation.cache.guard` security audit events for blocked requests
+  - integration coverage added for stale-vs-fresh cache behavior.
+- Hardened `doctor` alert transport checks:
+  - provider-specific key format validation for PagerDuty/OpsGenie secrets
+  - warning path for invalid key format with explicit provider detail.
+- Added script-level regression tests for branch protection profile automation:
+  - fixture-driven coverage for `team|solo` in both enforce and verify scripts
+  - mismatch assertion for required review count drift.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -116,6 +126,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Implement concrete PagerDuty/OpsGenie transport secret checks in `doctor` (warn when configured key missing/invalid).
-2. Extend critical-event mapping to emit alerts for `TrustRootRejected` and `StaleRevocationCache` once those runtime checks land.
-3. Add script-level tests for branch-protection profile logic (`team|solo`) using fixture JSON responses to prevent regressions in ops automation.
+1. Add failure-path fixture tests for branch-protection scripts (HTTP 401, missing `quality-gate`, policy mismatch) to lock operator tooling behavior.
+2. Add integration coverage that `TrustRootRejected`/`StaleRevocationCache` security events trigger alert transport send/fallback paths.
+3. Add a short operator runbook section for switching `MEMPHIS_BRANCH_PROTECTION_PROFILE=team|solo` safely and re-verifying policy.
