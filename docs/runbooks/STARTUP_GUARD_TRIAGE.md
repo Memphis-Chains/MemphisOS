@@ -62,6 +62,7 @@ If process exits with `103`, expect `startup.trustRoot.valid=false` in drill/tes
 ```bash
 npm run -s ops:drill-guards
 npm run -s test:ts -- tests/integration/ops-status.e2e.test.ts
+npm run -s ops:export-incident-bundle -- --out data/incident-bundle.json
 ```
 
 Both commands must pass before closing incident.

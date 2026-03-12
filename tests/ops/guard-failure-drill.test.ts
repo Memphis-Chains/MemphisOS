@@ -31,9 +31,11 @@ describe('guard failure drill script', () => {
 
     expect(result.status).toBe(0);
     const parsed = JSON.parse(result.stdout) as {
+      schemaVersion: number;
       ok: boolean;
       scenarios: Array<{ name: string; ok: boolean; detail: string }>;
     };
+    expect(parsed.schemaVersion).toBe(1);
     expect(parsed.ok).toBe(true);
     expect(parsed.scenarios.map((entry) => entry.name).sort()).toEqual([
       'revocation-stale',

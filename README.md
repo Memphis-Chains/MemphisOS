@@ -106,6 +106,8 @@ GITHUB_OWNER=Memphis-Chains GITHUB_REPO=MemphisOS GITHUB_BRANCH=main npm run -s 
 
 ```bash
 npm run -s ops:drill-guards
+npm run -s ops:drill-guards -- --json
+npm run -s ops:export-incident-bundle -- --out data/incident-bundle.json
 ```
 
 ## Security Notes

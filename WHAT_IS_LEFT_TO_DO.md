@@ -154,6 +154,13 @@ Updated: 2026-03-12
   - CI now asserts both scenario IDs are present in drill output (`trust-root-invalid-strict`, `revocation-stale`).
 - Added combined-guard escalation policy:
   - startup triage runbook now defines escalation thresholds for `safeModeNetwork=degraded` + `revocationCache.stale=true`.
+- Added guard drill JSON schema contract:
+  - JSON output now includes `schemaVersion: 1`.
+  - test coverage asserts schema stability for downstream parsers.
+- Added one-command incident bundle exporter:
+  - `npm run -s ops:export-incident-bundle`
+  - exports startup status payload + security-audit tail + guard drill JSON result.
+  - integration test coverage in `tests/ops/incident-bundle-exporter.test.ts`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -164,6 +171,6 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks
 
-1. Add `ops:drill-guards -- --json` contract test for stable schema versioning (`schemaVersion`) to avoid downstream parser drift.
-2. Add `/v1/ops/status` regression test for combined degraded+stale incident shape to align with triage thresholds.
-3. Add a one-command incident bundle exporter (startup status + recent security audit slice + drill output).
+1. Add bundle export redaction rules for sensitive status/audit fields before writing incident artifacts.
+2. Add retention/rotation policy for generated incident bundles in `data/`.
+3. Add optional signed bundle manifest output for forensic chain-of-custody.
