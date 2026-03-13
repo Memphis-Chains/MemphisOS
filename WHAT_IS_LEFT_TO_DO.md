@@ -236,9 +236,9 @@ Updated: 2026-03-12
   - `crates/memphis-vault/src/did.rs` now emits `did:memphis:z...` payloads with multicodec prefix.
   - vault tests assert multicodec payload shape and key round-trip consistency.
 - Implemented insight command persistence + block-loading paths:
-  - `src/cli/commands/insight.ts` now loads real chain blocks for `daily|weekly|deep`.
+  - active cognitive CLI path now handles `insights` with real chain block loading for `daily|weekly|topic`.
   - `--save` now persists compact insight reports to `journal` chain.
-  - active CLI `memphis insights --save` now emits save metadata and appends `insight_report` blocks.
+  - active CLI `memphis insights --save` emits save metadata and appends `insight_report` blocks.
 - Added feature-flagged remote broadcast behavior for Model D coordinator:
   - `AgentCoordinator` now supports optional proposal broadcast transport with fail-safe default.
   - broadcast summaries capture attempted/delivered/failed counts without breaking proposal flow.
@@ -259,6 +259,17 @@ Updated: 2026-03-12
 - Added filled sprint closure record using the new template:
   - `docs/sprints/SPRINT_CLOSURE_2026-03-12.md`
   - captures delivered commits, validation evidence, and rollback references.
+- Unified legacy `insight` alias with active `infra/cli` routing:
+  - `memphis insight` now routes to the same handler as `memphis insights`.
+  - dedicated integration coverage added for `insight --json` and `insight --save` flows.
+  - dead legacy split path `src/cli/commands/insight.ts` removed.
+- Executed full regression and quality gates after follow-up changes:
+  - `npm run -s lint`
+  - `npm run -s typecheck`
+  - `npm run -s test:ts`
+  - `npm run -s test:chaos`
+  - `npm run -s test:rust`
+  - residual risk remains focused on operational runtime environment drift rather than test coverage gaps.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -269,8 +280,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
-2. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
-3. Consolidate legacy `src/cli/commands/*` entrypoints with `infra/cli` routing or remove dead paths.
-4. Add end-to-end CLI tests that exercise `insights --save` + `reflect --save` persistence on a fresh data dir.
-5. Add explicit operator guidance for rotating Telegram bot credentials without downtime.
+1. Add end-to-end CLI tests that exercise `insights --save` + `reflect --save` persistence on a fresh data dir.
+2. Add explicit operator guidance for rotating Telegram bot credentials without downtime.

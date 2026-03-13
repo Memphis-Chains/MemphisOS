@@ -66,6 +66,7 @@ export async function handleCognitiveCommand(context: CliContext): Promise<boole
   const command = context.args.command;
   const handlers: Partial<Record<string, CognitiveHandler>> = {
     learn: handleLearnCommand,
+    insight: handleInsightsCommand,
     insights: handleInsightsCommand,
     connections: handleConnectionsCommand,
     suggest: handleSuggestCommand,
