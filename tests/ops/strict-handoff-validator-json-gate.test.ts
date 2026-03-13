@@ -71,14 +71,14 @@ describe('strict-handoff validator JSON gate helper script', () => {
   });
 
   it('fails closed when output emission is requested without GITHUB_OUTPUT', () => {
+    const env = { ...process.env, MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: '1' };
+    delete env.GITHUB_OUTPUT;
+
     const result = spawnSync('bash', ['./scripts/strict-handoff-validator-json-gate.sh'], {
       cwd: repoRoot,
       encoding: 'utf8',
       timeout: 60_000,
-      env: {
-        ...process.env,
-        MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: '1',
-      },
+      env,
     });
 
     expect(result.status).not.toBe(0);
