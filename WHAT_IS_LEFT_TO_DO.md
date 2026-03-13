@@ -603,6 +603,9 @@ Updated: 2026-03-13
 - Added runbook failure-fixture command parity for release metadata validation:
   - release runbook now includes exact `ops:validate-release-draft-validator-metadata` command using `validator-metadata-preflight-failure-example.json`.
   - docs contract now pins both invalid-shape and failure-path fixture command snippets.
+- Added README quick-reference parity for metadata fixture validation commands:
+  - README now includes exact validator command snippets for both invalid-shape and failure-path release metadata fixtures.
+  - release docs contract now enforces README command snippet markers for both fixture paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -613,4 +616,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add README quick-reference command snippet parity for both invalid and failure preflight metadata fixture validation commands.
+1. Add docs-contract coverage for release notes references to `validator-metadata.json` and `validator-metadata.json.sha256` artifact names in README/runbook.

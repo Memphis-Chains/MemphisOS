@@ -8,6 +8,7 @@ type ReleaseDraftDocsContract = {
   docs: string[];
   requiredReferences: string[];
   runbookCommandSnippets?: string[];
+  readmeCommandSnippets?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -44,6 +45,12 @@ describe('release-draft docs fixture references', () => {
         Array.isArray(contract.runbookCommandSnippets)
       ) {
         for (const snippet of contract.runbookCommandSnippets) {
+          expect(markdown.includes(snippet)).toBe(true);
+        }
+      }
+
+      if (docRelativePath === 'README.md' && Array.isArray(contract.readmeCommandSnippets)) {
+        for (const snippet of contract.readmeCommandSnippets) {
           expect(markdown.includes(snippet)).toBe(true);
         }
       }
