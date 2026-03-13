@@ -6,6 +6,7 @@ Minimal documentation set for the clean-slate MemphisOS repository.
 - `runbooks/SAFE_MODE.md`: safe-mode operations and recovery checklist.
 - `runbooks/QUEUE_RESUME_POLICY.md`: startup queue resume policy + mode guidance.
 - `runbooks/BRANCH_PROTECTION_PROFILE_SWITCH.md`: safe `team|solo` protection profile switch and verification.
+- `runbooks/COGNITIVE_REPORT_TRIAGE.md`: expected cognitive CLI journal report payload shapes for incident/debug triage.
 - `runbooks/GUARD_FAILURE_DRILL.md`: operator drill for trust-root/revocation guard-failure outcomes.
 - `runbooks/INCIDENT_MANIFEST_VERIFICATION.md`: incident evidence bundle/manifest signing and verification workflow.
 - `runbooks/KEY_BUNDLE_ROTATION.md`: detached key-bundle rotation and trust-root-signed provenance workflow.

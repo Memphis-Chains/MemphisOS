@@ -13,6 +13,7 @@ import { print } from '../utils/render.js';
 
 type CognitiveHandler = (context: CliContext) => Promise<boolean>;
 type InsightWindow = 'daily' | 'weekly' | 'topic';
+const COGNITIVE_REPORT_SCHEMA_VERSION = 1;
 
 function summarizeInsights(
   insights: Awaited<ReturnType<InsightGenerator['generateDailyInsights']>>,
@@ -42,6 +43,7 @@ function buildInsightSavePayload(
   const summary = `${insights.length} insight(s) generated for ${window}${topic ? `:${topic}` : ''}`;
   return {
     type: 'insight_report',
+    schemaVersion: COGNITIVE_REPORT_SCHEMA_VERSION,
     source: 'cli.insights',
     content: `Insight Report: ${summary}`,
     tags: ['insight', 'report', window, ...(topic ? [topic] : [])],
@@ -74,6 +76,7 @@ function serializeReflection(reflection: Reflection): Record<string, unknown> {
 function buildReflectionSavePayload(reflections: Reflection[]): Record<string, unknown> {
   return {
     type: 'reflection_report',
+    schemaVersion: COGNITIVE_REPORT_SCHEMA_VERSION,
     source: 'cli.reflect',
     content: `Reflection Report: ${reflections.length} reflection(s) generated`,
     tags: ['reflection', 'report', 'daily'],
@@ -87,6 +90,31 @@ function buildReflectionSavePayload(reflections: Reflection[]): Record<string, u
 
 async function saveReflectionReport(reflections: Reflection[]): Promise<AppendBlockResult> {
   return appendBlock('journal', buildReflectionSavePayload(reflections), process.env);
+}
+
+function buildCategorizeSavePayload(
+  input: string,
+  suggestion: Awaited<ReturnType<typeof categorizeWithV5Context>>,
+): Record<string, unknown> {
+  return {
+    type: 'categorize_report',
+    schemaVersion: COGNITIVE_REPORT_SCHEMA_VERSION,
+    source: 'cli.categorize',
+    content: `Categorize Report: ${suggestion.tags.length} tag(s) suggested for input`,
+    tags: ['categorize', 'report'],
+    report: {
+      generatedAt: new Date().toISOString(),
+      input,
+      suggestion,
+    },
+  };
+}
+
+async function saveCategorizeReport(
+  input: string,
+  suggestion: Awaited<ReturnType<typeof categorizeWithV5Context>>,
+): Promise<AppendBlockResult> {
+  return appendBlock('journal', buildCategorizeSavePayload(input, suggestion), process.env);
 }
 
 export async function handleCognitiveCommand(context: CliContext): Promise<boolean> {
@@ -206,14 +234,16 @@ async function handleCategorizeCommand(context: CliContext): Promise<boolean> {
   const { json, save, subcommand } = context.args;
   if (!subcommand)
     throw new Error('categorize requires text argument: memphis categorize "your text"');
+  const suggestion = await categorizeWithV5Context(subcommand);
+  const savedBlock = save ? await saveCategorizeReport(subcommand, suggestion) : null;
   print(
     {
       ok: true,
       mode: 'categorize',
       input: subcommand,
-      suggestion: await categorizeWithV5Context(subcommand),
-      saved: save,
-      message: save ? 'save requested; journal persistence is not implemented yet' : undefined,
+      suggestion,
+      saved: Boolean(savedBlock),
+      savedBlock,
     },
     json,
   );

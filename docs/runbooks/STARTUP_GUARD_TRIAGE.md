@@ -87,6 +87,11 @@ Exporter behavior:
 - include `--signing-key-id` and verify with `--expected-key-id` to bind evidence to signer identity
 - for off-host transfer, emit encrypted companions with `--encryption-passphrase` and verify via `--manifest-path ...enc` + `--decryption-passphrase`
 - set `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true` for financial workflows to fail closed when encryption is missing
+- optionally embed latest cognitive journal summaries with `--include-cognitive-summaries` (tune via `--cognitive-report-limit` / `MEMPHIS_INCIDENT_COGNITIVE_REPORT_LIMIT`)
+- `--profile strict-handoff` enables manifest output + cognitive summary embedding by default for strict verifier handoffs
+- override the journal source for incident handoff with `--cognitive-journal-path` / `MEMPHIS_INCIDENT_COGNITIVE_JOURNAL_PATH`
+- manifest now carries cognitive-summary integrity metadata (`cognitiveReports.count` + `cognitiveReports.digestSha256`) and verifier enforces it via `checks.cognitiveSummary*`
+- enable strict cognitive evidence enforcement with `--require-cognitive-summaries` (or `MEMPHIS_INCIDENT_REQUIRE_COGNITIVE_SUMMARIES=true`)
 - keep chain linkage enabled (default) and confirm `chainEvent.written=true` in verifier output
 - tune chain append resilience with `--chain-event-retry-count` + `--chain-event-retry-backoff-ms` (or matching env vars)
 - when using detached key bundles, enforce provenance with `--require-key-bundle-signature --trust-root-path <path>`

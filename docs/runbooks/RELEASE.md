@@ -23,21 +23,31 @@ The workflow performs all release gates automatically:
 
 - `npm run -s lint`
 - `npm run -s typecheck`
+- `npm run -s ops:validate-strict-handoff-fixtures`
+- `./scripts/strict-handoff-validator-json-gate.sh`
+  - wraps `ops:validate-strict-handoff-fixtures -- --json` and enforces deterministic `checks[].id` ordering contract
+- `npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json`
+  - validates release metadata against `tests/fixtures/release-draft/validator-metadata.schema.json`
 - `npm run -s test:ops-artifacts`
 - `npm run -s test:ts`
 - `npm run -s test:chaos`
 - `npm run -s test:rust`
 - `npm pack --dry-run`
 - `npm pack --pack-destination release-dist`
+- generates `release-dist/validator-metadata.json` (schema + check-order status contract)
+  - schema fixture: `tests/fixtures/release-draft/validator-metadata.schema.json`
+  - example payload: `tests/fixtures/release-draft/validator-metadata-example.json`
 - creates draft GitHub release `v<version>` with:
   - package tarball asset
   - `.sha256` checksum asset
+  - `validator-metadata.json` asset
   - generated draft release notes
 
 ## 3. Review And Publish Draft Release
 
 - verify draft release body and links
 - confirm checksum in draft notes matches uploaded `.sha256` file
+- check validator contract status line in draft notes; if `schemaVersion` changed, add explicit JSON contract change + migration guidance before publish
 - publish draft release when approved
 
 ## 4. Manual Fallback (If Workflow Is Unavailable)
@@ -45,6 +55,8 @@ The workflow performs all release gates automatically:
 ```bash
 npm run -s lint
 npm run -s typecheck
+npm run -s ops:validate-strict-handoff-fixtures
+./scripts/strict-handoff-validator-json-gate.sh
 npm run -s test:ops-artifacts
 npm run -s test:ts
 npm run -s test:chaos

@@ -121,6 +121,22 @@ npm run -s ops:export-incident-bundle -- \
 npm run -s ops:export-incident-bundle -- \
   --profile forensics-lite \
   --out data/incident-bundle.json
+npm run -s ops:strict-incident-handoff -- \
+  --status-url http://127.0.0.1:8080/v1/ops/status \
+  --audit-path data/security-audit.jsonl \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --signing-key-path /secure/path/incident-signing-key.pem \
+  --signing-key-id incident-key-v2 \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --trust-root-path config/trust_root.json
+npm run -s ops:strict-incident-handoff -- \
+  --preflight-only \
+  --signing-key-path /secure/path/incident-signing-key.pem \
+  --signing-key-id incident-key-v2 \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --trust-root-path config/trust_root.json
+npm run -s ops:strict-incident-handoff -- --completion-hints
 npm run -s ops:verify-incident-manifest -- \
   --manifest-path data/incident-bundle.manifest.json \
   --public-key-path /secure/path/incident-signing-public.pem \
@@ -160,9 +176,10 @@ npm run -s ops:rotate-key-bundle -- \
 - encrypted-at-rest companion artifacts: `--encryption-passphrase`, `--encryption-passphrase-base64`, `--encryption-passphrase-file` (or matching env vars)
 - optional encrypted output overrides: `--encrypted-bundle-out`, `--encrypted-manifest-out`
 - policy gate: `--require-encrypted-artifacts` or `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true` (recommended for financial mode)
-- profiles: `--profile financial-strict|forensics-lite` (or `MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
+- profiles: `--profile financial-strict|forensics-lite|strict-handoff` (or `MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
   - `financial-strict`: requires encrypted artifacts + writes manifest by default + higher audit/retention defaults
   - `forensics-lite`: writes manifest by default with lighter defaults, encryption optional
+  - `strict-handoff`: writes manifest + includes cognitive summaries by default for strict verifier handoff
 
 `ops:verify-incident-manifest` checks:
 
@@ -177,6 +194,26 @@ npm run -s ops:rotate-key-bundle -- \
 - profiles: `--profile trust-root-strict|legacy-compat` (or `MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE`)
   - `trust-root-strict`: enables signature + detached key-bundle provenance enforcement (strict handoff mode)
   - `legacy-compat`: disables strict signature/provenance and treats chain-link failures as non-fatal
+
+`ops:strict-incident-handoff` quick reference:
+
+- runs export (`--profile strict-handoff`) and verify (`--profile trust-root-strict`) in one command
+- supports `--preflight-only` readiness checks without running export/verify
+- fails preflight when signer key input, public key bundle path, trust root path, or signer key id are missing
+- `--completion-hints` prints machine-readable flag/env contracts for shell tooling
+- `ops:validate-strict-handoff-fixtures` validates strict-handoff fixture payloads + live command output against JSON Schemas
+- `ops:validate-strict-handoff-fixtures --json` emits machine-readable validation summary for CI/automation
+- `scripts/strict-handoff-validator-json-gate.sh` wraps validator `--json` checks and enforces deterministic `checks[].id` ordering contract for CI/release gates
+- `ops:validate-release-draft-validator-metadata` validates `validator-metadata.json` against release-draft schema contract
+- integration contract fixtures for tooling:
+  - summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
+  - JSON Schemas: `tests/fixtures/strict-handoff/summary.schema.json`, `tests/fixtures/strict-handoff/completion-hints.schema.json`
+  - validator JSON contract: `tests/fixtures/strict-handoff/validator-output-contract.json`
+  - release-draft validator metadata contract: `tests/fixtures/release-draft/validator-metadata-contract.json`
+  - release-draft validator metadata schema/example: `tests/fixtures/release-draft/validator-metadata.schema.json`, `tests/fixtures/release-draft/validator-metadata-example.json`
+  - schema example payloads: `tests/fixtures/strict-handoff/summary-example-preflight.json`, `tests/fixtures/strict-handoff/completion-hints-example.json`
+  - failure contracts: `tests/fixtures/strict-handoff/failure-preflight.json`, `tests/fixtures/strict-handoff/failure-export.json`, `tests/fixtures/strict-handoff/failure-verify.json`
+  - parser/validation examples (`jq`, TypeScript, Ajv CLI): `docs/runbooks/INCIDENT_MANIFEST_VERIFICATION.md`
 
 `ops:rotate-key-bundle` does:
 
@@ -194,6 +231,8 @@ Manual fallback:
 ```bash
 npm run -s lint
 npm run -s typecheck
+npm run -s ops:validate-strict-handoff-fixtures
+./scripts/strict-handoff-validator-json-gate.sh
 npm run -s test:ops-artifacts
 npm run -s test:ts
 npm run -s test:chaos
@@ -201,6 +240,8 @@ npm run -s test:rust
 npm pack --dry-run
 npm pack
 ```
+
+Draft release workflow artifacts also include `validator-metadata.json` (validator schema/check-order status contract for automation consumers).
 
 Release details and workflow inputs are documented in `docs/runbooks/RELEASE.md`.
 

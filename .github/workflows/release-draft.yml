@@ -74,6 +74,15 @@ jobs:
       - name: Typecheck
         run: npm run -s typecheck
 
+      - name: Strict-handoff fixture/schema validator
+        run: npm run -s ops:validate-strict-handoff-fixtures
+
+      - name: Strict-handoff validator JSON summary
+        id: validator_json
+        env:
+          MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: "1"
+        run: ./scripts/strict-handoff-validator-json-gate.sh
+
       - name: Ops artifact regression
         run: npm run -s test:ops-artifacts
 
@@ -88,8 +97,28 @@ jobs:
 
       - name: Build package artifact
         id: package
+        env:
+          VALIDATOR_CHECK_ORDER_STATUS: ${{ steps.validator_json.outputs.check_order_status }}
+          VALIDATOR_CHECK_IDS: ${{ steps.validator_json.outputs.check_ids }}
         run: |
           set -euo pipefail
+          VALIDATOR_CONTRACT_PATH="tests/fixtures/strict-handoff/validator-output-contract.json"
+          CURRENT_VALIDATOR_SCHEMA_VERSION="$(jq -r '.schemaVersion' "$VALIDATOR_CONTRACT_PATH")"
+          PREV_TAG="$(git tag -l 'v*' --sort=-v:refname | head -n 1)"
+          VALIDATOR_SCHEMA_STATUS="no-baseline"
+          PREV_VALIDATOR_SCHEMA_VERSION=""
+          if [[ -n "$PREV_TAG" ]] && git cat-file -e "$PREV_TAG:$VALIDATOR_CONTRACT_PATH" 2>/dev/null; then
+            PREV_VALIDATOR_SCHEMA_VERSION="$(git show "$PREV_TAG:$VALIDATOR_CONTRACT_PATH" | jq -r '.schemaVersion')"
+            if [[ "$PREV_VALIDATOR_SCHEMA_VERSION" != "$CURRENT_VALIDATOR_SCHEMA_VERSION" ]]; then
+              VALIDATOR_SCHEMA_STATUS="changed"
+              VALIDATOR_SCHEMA_NOTE="validator output contract schemaVersion changed since $PREV_TAG: $PREV_VALIDATOR_SCHEMA_VERSION -> $CURRENT_VALIDATOR_SCHEMA_VERSION"
+            else
+              VALIDATOR_SCHEMA_STATUS="unchanged"
+              VALIDATOR_SCHEMA_NOTE="validator output contract schemaVersion unchanged since $PREV_TAG: $CURRENT_VALIDATOR_SCHEMA_VERSION"
+            fi
+          else
+            VALIDATOR_SCHEMA_NOTE="validator output contract schemaVersion: $CURRENT_VALIDATOR_SCHEMA_VERSION (no tagged baseline with validator contract found)"
+          fi
           npm pack --dry-run
           mkdir -p release-dist
           npm pack --pack-destination release-dist
@@ -98,7 +127,32 @@ jobs:
           SHA256="$(sha256sum "$ASSET_PATH" | awk '{print $1}')"
           SHA_FILE="release-dist/${ASSET_NAME}.sha256"
           NOTES_PATH="release-dist/release-notes.md"
+          VALIDATOR_METADATA_PATH="release-dist/validator-metadata.json"
+          VALIDATOR_METADATA_SCHEMA_PATH="tests/fixtures/release-draft/validator-metadata.schema.json"
           printf '%s  %s\n' "$SHA256" "$ASSET_NAME" > "$SHA_FILE"
+          jq -n \
+            --arg schema_status "$VALIDATOR_SCHEMA_STATUS" \
+            --arg schema_version "$CURRENT_VALIDATOR_SCHEMA_VERSION" \
+            --arg schema_previous_version "$PREV_VALIDATOR_SCHEMA_VERSION" \
+            --arg schema_reference_tag "$PREV_TAG" \
+            --arg check_order_status "$VALIDATOR_CHECK_ORDER_STATUS" \
+            --argjson check_ids "$VALIDATOR_CHECK_IDS" \
+            '{
+              schemaVersion: 1,
+              validatorSchema: {
+                status: $schema_status,
+                version: $schema_version,
+                previousVersion: ($schema_previous_version | if . == "" then null else . end),
+                referenceTag: ($schema_reference_tag | if . == "" then null else . end)
+              },
+              validatorCheckOrder: {
+                status: $check_order_status,
+                checkIds: $check_ids
+              }
+            }' > "$VALIDATOR_METADATA_PATH"
+          npm run -s ops:validate-release-draft-validator-metadata -- \
+            --metadata-path "$VALIDATOR_METADATA_PATH" \
+            --schema-path "$VALIDATOR_METADATA_SCHEMA_PATH"
           cat > "$NOTES_PATH" <<EOF
           MemphisOS v$VERSION (draft)
 
@@ -109,10 +163,24 @@ jobs:
           Quality gates run in this workflow:
           - npm run -s lint
           - npm run -s typecheck
+          - npm run -s ops:validate-strict-handoff-fixtures
+          - ./scripts/strict-handoff-validator-json-gate.sh
+          - npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json
           - npm run -s test:ops-artifacts
           - npm run -s test:ts
           - npm run -s test:chaos
           - npm run -s test:rust
+
+          Validator contract status:
+          - \`$VALIDATOR_SCHEMA_NOTE\`
+          - if schemaVersion changed, include JSON contract change + migration guidance in final published release notes
+
+          Validator check-id order contract:
+          - status: \`$VALIDATOR_CHECK_ORDER_STATUS\`
+          - checkIds: \`$VALIDATOR_CHECK_IDS\`
+
+          Validator metadata artifact:
+          - \`$(basename "$VALIDATOR_METADATA_PATH")\`
 
           Artifact:
           - \`$ASSET_NAME\`
@@ -124,6 +192,13 @@ jobs:
             echo "sha256=$SHA256"
             echo "sha_file=$SHA_FILE"
             echo "notes_path=$NOTES_PATH"
+            echo "validator_metadata_path=$VALIDATOR_METADATA_PATH"
+            echo "validator_schema_status=$VALIDATOR_SCHEMA_STATUS"
+            echo "validator_schema_version=$CURRENT_VALIDATOR_SCHEMA_VERSION"
+            echo "validator_schema_previous_version=$PREV_VALIDATOR_SCHEMA_VERSION"
+            echo "validator_schema_reference_tag=$PREV_TAG"
+            echo "validator_check_order_status=$VALIDATOR_CHECK_ORDER_STATUS"
+            echo "validator_check_ids=$VALIDATOR_CHECK_IDS"
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload draft artifacts
@@ -134,6 +209,7 @@ jobs:
             ${{ steps.package.outputs.asset_path }}
             ${{ steps.package.outputs.sha_file }}
             ${{ steps.package.outputs.notes_path }}
+            ${{ steps.package.outputs.validator_metadata_path }}
 
       - name: Create draft GitHub release
         id: release
@@ -153,6 +229,7 @@ jobs:
           gh release create "$TAG" \
             "${{ steps.package.outputs.asset_path }}" \
             "${{ steps.package.outputs.sha_file }}" \
+            "${{ steps.package.outputs.validator_metadata_path }}" \
             --draft \
             --target "$TARGET_REF" \
             --title "MemphisOS v$VERSION" \
@@ -168,5 +245,12 @@ jobs:
             echo "- tag: \`v$VERSION\`"
             echo "- artifact: \`${{ steps.package.outputs.asset_name }}\`"
             echo "- sha256: \`${{ steps.package.outputs.sha256 }}\`"
+            echo "- validator metadata artifact: \`${{ steps.package.outputs.validator_metadata_path }}\`"
+            echo "- validator schema status: \`${{ steps.package.outputs.validator_schema_status }}\`"
+            echo "- validator schema version: \`${{ steps.package.outputs.validator_schema_version }}\`"
+            echo "- validator baseline tag: \`${{ steps.package.outputs.validator_schema_reference_tag }}\`"
+            echo "- validator previous schema version: \`${{ steps.package.outputs.validator_schema_previous_version }}\`"
+            echo "- validator check-id order status: \`${{ steps.package.outputs.validator_check_order_status }}\`"
+            echo "- validator checkIds: \`${{ steps.package.outputs.validator_check_ids }}\`"
             echo "- release: ${{ steps.release.outputs.release_url }}"
           } >> "$GITHUB_STEP_SUMMARY"

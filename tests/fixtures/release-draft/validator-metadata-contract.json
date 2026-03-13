@@ -1,0 +1,63 @@
+{
+  "packageOutputKeys": [
+    "validator_metadata_path",
+    "validator_schema_status",
+    "validator_schema_version",
+    "validator_schema_previous_version",
+    "validator_schema_reference_tag",
+    "validator_check_order_status",
+    "validator_check_ids"
+  ],
+  "uploadedArtifactOutputKeys": [
+    "asset_path",
+    "sha_file",
+    "notes_path",
+    "validator_metadata_path"
+  ],
+  "releaseAssetOutputKeys": [
+    "asset_path",
+    "sha_file",
+    "validator_metadata_path"
+  ],
+  "summaryOutputKeys": [
+    "validator_metadata_path",
+    "validator_schema_status",
+    "validator_schema_version",
+    "validator_schema_reference_tag",
+    "validator_schema_previous_version",
+    "validator_check_order_status",
+    "validator_check_ids"
+  ],
+  "releaseNotesMarkers": [
+    "Validator contract status:",
+    "Validator check-id order contract:",
+    "Validator metadata artifact:"
+  ],
+  "metadataTopLevelKeys": [
+    "schemaVersion",
+    "validatorSchema",
+    "validatorCheckOrder"
+  ],
+  "metadataValidatorSchemaKeys": [
+    "status",
+    "version",
+    "previousVersion",
+    "referenceTag"
+  ],
+  "metadataValidatorCheckOrderKeys": [
+    "status",
+    "checkIds"
+  ],
+  "metadataSchemaPath": "tests/fixtures/release-draft/validator-metadata.schema.json",
+  "metadataExamplePath": "tests/fixtures/release-draft/validator-metadata-example.json",
+  "metadataValidatorOutputContractPath": "tests/fixtures/release-draft/validator-metadata-validator-output-contract.json",
+  "metadataValidationCommandId": "ops:validate-release-draft-validator-metadata",
+  "metadataValidatorSchemaStatusValues": [
+    "changed",
+    "unchanged",
+    "no-baseline"
+  ],
+  "metadataValidatorCheckOrderStatusValues": [
+    "matched"
+  ]
+}

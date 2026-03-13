@@ -1,6 +1,6 @@
 # MemphisOS Backlog
 
-Updated: 2026-03-12
+Updated: 2026-03-13
 
 ## Completed Now (Clean-Slate Pass)
 
@@ -214,7 +214,7 @@ Updated: 2026-03-12
   - fails closed when trust-root signer is not trusted by active `trust_root.json`
   - adds runbook `docs/runbooks/KEY_BUNDLE_ROTATION.md` and ops regression coverage.
 - Added export-side incident policy profile presets:
-  - `ops:export-incident-bundle --profile financial-strict|forensics-lite`
+  - `ops:export-incident-bundle --profile financial-strict|forensics-lite|strict-handoff`
   - profile defaults now reduce encryption/manifest/retention flag churn
   - profile selection supports env override (`MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
   - ops regression coverage added for strict/lite/invalid profile behavior.
@@ -279,6 +279,249 @@ Updated: 2026-03-12
 - Added operator runbook for zero-downtime Telegram credential rotation:
   - `docs/runbooks/TELEGRAM_CREDENTIAL_ROTATION.md`
   - includes rolling cutover steps, validation checklist, and rollback procedure.
+- Consolidated remaining legacy `src/cli/*` compatibility paths into `infra/cli`:
+  - moved interactive ask-session runner into `src/infra/cli/utils/interactive-ask-session.ts`.
+  - updated interaction command wiring to use infra-local implementation.
+  - removed dead legacy shim files `src/cli/ask-session.ts` and `src/cli/index.ts`.
+- Implemented `categorize --save` journal persistence in active CLI path:
+  - `memphis categorize "<text>" --save` now appends `categorize_report` blocks to `journal`.
+  - JSON output now reports `saved` and `savedBlock` metadata.
+- Added focused `categorize --save` coverage:
+  - unit coverage for JSON + save flows in `tests/unit/cli.categorize.test.ts`.
+  - e2e persistence coverage on fresh data dir in `tests/integration/cli-categorize-save.e2e.test.ts`.
+- Added combined cognitive-save regression coverage:
+  - integration flow now exercises `insights --save`, `categorize --save`, and `reflect --save` in one fresh data directory.
+  - assertions validate save metadata ordering and all three block types in journal (`insight_report`, `categorize_report`, `reflection_report`).
+- Extended operator docs for cognitive report triage:
+  - `docs/runbooks/COGNITIVE_REPORT_TRIAGE.md` documents expected `categorize_report` payload shape and validation checks for incident/debug workflows.
+- Added report schema-versioning for cognitive save blocks:
+  - `insight_report`, `categorize_report`, and `reflection_report` now emit `schemaVersion: 1`.
+  - unit coverage validates schema-version presence in saved journal blocks.
+- Added operator helper command for cognitive report lookup:
+  - `npm run -s ops:query-cognitive-reports -- [--json] [--type all|insight|categorize|reflection] [--limit <n>]`
+  - script surfaces latest journal report summaries for incident response workflows.
+  - watch mode added for live triage: `--watch [--interval-ms <n>] [--count <n>]`.
+- Added stable schema contracts for cognitive report query output:
+  - fixture contract file: `tests/fixtures/cognitive-report-query/output-contract.json`.
+  - ops regression coverage now enforces top-level/report keysets and error contract stability.
+- Added NDJSON streaming mode for cognitive report watch integrations:
+  - `ops:query-cognitive-reports --watch --ndjson` now emits one JSON object per poll iteration.
+  - output contract includes watch metadata (`mode`, `iteration`, `watchedAt`, interval/count controls).
+  - ops regression coverage now validates stable NDJSON watch keysets and argument guardrails.
+- Extended incident bundle export with optional cognitive report summaries:
+  - `ops:export-incident-bundle --include-cognitive-summaries` now embeds latest `journal` report summaries.
+  - configurable limits/source via `--cognitive-report-limit`, `--cognitive-journal-path`, and matching env vars.
+  - ops regression coverage validates stable embedding order and summary contract fields.
+  - startup guard triage runbook now documents cognitive-summary export controls.
+- Extended incident manifest schema with cognitive-summary integrity metadata:
+  - manifests now carry `cognitiveReports.included/count/digestSha256` (plus summary context fields).
+  - verifier now validates `checks.cognitiveSummaryCountMatch` + `checks.cognitiveSummaryDigestMatch` against bundle payload.
+  - tamper coverage added for bundle-side summary mutation and manifest-side count/digest mutation.
+  - manifest verification runbook now includes operator command snippets for cognitive integrity checks.
+- Added strict verifier controls for cognitive-summary evidence requirements:
+  - verifier now supports `--require-cognitive-summaries` and `MEMPHIS_INCIDENT_REQUIRE_COGNITIVE_SUMMARIES=true|false`.
+  - strict mode fails when cognitive metadata is absent or bundle cognitive payload is missing.
+  - `trust-root-strict` profile now enables cognitive-summary requirement enforcement by default.
+  - verifier output now reports `checks.cognitiveSummaryMetadataPresent` and `checks.cognitiveSummaryRequirementSatisfied`.
+  - ops regression coverage added for strict pass/fail flows and profile behavior assertions.
+- Added strict handoff export profile for cognitive-aware incident evidence:
+  - `ops:export-incident-bundle --profile strict-handoff` auto-enables manifest output + cognitive summary embedding.
+  - profile defaults support strict verifier handoff workflows without extra `--include-cognitive-summaries` flag churn.
+  - ops regression coverage validates strict-handoff profile behavior and completion/help surfaces.
+- Added one-command strict incident handoff workflow:
+  - `ops:strict-incident-handoff` now runs export (`strict-handoff`) + verify (`trust-root-strict`) in one step.
+  - command enforces strict prerequisites (signer key input, key-bundle path, trust-root path) before running.
+  - emits operator-friendly pass/fail summary and optional machine-readable `--json` output.
+  - ops regression coverage added for success, preflight failure, and verify-failure summary paths.
+- Added shell completion/env-contract hints for strict incident handoff:
+  - `ops:strict-incident-handoff --completion-hints` now emits machine-readable flag/env metadata.
+  - `--help` now includes env default references for signer key, key bundle, and trust root inputs.
+  - ops regression coverage added for help/completion hint contracts.
+- Added CI smoke coverage for strict-handoff command contract stability:
+  - `test:ops-artifacts` now includes `tests/ops/strict-incident-handoff.test.ts`.
+  - `quality-gate` ops artifact regression step now explicitly covers strict-handoff flows.
+- Added README operator quick-reference for strict incident handoff:
+  - documents `ops:strict-incident-handoff` one-command workflow and `--completion-hints` usage.
+  - syncs export profile docs to include `strict-handoff` defaults.
+  - adds concise strict-handoff behavior checklist for operators.
+- Added strict-handoff troubleshooting matrix to incident verification runbook:
+  - preflight/export/verify failure classes now map to concrete operator remediation actions.
+  - matrix covers signature/key-bundle/trust-root, cognitive evidence, and chain-link append failure paths.
+  - escalation guidance now points to strict-handoff JSON evidence package fields.
+- Added strict-handoff preflight-only readiness mode:
+  - `ops:strict-incident-handoff --preflight-only` now validates strict prerequisites and exits without export/verify.
+  - script help/completion metadata now documents preflight-only usage.
+  - ops regression coverage verifies preflight-only success contract and no side-effect bundle writes.
+  - README + runbook now include preflight-only operator command examples.
+- Added CI smoke assertion for human-readable strict preflight pass output:
+  - `tests/ops/strict-incident-handoff.test.ts` now asserts `[PASS] strict incident handoff preflight checks passed`.
+  - coverage confirms preflight-only human-mode runs without writing bundle artifacts.
+- Added strict-handoff JSON output contract fixture:
+  - new fixture: `tests/fixtures/strict-handoff/output-contract.json`.
+  - ops regression tests now enforce top-level/nested key stability for JSON summary outputs.
+  - completion-hints output keysets are now contract-checked for shell/automation compatibility.
+- Added strict-handoff failure output fixture contracts:
+  - new fixtures: `tests/fixtures/strict-handoff/failure-preflight.json`, `failure-export.json`, `failure-verify.json`.
+  - ops regression tests now assert failure stage/error semantics against fixture contracts.
+  - added deterministic export-failure coverage for encrypted-artifact policy guardrails.
+- Added strict-handoff output schema section to incident runbook:
+  - documents stable JSON keys and stage semantics for operator tooling consumers.
+  - links summary + failure contract fixtures for implementation-safe parsing.
+  - clarifies additive-key compatibility guidance for automation clients.
+- Added README pointers to strict-handoff fixture contracts:
+  - quick-reference section now links summary/completion and failure fixture paths for integrators.
+  - README now serves as a single operator + tooling handoff entrypoint for strict incident workflows.
+- Added explicit strict-handoff parser snippets for automation consumers:
+  - incident verification runbook now includes a `jq` command pipeline that validates schema/stage and extracts triage fields.
+  - runbook now includes a TypeScript parser/type-guard snippet aligned with `tests/fixtures/strict-handoff/output-contract.json`.
+  - docs now provide copy-ready parsing examples for shell and service integrations.
+- Added docs smoke test coverage for strict-handoff fixture references:
+  - new ops regression test validates strict-handoff fixture paths referenced in `README.md` and incident runbook.
+  - `test:ops-artifacts` now includes docs contract coverage so CI catches stale fixture links early.
+  - README failure fixture references were normalized to full strict-handoff fixture paths.
+- Added completion-hints parser snippets for strict-handoff automation:
+  - incident verification runbook now includes a `jq` completion-hints pipeline with required flag/env guard checks.
+  - runbook now includes a TypeScript completion-hints parser snippet aligned with stable key contracts.
+  - docs now cover machine ingestion patterns for both strict summary output and completion hints.
+- Added formal JSON Schema artifacts for strict-handoff outputs:
+  - new schema files: `tests/fixtures/strict-handoff/summary.schema.json`, `completion-hints.schema.json`.
+  - strict-handoff output contract fixture now publishes schema paths for external validator/codegen consumers.
+  - new ops regression coverage ensures schema key requirements stay aligned with output-contract fixtures.
+  - README/runbook fixture sections now reference schema paths alongside existing contract fixtures.
+- Added end-to-end schema validation examples for strict-handoff outputs:
+  - new example payload fixtures: `summary-example-preflight.json`, `completion-hints-example.json`.
+  - incident runbook now includes Ajv CLI and TypeScript Ajv examples for validating fixtures and live command output.
+  - schema regression tests now verify example payload key contracts and published fixture paths.
+  - README fixture section now points tooling users to schema examples and Ajv validation guidance.
+- Added one-command strict-handoff fixture/schema validator:
+  - new command: `npm run -s ops:validate-strict-handoff-fixtures`.
+  - command validates summary/completion example fixtures plus live strict-handoff command output against JSON Schemas.
+  - new ops regression test asserts validator command pass output contract.
+  - `test:ops-artifacts` now includes validator coverage for CI enforcement.
+- Added dedicated CI/release gates for strict-handoff fixture validation:
+  - `quality-gate` workflow now runs `ops:validate-strict-handoff-fixtures` before `test:ops-artifacts`.
+  - `release-draft` workflow now enforces the same validator gate before artifact regression tests.
+  - release runbook + README manual release checklist now include validator command in required gates.
+- Added validator troubleshooting guidance to incident runbook:
+  - runbook now includes failure-class matrix for fixture-schema drift vs runtime-output/schema drift.
+  - troubleshooting now maps concrete `[FAIL]` signals from `ops:validate-strict-handoff-fixtures` to operator remediation steps.
+  - guidance now calls out stdout contamination (`invalid JSON output`) as a contract-break root cause.
+- Added machine-readable output mode for strict-handoff fixture validator:
+  - `ops:validate-strict-handoff-fixtures --json` now emits stable summary/check/error contract for automation.
+  - new fixture contract: `tests/fixtures/strict-handoff/validator-output-contract.json`.
+  - ops regression coverage now validates json-mode top-level/check keysets and check-id stability.
+  - README/runbook now include json-mode command usage for CI/automation ingestion.
+- Added CI JSON summary visibility for strict-handoff validator:
+  - `quality-gate` now prints `ops:validate-strict-handoff-fixtures -- --json` output before ops artifact regression.
+  - CI step enforces `.ok == true` against machine-readable summary payload.
+  - validator status is now visible in raw workflow logs for quick triage.
+- Added release-draft JSON summary visibility for strict-handoff validator:
+  - `release-draft` workflow now prints validator `--json` payload and enforces `.ok == true` before artifact regression tests.
+  - release notes quality-gate list now explicitly includes json-summary validator step.
+  - release runbook automated/manual gate lists now include json-summary validator command.
+- Added validator JSON contract versioning policy note:
+  - incident runbook now documents additive-vs-breaking evolution rules for `validator-output-contract.json`.
+  - policy now explicitly anchors `schemaVersion` bump semantics and stable key/check-id expectations.
+  - contract-breaking updates now require synchronized fixture/script/test/runbook edits in one PR.
+- Added release checklist guidance for validator contract schemaVersion bumps:
+  - release runbook now requires explicit release-note migration guidance when validator `schemaVersion` changes.
+  - release-draft workflow now computes validator schemaVersion status vs latest tag and injects it into draft notes.
+  - draft notes now include a deterministic reminder to add migration guidance when schemaVersion changes.
+- Added release-draft automation outputs for validator schema status:
+  - package step now emits `validator_schema_status` (`changed|unchanged|no-baseline`) plus current/previous version fields.
+  - draft workflow summary now surfaces validator schema status/version/baseline metadata for automation parsing.
+  - release signal now supports machine parsing without scanning free-form notes text.
+- Added stable check-order regression coverage for validator JSON mode:
+  - ops artifact regression now enforces exact `checks[].id` ordering from `validator-output-contract.json` (not just set equality).
+  - validator contract policy note now explicitly treats check ordering as stable within a schema version.
+  - contract consumers can rely on deterministic check ordering for lightweight log diffing.
+- Added dedicated CI check-order assertion for validator JSON output:
+  - `quality-gate` now compares live `checks[].id` order from validator `--json` output against `validator-output-contract.json`.
+  - CI now fails fast with explicit expected/actual check-id ordering diagnostics on drift.
+  - strict-handoff contract enforcement now covers both pass/fail status and deterministic ordering in pipeline logs.
+- Mirrored strict-handoff check-order assertion in release-draft validator JSON gate:
+  - `release-draft` now compares live `checks[].id` order against `validator-output-contract.json`.
+  - release workflow now fails fast with explicit expected/actual check-id ordering diagnostics on drift.
+  - release and CI pipelines now enforce the same deterministic check ordering contract.
+- Added workflow contract regression coverage for strict-handoff validator gates:
+  - new ops regression test validates both `.github/workflows/ci.yml` and `.github/workflows/release-draft.yml` include `.ok` and check-id ordering assertions.
+  - `test:ops-artifacts` now includes strict-handoff workflow contract coverage.
+  - gate drift between CI and release workflows now fails regression tests before merge.
+- Updated release runbook with validator check-order gate guidance:
+  - automated draft-release gate list now calls out check-id ordering enforcement contract.
+  - manual fallback commands now include explicit expected-vs-actual check-id order assertion.
+  - operators now have deterministic manual parity with workflow guardrails.
+- Added release-draft machine-readable check-order signal outputs:
+  - validator JSON gate step now emits `check_order_status` and `check_ids` via workflow outputs.
+  - package step propagates `validator_check_order_status` + `validator_check_ids` for downstream automation parsing.
+  - draft release notes and workflow summary now include validator check-id order metadata alongside schema-version status fields.
+- Deduplicated strict-handoff validator JSON gate logic across CI and release workflows:
+  - new shared helper script: `scripts/strict-handoff-validator-json-gate.sh`.
+  - both `.github/workflows/ci.yml` and `.github/workflows/release-draft.yml` now call the shared helper.
+  - release-draft keeps machine-readable output emission via `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`.
+- Extended ops regression coverage for shared workflow gate helper:
+  - strict-handoff workflow contract test now asserts both workflows call the shared helper.
+  - coverage now also validates helper script contract snippets (`.ok` enforcement, check-id order assertion, optional outputs).
+  - `test:ops-artifacts` gate now catches helper-script contract drift.
+- Updated release runbook to use shared validator JSON gate helper:
+  - automated release gate list now references `./scripts/strict-handoff-validator-json-gate.sh`.
+  - manual fallback now reuses the same helper for CI/release parity.
+  - check-order enforcement docs now track the deduplicated implementation path.
+- Added dedicated regression coverage for shared validator JSON gate output contract:
+  - new ops regression test executes `scripts/strict-handoff-validator-json-gate.sh` with `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`.
+  - test asserts stable `GITHUB_OUTPUT` keys/values (`check_order_status`, `check_ids`) against fixture contract order.
+  - negative-path coverage verifies fail-closed behavior when output emission is requested without `GITHUB_OUTPUT`.
+- Added fixture-backed release-draft validator metadata contract coverage:
+  - new fixture: `tests/fixtures/release-draft/validator-metadata-contract.json`.
+  - new ops regression test validates release-draft workflow output keys and summary references for `validator_schema_*` and `validator_check_*` fields.
+  - `test:ops-artifacts` now includes release-draft metadata contract drift detection.
+- Synced README release/operator guidance with shared validator JSON gate helper:
+  - strict-handoff operator section now documents `scripts/strict-handoff-validator-json-gate.sh`.
+  - release checklist manual fallback now uses shared helper for CI/release parity.
+  - README fixture references now include release-draft validator metadata contract path.
+- Added local-shell smoke coverage for shared validator JSON gate helper:
+  - ops regression now executes helper in default mode (no `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT`) and asserts successful pass path.
+  - contract now explicitly covers operator/local usage and CI usage with output emission enabled.
+  - fail-closed path coverage for missing `GITHUB_OUTPUT` remains enforced alongside default pass mode.
+- Added dedicated release-draft validator metadata JSON artifact:
+  - `release-draft` now generates `release-dist/validator-metadata.json` with stable `schemaVersion`, `validatorSchema`, and `validatorCheckOrder` fields.
+  - metadata artifact is uploaded in draft artifacts and attached to draft GitHub release assets.
+  - draft release notes and step summary now include validator metadata artifact references.
+- Extended fixture-backed contract coverage for validator metadata artifact stability:
+  - contract fixture now locks metadata keysets, package output keys, upload/release asset references, and release-note markers.
+  - added example fixture `tests/fixtures/release-draft/validator-metadata-example.json` and regression assertions for nested key stability.
+  - ops artifact regression now fails on release-draft metadata artifact contract drift.
+- Synced release documentation for validator metadata artifact:
+  - release runbook now documents `validator-metadata.json` generation and publication in draft workflow outputs.
+  - README package/release section now calls out metadata artifact availability for automation consumers.
+- Added formal JSON Schema contract for release-draft validator metadata artifact:
+  - new schema fixture: `tests/fixtures/release-draft/validator-metadata.schema.json`.
+  - contract fixture now pins schema/example paths plus allowed status values for schema/check-order metadata.
+  - release-draft workflow now validates generated metadata against schema using Ajv before publishing artifacts.
+- Extended release-draft metadata regression coverage for schema enforcement:
+  - ops regression now validates schema-required keysets, enum contracts, and example payload compatibility.
+  - contract test now asserts release workflow includes metadata schema validation guardrails.
+  - `test:ops-artifacts` now fails on schema drift for release-draft validator metadata payloads.
+- Added docs contract coverage for release-draft validator metadata schema/example references:
+  - new fixture `tests/fixtures/release-draft/docs-contract.json` defines required doc references.
+  - new ops regression test validates README + release runbook include required schema/example links.
+  - `test:ops-artifacts` now fails when release-draft metadata fixture links drift in operator docs.
+- Updated release runbook fixture references for validator metadata schema/example:
+  - release runbook now explicitly references `validator-metadata.schema.json`.
+  - release runbook now explicitly references `validator-metadata-example.json`.
+  - docs and regression contracts now align for automation handoff consumers.
+- Added local validator metadata schema helper command for release parity:
+  - new command: `npm run -s ops:validate-release-draft-validator-metadata -- [--metadata-path <path>] [--schema-path <path>] [--json]`.
+  - command validates metadata payloads against `validator-metadata.schema.json` with fail-closed behavior.
+  - machine-readable `--json` output now has stable contract fixture for automation consumers.
+- Replaced inline release-draft metadata schema validation with shared CLI helper:
+  - release-draft workflow now calls `ops:validate-release-draft-validator-metadata` for generated `release-dist/validator-metadata.json`.
+  - workflow release-notes quality-gate list now references the same helper command used in execution.
+  - schema validation path now has local/manual and workflow parity under one command surface.
+- Added regression coverage for release metadata validator command:
+  - new ops tests cover pass/fail/json output contract behavior for `ops:validate-release-draft-validator-metadata`.
+  - new fixture `tests/fixtures/release-draft/validator-metadata-validator-output-contract.json` pins json-mode keys.
+  - `test:ops-artifacts` now includes command-level contract drift detection for release metadata validation.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -289,5 +532,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Continue consolidating any remaining legacy `src/cli/commands/*` wrappers into `infra/cli` routing where still duplicated.
-2. Add focused e2e coverage for `categorize --save` once journal persistence is implemented for categorize flow.
+1. Merge current branch to `main` and verify `quality-gate` is green on the merge commit.

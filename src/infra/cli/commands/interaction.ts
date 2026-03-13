@@ -1,8 +1,8 @@
-import { AskSession } from '../../../cli/ask-session.js';
 import { runTuiApp } from '../../../tui/index.js';
 import type { CliContext } from '../context.js';
 import { runInteractiveTui } from '../interactive-tui.js';
 import { runAskSessionInteractive, runAskSessionTurn } from '../utils/ask-session.js';
+import { InteractiveAskSession } from '../utils/interactive-ask-session.js';
 import { print, printChat, printTuiAnswer } from '../utils/render.js';
 
 type InteractionHandler = (context: CliContext) => Promise<boolean>;
@@ -23,7 +23,7 @@ export async function handleInteractionCommand(context: CliContext): Promise<boo
 async function handleAskSessionCommand(context: CliContext): Promise<boolean> {
   const { provider, model, strategy, maxTokens, contextWindow, temperature, systemPrompt } =
     context.args;
-  const sessionRunner = new AskSession({
+  const sessionRunner = new InteractiveAskSession({
     provider: provider ?? 'auto',
     model: model ?? 'gpt-4',
     strategy: strategy ?? 'default',

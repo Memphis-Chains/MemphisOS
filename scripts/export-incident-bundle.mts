@@ -12,6 +12,7 @@ import {
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { getChainPath } from '../src/config/paths.js';
 import { encryptBlob, sha256Hex } from './lib/encrypted-blob.mts';
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [k: string]: JsonValue };
@@ -35,6 +36,39 @@ interface IncidentBundle {
     result?: JsonValue;
     error?: string;
   };
+  cognitiveReports?: CognitiveReportSnapshot;
+}
+
+type CognitiveReportKind = 'insight' | 'categorize' | 'reflection';
+
+interface CognitiveReportSummary {
+  index: number | null;
+  timestamp: string | null;
+  hash: string | null;
+  reportType: CognitiveReportKind;
+  dataType: string;
+  schemaVersion: number | null;
+  source: string | null;
+  generatedAt: string | null;
+  input: string | null;
+  path: string;
+}
+
+interface CognitiveReportSnapshot {
+  schemaVersion: 1;
+  journalPath: string;
+  limit: number;
+  count: number;
+  reports: CognitiveReportSummary[];
+}
+
+interface CognitiveReportManifestIntegrity {
+  included: boolean;
+  count: number;
+  digestSha256: string | null;
+  schemaVersion: number | null;
+  limit: number | null;
+  journalPath: string | null;
 }
 
 interface IncidentBundleManifest {
@@ -58,6 +92,7 @@ interface IncidentBundleManifest {
     ok: boolean;
     schemaVersion: number | null;
   };
+  cognitiveReports: CognitiveReportManifestIntegrity;
   encryptedArtifacts?: {
     schemaVersion: 1;
     format: 'memphis.encrypted-blob.v1';
@@ -94,11 +129,12 @@ interface EncryptedArtifactManifestDescriptor {
   bytes: number;
 }
 
-type ExportProfileName = 'financial-strict' | 'forensics-lite';
+type ExportProfileName = 'financial-strict' | 'forensics-lite' | 'strict-handoff';
 
 interface ExportProfileDefaults {
   redactSensitive: boolean;
   requireEncryptedArtifacts: boolean;
+  includeCognitiveSummaries: boolean;
   writeManifest: boolean;
   auditLines: number;
   retentionCount: number;
@@ -108,8 +144,20 @@ interface ExportProfileDefaults {
 const REDACTED = '[REDACTED]';
 const INCIDENT_BUNDLE_PREFIX = 'incident-bundle-';
 const MANIFEST_SUFFIX = '.manifest.json';
-const EXPORT_PROFILE_VALUES: ExportProfileName[] = ['financial-strict', 'forensics-lite'];
+const EXPORT_PROFILE_VALUES: ExportProfileName[] = [
+  'financial-strict',
+  'forensics-lite',
+  'strict-handoff',
+];
 const EXPORT_PROFILE_ENV = 'MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE';
+const COGNITIVE_REPORT_TYPE_MAP = {
+  insight_report: 'insight',
+  categorize_report: 'categorize',
+  reflection_report: 'reflection',
+} as const satisfies Record<string, CognitiveReportKind>;
+const COGNITIVE_INCLUDE_ENV = 'MEMPHIS_INCIDENT_INCLUDE_COGNITIVE_SUMMARIES';
+const COGNITIVE_LIMIT_ENV = 'MEMPHIS_INCIDENT_COGNITIVE_REPORT_LIMIT';
+const COGNITIVE_JOURNAL_PATH_ENV = 'MEMPHIS_INCIDENT_COGNITIVE_JOURNAL_PATH';
 const REDACTABLE_KEY_PATTERNS = [
   /token/i,
   /secret/i,
@@ -165,9 +213,10 @@ function parseIntArg(flag: string, fallback: number, envName?: string): number {
 function resolveExportProfileName(): ExportProfileName | null {
   const raw = parseArg('--profile') ?? process.env[EXPORT_PROFILE_ENV] ?? null;
   if (!raw) return null;
-  if (raw === 'financial-strict' || raw === 'forensics-lite') return raw;
+  if (raw === 'financial-strict' || raw === 'forensics-lite' || raw === 'strict-handoff')
+    return raw;
   throw new Error(
-    `unsupported export profile: ${raw}; expected one of financial-strict, forensics-lite`,
+    `unsupported export profile: ${raw}; expected one of financial-strict, forensics-lite, strict-handoff`,
   );
 }
 
@@ -176,6 +225,7 @@ function resolveExportProfileDefaults(profile: ExportProfileName | null): Export
     return {
       redactSensitive: true,
       requireEncryptedArtifacts: true,
+      includeCognitiveSummaries: false,
       writeManifest: true,
       auditLines: 100,
       retentionCount: 60,
@@ -186,15 +236,28 @@ function resolveExportProfileDefaults(profile: ExportProfileName | null): Export
     return {
       redactSensitive: true,
       requireEncryptedArtifacts: false,
+      includeCognitiveSummaries: false,
       writeManifest: true,
       auditLines: 75,
       retentionCount: 30,
       retentionDays: 14,
     };
   }
+  if (profile === 'strict-handoff') {
+    return {
+      redactSensitive: true,
+      requireEncryptedArtifacts: false,
+      includeCognitiveSummaries: true,
+      writeManifest: true,
+      auditLines: 100,
+      retentionCount: 45,
+      retentionDays: 21,
+    };
+  }
   return {
     redactSensitive: true,
     requireEncryptedArtifacts: false,
+    includeCognitiveSummaries: false,
     writeManifest: false,
     auditLines: 50,
     retentionCount: 20,
@@ -212,13 +275,19 @@ function renderHelp(): string {
     'Usage: npm run -s ops:export-incident-bundle -- [options]',
     '',
     'Options:',
-    '  --profile <name>                Export policy profile: financial-strict|forensics-lite',
+    '  --profile <name>                Export policy profile: financial-strict|forensics-lite|strict-handoff',
+    '  --include-cognitive-summaries   Embed latest journal cognitive report summaries in bundle',
+    '  --cognitive-report-limit <n>    Max cognitive summaries to include (default: 10)',
+    '  --cognitive-journal-path <path> Override journal chain path for cognitive summaries',
     '  --completion-hints              Print machine-readable profile/completion hints as JSON',
     '  -h, --help                      Show this help message',
     '',
     'Profile env variables:',
-    `  ${EXPORT_PROFILE_ENV}=financial-strict|forensics-lite`,
+    `  ${EXPORT_PROFILE_ENV}=financial-strict|forensics-lite|strict-handoff`,
     '  MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true|false',
+    `  ${COGNITIVE_INCLUDE_ENV}=true|false`,
+    `  ${COGNITIVE_LIMIT_ENV}=<positive integer>`,
+    `  ${COGNITIVE_JOURNAL_PATH_ENV}=<path>`,
   ].join('\n');
 }
 
@@ -231,7 +300,12 @@ function printCompletionHints(): void {
         profiles: EXPORT_PROFILE_VALUES,
         profileFlag: '--profile',
         profileEnv: EXPORT_PROFILE_ENV,
-        policyEnvVars: ['MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS'],
+        policyEnvVars: [
+          'MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS',
+          COGNITIVE_INCLUDE_ENV,
+          COGNITIVE_LIMIT_ENV,
+          COGNITIVE_JOURNAL_PATH_ENV,
+        ],
       },
       null,
       2,
@@ -453,6 +527,46 @@ function readDrillSchemaVersion(drill: IncidentBundle['drill']): number | null {
   return value;
 }
 
+function canonicalizeCognitiveReportsForDigest(reports: CognitiveReportSummary[]): string {
+  return JSON.stringify(
+    reports.map((report) => ({
+      index: report.index,
+      timestamp: report.timestamp,
+      hash: report.hash,
+      reportType: report.reportType,
+      dataType: report.dataType,
+      schemaVersion: report.schemaVersion,
+      source: report.source,
+      generatedAt: report.generatedAt,
+      input: report.input,
+      path: report.path,
+    })),
+  );
+}
+
+function buildCognitiveReportManifestIntegrity(
+  snapshot: CognitiveReportSnapshot | undefined,
+): CognitiveReportManifestIntegrity {
+  if (!snapshot) {
+    return {
+      included: false,
+      count: 0,
+      digestSha256: null,
+      schemaVersion: null,
+      limit: null,
+      journalPath: null,
+    };
+  }
+  return {
+    included: true,
+    count: snapshot.reports.length,
+    digestSha256: sha256Hex(canonicalizeCognitiveReportsForDigest(snapshot.reports)),
+    schemaVersion: snapshot.schemaVersion,
+    limit: snapshot.limit,
+    journalPath: snapshot.journalPath,
+  };
+}
+
 function writeManifest(options: {
   bundlePath: string;
   generatedAt: string;
@@ -465,6 +579,7 @@ function writeManifest(options: {
   signingKey: SigningKeySpec | null;
   encryptedBundle: EncryptedArtifactManifestDescriptor | null;
   encryptedManifestPath: string | null;
+  cognitiveReports: CognitiveReportManifestIntegrity;
 }): string {
   const bundleBytes = readFileSync(options.bundlePath);
   const manifestBase: IncidentBundleManifest = {
@@ -488,6 +603,7 @@ function writeManifest(options: {
       ok: options.drill.ok,
       schemaVersion: readDrillSchemaVersion(options.drill),
     },
+    cognitiveReports: options.cognitiveReports,
   };
 
   if (options.encryptedBundle) {
@@ -618,6 +734,87 @@ function readAuditTail(auditPath: string, count: number, redactSensitive: boolea
   }
 }
 
+function readCognitiveReportSummaries(
+  journalPath: string,
+  limit: number,
+  redactSensitive: boolean,
+): CognitiveReportSummary[] {
+  if (!existsSync(journalPath)) return [];
+
+  let names: string[] = [];
+  try {
+    names = readdirSync(journalPath)
+      .filter((name) => name.endsWith('.json'))
+      .sort();
+  } catch {
+    return [];
+  }
+
+  const summaries: CognitiveReportSummary[] = [];
+  for (const name of names) {
+    const filePath = resolve(journalPath, name);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+    } catch {
+      continue;
+    }
+
+    if (!parsed || typeof parsed !== 'object') continue;
+    const block = parsed as {
+      index?: unknown;
+      timestamp?: unknown;
+      hash?: unknown;
+      data?: {
+        type?: unknown;
+        schemaVersion?: unknown;
+        source?: unknown;
+        report?: {
+          generatedAt?: unknown;
+          input?: unknown;
+        };
+      };
+    };
+    const dataType = typeof block.data?.type === 'string' ? block.data.type : null;
+    if (!dataType || !(dataType in COGNITIVE_REPORT_TYPE_MAP)) continue;
+    const source = typeof block.data?.source === 'string' ? block.data.source : null;
+    const generatedAt =
+      typeof block.data?.report?.generatedAt === 'string' ? block.data.report.generatedAt : null;
+    const input = typeof block.data?.report?.input === 'string' ? block.data.report.input : null;
+
+    summaries.push({
+      index: typeof block.index === 'number' ? block.index : null,
+      timestamp: typeof block.timestamp === 'string' ? block.timestamp : null,
+      hash: typeof block.hash === 'string' ? block.hash : null,
+      reportType: COGNITIVE_REPORT_TYPE_MAP[dataType as keyof typeof COGNITIVE_REPORT_TYPE_MAP],
+      dataType,
+      schemaVersion:
+        typeof block.data?.schemaVersion === 'number' ? block.data.schemaVersion : null,
+      source: redactSensitive && source ? maybeRedactString(source) : source,
+      generatedAt,
+      input: redactSensitive && input ? maybeRedactString(input) : input,
+      path: filePath,
+    });
+  }
+
+  return summaries.slice(-limit).reverse();
+}
+
+function buildCognitiveReportSnapshot(
+  journalPath: string,
+  limit: number,
+  redactSensitive: boolean,
+): CognitiveReportSnapshot {
+  const reports = readCognitiveReportSummaries(journalPath, limit, redactSensitive);
+  return {
+    schemaVersion: 1,
+    journalPath,
+    limit,
+    count: reports.length,
+    reports,
+  };
+}
+
 async function main(): Promise<void> {
   if (hasFlag('--help') || hasFlag('-h')) {
     console.log(renderHelp());
@@ -659,6 +856,16 @@ async function main(): Promise<void> {
   const encryptionPassphrase = resolveEncryptionPassphraseSpec();
   const encryptedBundleOut = parseArg('--encrypted-bundle-out');
   const encryptedManifestOut = parseArg('--encrypted-manifest-out');
+  const includeCognitiveSummariesEnv = parseOptionalBool(process.env[COGNITIVE_INCLUDE_ENV]);
+  const includeCognitiveSummaries = hasFlag('--include-cognitive-summaries')
+    ? true
+    : (includeCognitiveSummariesEnv ?? profileDefaults.includeCognitiveSummaries);
+  const cognitiveReportLimit = parseIntArg('--cognitive-report-limit', 10, COGNITIVE_LIMIT_ENV);
+  const cognitiveJournalPath = resolve(
+    parseArg('--cognitive-journal-path') ??
+      process.env[COGNITIVE_JOURNAL_PATH_ENV] ??
+      getChainPath('journal', process.env),
+  );
   const queueMode = (process.env.MEMPHIS_QUEUE_MODE ?? 'financial').trim().toLowerCase();
   const requireEncryptedArtifactsEnv = parseOptionalBool(
     process.env.MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS,
@@ -687,6 +894,14 @@ async function main(): Promise<void> {
     },
     drill: runGuardDrillJson(repoRoot),
   };
+  if (includeCognitiveSummaries) {
+    bundle.cognitiveReports = buildCognitiveReportSnapshot(
+      cognitiveJournalPath,
+      cognitiveReportLimit,
+      redactSensitive,
+    );
+  }
+  const cognitiveManifestIntegrity = buildCognitiveReportManifestIntegrity(bundle.cognitiveReports);
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, JSON.stringify(bundle, null, 2), 'utf8');
@@ -723,6 +938,7 @@ async function main(): Promise<void> {
         signingKey,
         encryptedBundle: encryptedBundleDescriptor,
         encryptedManifestPath,
+        cognitiveReports: cognitiveManifestIntegrity,
       })
     : null;
   const encryptedManifestDescriptor =
@@ -751,6 +967,15 @@ async function main(): Promise<void> {
           requireEncryptedArtifacts,
           manifestRequested: writeManifestRequested,
         },
+        cognitiveReports: includeCognitiveSummaries
+          ? {
+              enabled: true,
+              journalPath: cognitiveJournalPath,
+              limit: cognitiveReportLimit,
+              count: bundle.cognitiveReports?.count ?? 0,
+              digestSha256: cognitiveManifestIntegrity.digestSha256,
+            }
+          : { enabled: false, digestSha256: null },
         encryption: encryptionPassphrase
           ? {
               enabled: true,

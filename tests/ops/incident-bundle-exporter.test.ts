@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash, generateKeyPairSync, verify } from 'node:crypto';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -179,6 +180,177 @@ describe('incident bundle exporter', () => {
           'trust-root-invalid-strict',
         ]);
       },
+    );
+  });
+
+  it('optionally embeds latest cognitive report summaries from journal', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-cognitive-');
+    const dataDir = path.join(dir, 'memphis-data');
+    const journalPath = path.join(dataDir, 'chains', 'journal');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'bundle-with-cognitive.json');
+    const manifestPath = path.join(dir, 'bundle-with-cognitive.manifest.json');
+    mkdirSync(journalPath, { recursive: true });
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    writeFileSync(
+      path.join(journalPath, '000001.json'),
+      JSON.stringify({
+        index: 1,
+        timestamp: '2026-01-01T00:00:01.000Z',
+        hash: 'hash-1',
+        data: {
+          type: 'insight_report',
+          schemaVersion: 1,
+          source: 'cli.insights',
+          report: { generatedAt: '2026-01-01T00:00:01.000Z', input: 'insight input' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      path.join(journalPath, '000002.json'),
+      JSON.stringify({
+        index: 2,
+        timestamp: '2026-01-01T00:00:02.000Z',
+        hash: 'hash-2',
+        data: {
+          type: 'categorize_report',
+          schemaVersion: 1,
+          source: 'cli.categorize',
+          report: { generatedAt: '2026-01-01T00:00:02.000Z', input: 'categorize input' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      path.join(journalPath, '000003.json'),
+      JSON.stringify({
+        index: 3,
+        timestamp: '2026-01-01T00:00:03.000Z',
+        hash: 'hash-3',
+        data: {
+          type: 'reflection_report',
+          schemaVersion: 1,
+          source: 'cli.reflect',
+          report: { generatedAt: '2026-01-01T00:00:03.000Z', input: 'reflection input' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      path.join(journalPath, '000004.json'),
+      JSON.stringify({
+        index: 4,
+        data: { type: 'unrelated_block' },
+      }),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter(
+        [
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          outPath,
+          '--manifest-out',
+          manifestPath,
+          '--include-cognitive-summaries',
+          '--cognitive-report-limit',
+          '2',
+        ],
+        { MEMPHIS_DATA_DIR: dataDir },
+      );
+      expect(result.status).toBe(0);
+      const emitted = JSON.parse(result.stdout) as {
+        ok: boolean;
+        manifest?: string | null;
+        cognitiveReports?: {
+          enabled?: boolean;
+          journalPath?: string;
+          limit?: number;
+          count?: number;
+          digestSha256?: string | null;
+        };
+      };
+      expect(emitted.ok).toBe(true);
+      expect(emitted.manifest).toBe(manifestPath);
+      expect(emitted.cognitiveReports?.enabled).toBe(true);
+      expect(emitted.cognitiveReports?.journalPath).toBe(journalPath);
+      expect(emitted.cognitiveReports?.limit).toBe(2);
+      expect(emitted.cognitiveReports?.count).toBe(2);
+      expect(typeof emitted.cognitiveReports?.digestSha256).toBe('string');
+    });
+
+    const bundle = JSON.parse(readFileSync(outPath, 'utf8')) as {
+      cognitiveReports?: {
+        schemaVersion?: number;
+        journalPath?: string;
+        limit?: number;
+        count?: number;
+        reports?: Array<{
+          index?: number | null;
+          timestamp?: string | null;
+          hash?: string | null;
+          reportType?: string;
+          dataType?: string;
+          schemaVersion?: number | null;
+          source?: string | null;
+          generatedAt?: string | null;
+          input?: string | null;
+          path?: string;
+        }>;
+      };
+    };
+    expect(bundle.cognitiveReports?.schemaVersion).toBe(1);
+    expect(bundle.cognitiveReports?.journalPath).toBe(journalPath);
+    expect(bundle.cognitiveReports?.limit).toBe(2);
+    expect(bundle.cognitiveReports?.count).toBe(2);
+    expect(bundle.cognitiveReports?.reports?.map((report) => report.reportType)).toEqual([
+      'reflection',
+      'categorize',
+    ]);
+    expect(bundle.cognitiveReports?.reports?.map((report) => report.dataType)).toEqual([
+      'reflection_report',
+      'categorize_report',
+    ]);
+    expect(bundle.cognitiveReports?.reports?.[0]?.path).toBe(path.join(journalPath, '000003.json'));
+    expect(bundle.cognitiveReports?.reports?.[1]?.path).toBe(path.join(journalPath, '000002.json'));
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      cognitiveReports?: {
+        included?: boolean;
+        count?: number;
+        digestSha256?: string | null;
+        schemaVersion?: number | null;
+        limit?: number | null;
+        journalPath?: string | null;
+      };
+    };
+    expect(manifest.cognitiveReports?.included).toBe(true);
+    expect(manifest.cognitiveReports?.count).toBe(2);
+    expect(manifest.cognitiveReports?.schemaVersion).toBe(1);
+    expect(manifest.cognitiveReports?.limit).toBe(2);
+    expect(manifest.cognitiveReports?.journalPath).toBe(journalPath);
+    const canonicalReports = JSON.stringify(
+      (bundle.cognitiveReports?.reports ?? []).map((report) => ({
+        index: report.index ?? null,
+        timestamp: report.timestamp ?? null,
+        hash: report.hash ?? null,
+        reportType: report.reportType ?? null,
+        dataType: report.dataType ?? null,
+        schemaVersion: report.schemaVersion ?? null,
+        source: report.source ?? null,
+        generatedAt: report.generatedAt ?? null,
+        input: report.input ?? null,
+        path: report.path ?? null,
+      })),
+    );
+    expect(manifest.cognitiveReports?.digestSha256).toBe(
+      createHash('sha256').update(canonicalReports).digest('hex'),
     );
   });
 
@@ -543,6 +715,79 @@ describe('incident bundle exporter', () => {
 
     expect(existsSync(outPath)).toBe(true);
     expect(existsSync(inferredManifestPath)).toBe(true);
+    const manifest = JSON.parse(readFileSync(inferredManifestPath, 'utf8')) as {
+      cognitiveReports?: { included?: boolean; count?: number; digestSha256?: string | null };
+    };
+    expect(manifest.cognitiveReports?.included).toBe(false);
+    expect(manifest.cognitiveReports?.count).toBe(0);
+    expect(manifest.cognitiveReports?.digestSha256).toBeNull();
+  });
+
+  it('supports strict-handoff export profile with automatic cognitive summaries', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-profile-strict-handoff-');
+    const dataDir = path.join(dir, '.memphis-data');
+    const journalPath = path.join(dataDir, 'chains', 'journal');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'incident-bundle.json');
+    const inferredManifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    mkdirSync(journalPath, { recursive: true });
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+    writeFileSync(
+      path.join(journalPath, '000001.json'),
+      JSON.stringify({
+        index: 1,
+        timestamp: '2026-01-01T00:00:01.000Z',
+        hash: 'hash-1',
+        data: {
+          type: 'insight_report',
+          schemaVersion: 1,
+          source: 'cli.insights',
+          report: { generatedAt: '2026-01-01T00:00:01.000Z', input: 'strict handoff seed' },
+        },
+      }),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter(
+        [
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          outPath,
+          '--profile',
+          'strict-handoff',
+        ],
+        { MEMPHIS_DATA_DIR: dataDir },
+      );
+      expect(result.status).toBe(0);
+      const emitted = JSON.parse(result.stdout) as {
+        ok: boolean;
+        manifest: string | null;
+        policy?: { profile?: string | null; manifestRequested?: boolean };
+        cognitiveReports?: { enabled?: boolean; count?: number };
+      };
+      expect(emitted.ok).toBe(true);
+      expect(emitted.manifest).toBe(inferredManifestPath);
+      expect(emitted.policy?.profile).toBe('strict-handoff');
+      expect(emitted.policy?.manifestRequested).toBe(true);
+      expect(emitted.cognitiveReports?.enabled).toBe(true);
+      expect(emitted.cognitiveReports?.count).toBeGreaterThanOrEqual(1);
+    });
+
+    const bundle = JSON.parse(readFileSync(outPath, 'utf8')) as {
+      cognitiveReports?: { included?: boolean; count?: number };
+    };
+    expect(bundle.cognitiveReports?.count).toBeGreaterThanOrEqual(1);
+
+    const manifest = JSON.parse(readFileSync(inferredManifestPath, 'utf8')) as {
+      cognitiveReports?: { included?: boolean; count?: number; digestSha256?: string | null };
+    };
+    expect(manifest.cognitiveReports?.included).toBe(true);
+    expect(manifest.cognitiveReports?.count).toBeGreaterThanOrEqual(1);
+    expect(typeof manifest.cognitiveReports?.digestSha256).toBe('string');
   });
 
   it('prints profile help hints for operators and shell completion tooling', async () => {
@@ -550,7 +795,7 @@ describe('incident bundle exporter', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Usage: npm run -s ops:export-incident-bundle -- [options]');
     expect(result.stdout).toContain('--profile <name>');
-    expect(result.stdout).toContain('financial-strict|forensics-lite');
+    expect(result.stdout).toContain('financial-strict|forensics-lite|strict-handoff');
     expect(result.stdout).toContain('MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE');
     expect(result.stdout).toContain('MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS');
   });
@@ -570,7 +815,7 @@ describe('incident bundle exporter', () => {
     expect(parsed.command).toBe('ops:export-incident-bundle');
     expect(parsed.profileFlag).toBe('--profile');
     expect(parsed.profileEnv).toBe('MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE');
-    expect(parsed.profiles).toEqual(['financial-strict', 'forensics-lite']);
+    expect(parsed.profiles).toEqual(['financial-strict', 'forensics-lite', 'strict-handoff']);
     expect(parsed.policyEnvVars).toContain('MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS');
   });
 
