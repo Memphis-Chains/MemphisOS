@@ -181,7 +181,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const topTopics = inferTopics(blocks);
 
   const insights: DashboardInsights = {
-    topTopics: topTopics.length > 0 ? topTopics : ['ai', 'memphis', 'openclaw'],
+    topTopics: topTopics.length > 0 ? topTopics : ['ai', 'memphis', 'automation'],
     patternsLoaded: patternStats.patternsLoaded,
     learningAccuracy: patternStats.learningAccuracy,
     suggestionsPending: patternStats.suggestionsPending,

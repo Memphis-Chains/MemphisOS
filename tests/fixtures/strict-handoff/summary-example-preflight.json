@@ -24,6 +24,6 @@
     "strict handoff requires signing key input (--signing-key-path|--signing-key-pem|--signing-key-pem-base64 or matching env)",
     "strict handoff requires --signing-key-id (or --expected-key-id)",
     "strict handoff requires --public-key-bundle-path (or MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH)",
-    "trust root manifest not found: /home/memphis_ai_brain_on_chain/MemphisOS/config/trust_root.json (set --trust-root-path or MEMPHIS_TRUST_ROOT_PATH)"
+    "trust root manifest not found: config/trust_root.json (set --trust-root-path or MEMPHIS_TRUST_ROOT_PATH)"
   ]
 }

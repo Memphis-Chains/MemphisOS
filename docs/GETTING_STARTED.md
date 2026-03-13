@@ -87,6 +87,6 @@ npm run test:ops-artifacts
 
 ## 8. Next Docs
 
-- Main overview: [README.md](/home/memphis_ai_brain_on_chain/MemphisOS/README.md)
-- Release workflow: [docs/runbooks/RELEASE.md](/home/memphis_ai_brain_on_chain/MemphisOS/docs/runbooks/RELEASE.md)
-- Guard triage: [docs/runbooks/STARTUP_GUARD_TRIAGE.md](/home/memphis_ai_brain_on_chain/MemphisOS/docs/runbooks/STARTUP_GUARD_TRIAGE.md)
+- Main overview: [README.md](../README.md)
+- Release workflow: [docs/runbooks/RELEASE.md](runbooks/RELEASE.md)
+- Guard triage: [docs/runbooks/STARTUP_GUARD_TRIAGE.md](runbooks/STARTUP_GUARD_TRIAGE.md)
