@@ -207,6 +207,30 @@ describe('strict incident handoff script', () => {
     expect(existsSync(bundlePath)).toBe(false);
   });
 
+  it('prints human-readable preflight pass summary for operator smoke checks', () => {
+    const dir = makeTempDir('memphis-strict-handoff-preflight-human-');
+    const keyId = 'strict-preflight-human-key-v1';
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const { signingKeyPath, publicKeyBundlePath, trustRootPath } = writeStrictKeyFixtures(dir, keyId);
+
+    const result = runStrictHandoff([
+      '--preflight-only',
+      '--out',
+      bundlePath,
+      '--signing-key-path',
+      signingKeyPath,
+      '--signing-key-id',
+      keyId,
+      '--public-key-bundle-path',
+      publicKeyBundlePath,
+      '--trust-root-path',
+      trustRootPath,
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[PASS] strict incident handoff preflight checks passed');
+    expect(existsSync(bundlePath)).toBe(false);
+  });
+
   it('runs strict export+verify flow and returns pass summary in json mode', async () => {
     const dir = makeTempDir('memphis-strict-handoff-success-');
     const keyId = 'strict-handoff-key-v1';

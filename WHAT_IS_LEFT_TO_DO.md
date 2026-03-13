@@ -353,6 +353,9 @@ Updated: 2026-03-12
   - script help/completion metadata now documents preflight-only usage.
   - ops regression coverage verifies preflight-only success contract and no side-effect bundle writes.
   - README + runbook now include preflight-only operator command examples.
+- Added CI smoke assertion for human-readable strict preflight pass output:
+  - `tests/ops/strict-incident-handoff.test.ts` now asserts `[PASS] strict incident handoff preflight checks passed`.
+  - coverage confirms preflight-only human-mode runs without writing bundle artifacts.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -363,4 +366,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add CI smoke assertion for human-readable preflight-only success output (`[PASS] strict incident handoff preflight checks passed`).
+1. Add a strict-handoff JSON output contract fixture (`tests/fixtures/...`) to lock top-level key stability for automation.
