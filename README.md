@@ -203,10 +203,14 @@ npm run -s ops:rotate-key-bundle -- \
 - `--completion-hints` prints machine-readable flag/env contracts for shell tooling
 - `ops:validate-strict-handoff-fixtures` validates strict-handoff fixture payloads + live command output against JSON Schemas
 - `ops:validate-strict-handoff-fixtures --json` emits machine-readable validation summary for CI/automation
+- `scripts/strict-handoff-validator-json-gate.sh` wraps validator `--json` checks and enforces deterministic `checks[].id` ordering contract for CI/release gates
+- `ops:validate-release-draft-validator-metadata` validates `validator-metadata.json` against release-draft schema contract
 - integration contract fixtures for tooling:
   - summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
   - JSON Schemas: `tests/fixtures/strict-handoff/summary.schema.json`, `tests/fixtures/strict-handoff/completion-hints.schema.json`
   - validator JSON contract: `tests/fixtures/strict-handoff/validator-output-contract.json`
+  - release-draft validator metadata contract: `tests/fixtures/release-draft/validator-metadata-contract.json`
+  - release-draft validator metadata schema/example: `tests/fixtures/release-draft/validator-metadata.schema.json`, `tests/fixtures/release-draft/validator-metadata-example.json`
   - schema example payloads: `tests/fixtures/strict-handoff/summary-example-preflight.json`, `tests/fixtures/strict-handoff/completion-hints-example.json`
   - failure contracts: `tests/fixtures/strict-handoff/failure-preflight.json`, `tests/fixtures/strict-handoff/failure-export.json`, `tests/fixtures/strict-handoff/failure-verify.json`
   - parser/validation examples (`jq`, TypeScript, Ajv CLI): `docs/runbooks/INCIDENT_MANIFEST_VERIFICATION.md`
@@ -228,6 +232,7 @@ Manual fallback:
 npm run -s lint
 npm run -s typecheck
 npm run -s ops:validate-strict-handoff-fixtures
+./scripts/strict-handoff-validator-json-gate.sh
 npm run -s test:ops-artifacts
 npm run -s test:ts
 npm run -s test:chaos
@@ -235,6 +240,8 @@ npm run -s test:rust
 npm pack --dry-run
 npm pack
 ```
+
+Draft release workflow artifacts also include `validator-metadata.json` (validator schema/check-order status contract for automation consumers).
 
 Release details and workflow inputs are documented in `docs/runbooks/RELEASE.md`.
 

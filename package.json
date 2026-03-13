@@ -26,7 +26,7 @@
     "format:check": "prettier --check .",
     "test": "npm run test:ts",
     "test:ts": "vitest run",
-    "test:ops-artifacts": "vitest run tests/ops/incident-bundle-exporter.test.ts tests/ops/incident-bundle-manifest-verify.test.ts tests/ops/rotate-key-bundle.test.ts tests/ops/strict-incident-handoff.test.ts tests/ops/strict-handoff-docs-contract.test.ts tests/ops/strict-handoff-schemas.test.ts tests/ops/strict-handoff-fixture-validator.test.ts",
+    "test:ops-artifacts": "vitest run tests/ops/incident-bundle-exporter.test.ts tests/ops/incident-bundle-manifest-verify.test.ts tests/ops/rotate-key-bundle.test.ts tests/ops/strict-incident-handoff.test.ts tests/ops/strict-handoff-docs-contract.test.ts tests/ops/strict-handoff-schemas.test.ts tests/ops/strict-handoff-fixture-validator.test.ts tests/ops/strict-handoff-workflow-contract.test.ts tests/ops/strict-handoff-validator-json-gate.test.ts tests/ops/release-draft-validator-metadata-contract.test.ts tests/ops/release-draft-docs-contract.test.ts tests/ops/release-draft-validator-metadata-validator.test.ts",
     "test:chaos": "vitest run tests/unit/wal-chaos-gate.test.ts",
     "test:rust": "bash -lc 'command -v cargo >/dev/null 2>&1 || source $HOME/.cargo/env; cargo test --workspace'",
     "build:rust": "bash -lc 'command -v cargo >/dev/null 2>&1 || source $HOME/.cargo/env; cargo build --workspace'",
@@ -39,6 +39,7 @@
     "ops:export-incident-bundle": "tsx scripts/export-incident-bundle.mts",
     "ops:strict-incident-handoff": "tsx scripts/strict-incident-handoff.mts",
     "ops:validate-strict-handoff-fixtures": "tsx scripts/validate-strict-handoff-fixtures.mts",
+    "ops:validate-release-draft-validator-metadata": "tsx scripts/validate-release-draft-validator-metadata.mts",
     "ops:query-cognitive-reports": "tsx scripts/query-cognitive-reports.mts",
     "ops:verify-incident-manifest": "tsx scripts/verify-incident-manifest.mts",
     "ops:rotate-key-bundle": "tsx scripts/rotate-key-bundle.mts"
