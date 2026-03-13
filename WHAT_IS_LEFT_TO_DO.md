@@ -606,6 +606,9 @@ Updated: 2026-03-13
 - Added README quick-reference parity for metadata fixture validation commands:
   - README now includes exact validator command snippets for both invalid-shape and failure-path release metadata fixtures.
   - release docs contract now enforces README command snippet markers for both fixture paths.
+- Added docs-contract coverage for release metadata artifact names:
+  - release docs contract now requires `validator-metadata.json` and `validator-metadata.json.sha256` references in README + runbook.
+  - regression now fails on artifact-name drift in release documentation.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -616,4 +619,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for release notes references to `validator-metadata.json` and `validator-metadata.json.sha256` artifact names in README/runbook.
+1. Add release docs contract coverage for explicit preflight helper output keys (`preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`) in operator-facing docs.

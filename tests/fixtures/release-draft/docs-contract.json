@@ -15,5 +15,9 @@
     "npm run -s ops:validate-release-draft-validator-metadata -- \\",
     "--metadata-path tests/fixtures/release-draft/validator-metadata-invalid-preflight-gate.json",
     "--metadata-path tests/fixtures/release-draft/validator-metadata-preflight-failure-example.json"
+  ],
+  "requiredArtifactNames": [
+    "validator-metadata.json",
+    "validator-metadata.json.sha256"
   ]
 }

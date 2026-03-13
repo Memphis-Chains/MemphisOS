@@ -9,6 +9,7 @@ type ReleaseDraftDocsContract = {
   requiredReferences: string[];
   runbookCommandSnippets?: string[];
   readmeCommandSnippets?: string[];
+  requiredArtifactNames?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -38,6 +39,12 @@ describe('release-draft docs fixture references', () => {
         expect(markdown.includes(requiredRef)).toBe(true);
         expect(references.has(requiredRef)).toBe(true);
         expect(existsSync(path.join(repoRoot, requiredRef))).toBe(true);
+      }
+
+      if (Array.isArray(contract.requiredArtifactNames)) {
+        for (const artifactName of contract.requiredArtifactNames) {
+          expect(markdown.includes(artifactName)).toBe(true);
+        }
       }
 
       if (
