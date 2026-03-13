@@ -61,5 +61,8 @@
   ],
   "requiredStrictFixtureValidationCommands": [
     "npm run -s ops:validate-strict-handoff-fixtures"
+  ],
+  "requiredStrictFixtureRerunCommands": [
+    "npm run -s ops:validate-strict-handoff-fixtures -- --json"
   ]
 }

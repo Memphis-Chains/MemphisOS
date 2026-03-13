@@ -250,6 +250,7 @@ npm run -s test:ts
 npm run -s test:chaos
 npm run -s test:rust
 ```
+- strict fixture gate rerun command: `npm run -s ops:validate-strict-handoff-fixtures -- --json`
 - fallback pack commands: `npm pack --dry-run`, `npm pack --pack-destination release-dist`
 - fallback release-dir prep command: `mkdir -p release-dist`
 - fallback artifact checksum command: `sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`
