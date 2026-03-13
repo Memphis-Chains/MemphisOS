@@ -24,17 +24,16 @@ const workflowContracts = [
   },
   {
     workflowRelativePath: path.join('.github', 'workflows', 'release-draft.yml'),
-    requiredSnippets: ['npm run -s ops:release-preflight -- --json'],
+    requiredSnippets: ['./scripts/ci-release-preflight-gate.sh'],
     forbiddenSnippets: [],
   },
 ] as const;
 
 const releaseDraftRequiredSnippets = [
   'MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: "1"',
+  'MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: "1"',
   'validator_check_order_status',
   'validator_check_ids',
-  `grep -q '^check_order_status=' "$GITHUB_OUTPUT"`,
-  `grep -q '^check_ids=' "$GITHUB_OUTPUT"`,
 ] as const;
 
 const gateScriptRequiredSnippets = [
