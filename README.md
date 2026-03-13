@@ -203,7 +203,7 @@ npm run -s ops:rotate-key-bundle -- \
 - `--completion-hints` prints machine-readable flag/env contracts for shell tooling
 - integration contract fixtures for tooling:
   - summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
-  - failure contracts: `tests/fixtures/strict-handoff/failure-preflight.json`, `failure-export.json`, `failure-verify.json`
+  - failure contracts: `tests/fixtures/strict-handoff/failure-preflight.json`, `tests/fixtures/strict-handoff/failure-export.json`, `tests/fixtures/strict-handoff/failure-verify.json`
 
 `ops:rotate-key-bundle` does:
 
