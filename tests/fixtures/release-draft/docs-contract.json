@@ -5,5 +5,9 @@
     "tests/fixtures/release-draft/validator-metadata-example.json",
     "tests/fixtures/release-draft/validator-metadata-preflight-failure-example.json",
     "tests/fixtures/release-draft/validator-metadata-invalid-preflight-gate.json"
+  ],
+  "runbookCommandSnippets": [
+    "npm run -s ops:validate-release-draft-validator-metadata -- \\",
+    "--metadata-path tests/fixtures/release-draft/validator-metadata-invalid-preflight-gate.json"
   ]
 }

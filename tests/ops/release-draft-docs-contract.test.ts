@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 type ReleaseDraftDocsContract = {
   docs: string[];
   requiredReferences: string[];
+  runbookCommandSnippets?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +37,15 @@ describe('release-draft docs fixture references', () => {
         expect(markdown.includes(requiredRef)).toBe(true);
         expect(references.has(requiredRef)).toBe(true);
         expect(existsSync(path.join(repoRoot, requiredRef))).toBe(true);
+      }
+
+      if (
+        docRelativePath === 'docs/runbooks/RELEASE.md' &&
+        Array.isArray(contract.runbookCommandSnippets)
+      ) {
+        for (const snippet of contract.runbookCommandSnippets) {
+          expect(markdown.includes(snippet)).toBe(true);
+        }
       }
     });
   }
