@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "validatorSchema": {
+    "status": "unchanged",
+    "version": "1",
+    "previousVersion": "1",
+    "referenceTag": "v0.1.0"
+  },
+  "validatorCheckOrder": {
+    "status": "matched",
+    "checkIds": [
+      "summaryExampleSchema",
+      "completionHintsExampleSchema",
+      "completionHintsCommandSchema",
+      "summaryCommandSchema"
+    ]
+  }
+}

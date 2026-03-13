@@ -1,5 +1,6 @@
 {
   "packageOutputKeys": [
+    "validator_metadata_path",
     "validator_schema_status",
     "validator_schema_version",
     "validator_schema_previous_version",
@@ -7,7 +8,19 @@
     "validator_check_order_status",
     "validator_check_ids"
   ],
+  "uploadedArtifactOutputKeys": [
+    "asset_path",
+    "sha_file",
+    "notes_path",
+    "validator_metadata_path"
+  ],
+  "releaseAssetOutputKeys": [
+    "asset_path",
+    "sha_file",
+    "validator_metadata_path"
+  ],
   "summaryOutputKeys": [
+    "validator_metadata_path",
     "validator_schema_status",
     "validator_schema_version",
     "validator_schema_reference_tag",
@@ -17,6 +30,22 @@
   ],
   "releaseNotesMarkers": [
     "Validator contract status:",
-    "Validator check-id order contract:"
+    "Validator check-id order contract:",
+    "Validator metadata artifact:"
+  ],
+  "metadataTopLevelKeys": [
+    "schemaVersion",
+    "validatorSchema",
+    "validatorCheckOrder"
+  ],
+  "metadataValidatorSchemaKeys": [
+    "status",
+    "version",
+    "previousVersion",
+    "referenceTag"
+  ],
+  "metadataValidatorCheckOrderKeys": [
+    "status",
+    "checkIds"
   ]
 }

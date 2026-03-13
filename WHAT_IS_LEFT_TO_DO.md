@@ -483,6 +483,17 @@ Updated: 2026-03-13
   - ops regression now executes helper in default mode (no `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT`) and asserts successful pass path.
   - contract now explicitly covers operator/local usage and CI usage with output emission enabled.
   - fail-closed path coverage for missing `GITHUB_OUTPUT` remains enforced alongside default pass mode.
+- Added dedicated release-draft validator metadata JSON artifact:
+  - `release-draft` now generates `release-dist/validator-metadata.json` with stable `schemaVersion`, `validatorSchema`, and `validatorCheckOrder` fields.
+  - metadata artifact is uploaded in draft artifacts and attached to draft GitHub release assets.
+  - draft release notes and step summary now include validator metadata artifact references.
+- Extended fixture-backed contract coverage for validator metadata artifact stability:
+  - contract fixture now locks metadata keysets, package output keys, upload/release asset references, and release-note markers.
+  - added example fixture `tests/fixtures/release-draft/validator-metadata-example.json` and regression assertions for nested key stability.
+  - ops artifact regression now fails on release-draft metadata artifact contract drift.
+- Synced release documentation for validator metadata artifact:
+  - release runbook now documents `validator-metadata.json` generation and publication in draft workflow outputs.
+  - README package/release section now calls out metadata artifact availability for automation consumers.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -493,4 +504,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Emit a dedicated release-draft validator metadata JSON artifact (schema + check-order fields) and add fixture-backed regression coverage for its stable key contract.
+1. Add a JSON Schema for `release-dist/validator-metadata.json` plus `ajv` validation in ops regression and release-draft workflow gate.

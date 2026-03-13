@@ -239,6 +239,8 @@ npm pack --dry-run
 npm pack
 ```
 
+Draft release workflow artifacts also include `validator-metadata.json` (validator schema/check-order status contract for automation consumers).
+
 Release details and workflow inputs are documented in `docs/runbooks/RELEASE.md`.
 
 ## Security Notes

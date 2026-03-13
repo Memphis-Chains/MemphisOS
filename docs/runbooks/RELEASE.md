@@ -32,9 +32,11 @@ The workflow performs all release gates automatically:
 - `npm run -s test:rust`
 - `npm pack --dry-run`
 - `npm pack --pack-destination release-dist`
+- generates `release-dist/validator-metadata.json` (schema + check-order status contract)
 - creates draft GitHub release `v<version>` with:
   - package tarball asset
   - `.sha256` checksum asset
+  - `validator-metadata.json` asset
   - generated draft release notes
 
 ## 3. Review And Publish Draft Release
