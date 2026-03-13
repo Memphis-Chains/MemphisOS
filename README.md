@@ -121,6 +121,16 @@ npm run -s ops:export-incident-bundle -- \
 npm run -s ops:export-incident-bundle -- \
   --profile forensics-lite \
   --out data/incident-bundle.json
+npm run -s ops:strict-incident-handoff -- \
+  --status-url http://127.0.0.1:8080/v1/ops/status \
+  --audit-path data/security-audit.jsonl \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --signing-key-path /secure/path/incident-signing-key.pem \
+  --signing-key-id incident-key-v2 \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --trust-root-path config/trust_root.json
+npm run -s ops:strict-incident-handoff -- --completion-hints
 npm run -s ops:verify-incident-manifest -- \
   --manifest-path data/incident-bundle.manifest.json \
   --public-key-path /secure/path/incident-signing-public.pem \
@@ -160,9 +170,10 @@ npm run -s ops:rotate-key-bundle -- \
 - encrypted-at-rest companion artifacts: `--encryption-passphrase`, `--encryption-passphrase-base64`, `--encryption-passphrase-file` (or matching env vars)
 - optional encrypted output overrides: `--encrypted-bundle-out`, `--encrypted-manifest-out`
 - policy gate: `--require-encrypted-artifacts` or `MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true` (recommended for financial mode)
-- profiles: `--profile financial-strict|forensics-lite` (or `MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
+- profiles: `--profile financial-strict|forensics-lite|strict-handoff` (or `MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
   - `financial-strict`: requires encrypted artifacts + writes manifest by default + higher audit/retention defaults
   - `forensics-lite`: writes manifest by default with lighter defaults, encryption optional
+  - `strict-handoff`: writes manifest + includes cognitive summaries by default for strict verifier handoff
 
 `ops:verify-incident-manifest` checks:
 
@@ -177,6 +188,12 @@ npm run -s ops:rotate-key-bundle -- \
 - profiles: `--profile trust-root-strict|legacy-compat` (or `MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE`)
   - `trust-root-strict`: enables signature + detached key-bundle provenance enforcement (strict handoff mode)
   - `legacy-compat`: disables strict signature/provenance and treats chain-link failures as non-fatal
+
+`ops:strict-incident-handoff` quick reference:
+
+- runs export (`--profile strict-handoff`) and verify (`--profile trust-root-strict`) in one command
+- fails preflight when signer key input, public key bundle path, trust root path, or signer key id are missing
+- `--completion-hints` prints machine-readable flag/env contracts for shell tooling
 
 `ops:rotate-key-bundle` does:
 
