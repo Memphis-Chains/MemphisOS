@@ -2,6 +2,7 @@
   "gateIds": [
     "lint",
     "typecheck",
+    "guardDrill",
     "strictHandoffFixtureValidator",
     "strictHandoffJsonGate",
     "opsArtifacts",

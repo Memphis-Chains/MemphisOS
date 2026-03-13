@@ -2,6 +2,7 @@
 
 Minimal documentation set for the clean-slate MemphisOS repository.
 
+- `GETTING_STARTED.md`: first local install, onboarding, and first-run commands for new users.
 - `CLEAN_SLATE_SCOPE.md`: what was removed/kept in cleanup.
 - `runbooks/SAFE_MODE.md`: safe-mode operations and recovery checklist.
 - `runbooks/QUEUE_RESUME_POLICY.md`: startup queue resume policy + mode guidance.

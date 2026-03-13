@@ -43,6 +43,7 @@
     "ci-preflight-gate-"
   ],
   "requiredManualFallbackCommands": [
+    "./scripts/guard-drill-json-gate.sh",
     "./scripts/strict-handoff-validator-json-gate.sh"
   ],
   "requiredChecksumCommands": [
@@ -82,6 +83,7 @@
   "requiredCiRerunGateCommands": [
     "npm run -s lint",
     "npm run -s typecheck",
+    "./scripts/guard-drill-json-gate.sh",
     "npm run -s ops:validate-strict-handoff-fixtures -- --json",
     "./scripts/strict-handoff-validator-json-gate.sh",
     "npm run -s test:ops-artifacts",
@@ -115,6 +117,7 @@
   "requiredFallbackSectionCommands": [
     "npm run -s lint",
     "npm run -s typecheck",
+    "./scripts/guard-drill-json-gate.sh",
     "npm run -s ops:validate-strict-handoff-fixtures",
     "./scripts/strict-handoff-validator-json-gate.sh",
     "npm run -s test:ops-artifacts",
