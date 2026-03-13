@@ -226,6 +226,11 @@ npm run -s ops:rotate-key-bundle -- \
 
 Preferred: run the guarded draft-release workflow in GitHub Actions (`release-draft`), then review and publish the generated draft release.
 
+Preflight flow:
+
+- recommended: `npm run -s ops:release-preflight`
+- fallback: run the manual gate list below if you need per-step execution
+
 Manual fallback:
 
 ```bash
@@ -241,7 +246,10 @@ npm pack --dry-run
 npm pack
 ```
 
-Draft release workflow artifacts also include `validator-metadata.json` (validator schema/check-order status contract for automation consumers).
+Draft release workflow artifacts also include:
+
+- `validator-metadata.json` (validator schema/check-order status contract for automation consumers)
+- `validator-metadata.json.sha256` (validator metadata checksum contract)
 
 Release details and workflow inputs are documented in `docs/runbooks/RELEASE.md`.
 

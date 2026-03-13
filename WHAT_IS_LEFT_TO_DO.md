@@ -522,6 +522,30 @@ Updated: 2026-03-13
   - new ops tests cover pass/fail/json output contract behavior for `ops:validate-release-draft-validator-metadata`.
   - new fixture `tests/fixtures/release-draft/validator-metadata-validator-output-contract.json` pins json-mode keys.
   - `test:ops-artifacts` now includes command-level contract drift detection for release metadata validation.
+- Closed branch-sync/merge readiness loop for PR #84:
+  - resolved branch conflicts against `origin/main` in CLI/backlog files and pushed updated head.
+  - merged `feat/cli-insight-routing-unified` to `main` (`7270f07`).
+  - verified `quality-gate` is green on merge commit before resuming backlog execution.
+- Added one-command release preflight gate runner:
+  - new command: `npm run -s ops:release-preflight`.
+  - executes release gates in deterministic order with fail-fast semantics.
+  - supports machine-readable summary output (`--json`) for automation and CI ingestion.
+- Added release preflight regression coverage + output contract:
+  - new ops test: `tests/ops/release-preflight.test.ts`.
+  - new fixture: `tests/fixtures/release-draft/release-preflight-output-contract.json`.
+  - `test:ops-artifacts` now includes release preflight contract coverage.
+- Added validator metadata checksum artifact contract in release-draft workflow:
+  - workflow now emits `validator-metadata.json.sha256` from generated metadata payload.
+  - checksum file is uploaded in artifacts and attached to draft GitHub release assets.
+  - workflow outputs and summary now expose checksum path/hash metadata (`validator_metadata_sha_file`, `validator_metadata_sha256`).
+- Extended release-draft metadata contract tests for checksum invariants:
+  - fixture now locks checksum output keys and summary markers.
+  - ops contract tests validate release notes + summary checksum markers.
+  - contract drift in checksum artifact wiring now fails ops artifact regression.
+- Synced release docs to active preflight + checksum behavior:
+  - README and release runbook now recommend `ops:release-preflight` as the primary preflight path.
+  - docs now treat `validator-metadata.json.sha256` as a standard release artifact.
+  - manual per-step gate list remains documented as fallback execution path.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -532,4 +556,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Merge current branch to `main` and verify `quality-gate` is green on the merge commit.
+1. Adopt `ops:release-preflight` in `release-draft` workflow as a single preflight gate step (with JSON summary emission) while preserving deterministic release diagnostics.

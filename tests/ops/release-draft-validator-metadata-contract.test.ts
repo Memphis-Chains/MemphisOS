@@ -12,6 +12,7 @@ type ReleaseDraftValidatorMetadataContract = {
   releaseAssetOutputKeys: string[];
   summaryOutputKeys: string[];
   releaseNotesMarkers: string[];
+  summaryMarkers: string[];
   metadataTopLevelKeys: string[];
   metadataValidatorSchemaKeys: string[];
   metadataValidatorCheckOrderKeys: string[];
@@ -95,6 +96,10 @@ describe('release-draft validator metadata contract', () => {
     }
 
     for (const marker of contract.releaseNotesMarkers) {
+      expect(workflow).toContain(marker);
+    }
+
+    for (const marker of contract.summaryMarkers) {
       expect(workflow).toContain(marker);
     }
   });

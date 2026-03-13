@@ -8,6 +8,7 @@ Use this runbook to produce and publish a MemphisOS release after sprint complet
 - branch is `main` and synced with `origin/main`
 - all sprint checklist items are complete
 - GitHub release permissions are available
+- run `npm run -s ops:release-preflight` before triggering release workflow
 
 ## 2. Preferred Path: Automated Draft Release Workflow
 
@@ -18,6 +19,11 @@ Inputs:
 - `version`: semver without `v` (example: `0.1.0`)
 - `target_ref`: must stay `main` (guarded)
 - `confirm`: must be exactly `draft-release`
+
+Preflight flow:
+
+- primary: run `npm run -s ops:release-preflight`
+- fallback: run the gate list below directly when per-step execution is needed
 
 The workflow performs all release gates automatically:
 
@@ -41,6 +47,7 @@ The workflow performs all release gates automatically:
   - package tarball asset
   - `.sha256` checksum asset
   - `validator-metadata.json` asset
+  - `validator-metadata.json.sha256` asset
   - generated draft release notes
 
 ## 3. Review And Publish Draft Release
