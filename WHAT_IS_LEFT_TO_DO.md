@@ -549,6 +549,10 @@ Updated: 2026-03-13
 - Adopted single preflight gate flow for release-draft operations:
   - workflow preflight path now uses one command: `npm run -s ops:release-preflight -- --json`.
   - docs now present per-step gates strictly as manual fallback diagnostics.
+- Added workflow contract regression coverage for single preflight gate wiring:
+  - `tests/ops/strict-handoff-workflow-contract.test.ts` now asserts release-draft uses `npm run -s ops:release-preflight -- --json`.
+  - release-draft contract tests now pin strict-handoff output forwarding (`check_order_status`, `check_ids`) through the preflight step.
+  - release metadata contract fixtures now include preflight command markers to fail on workflow drift.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -559,4 +563,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add workflow contract regression coverage that fails if `release-draft` stops using the single preflight gate command (`npm run -s ops:release-preflight -- --json`).
+1. Enforce CI/release preflight parity by migrating `.github/workflows/ci.yml` to `npm run -s ops:release-preflight -- --json` (while preserving `ops:drill-guards`) and adding/adjusting workflow contract assertions accordingly.
