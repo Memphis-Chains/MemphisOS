@@ -600,6 +600,9 @@ Updated: 2026-03-13
 - Added runbook troubleshooting command contract for invalid preflight metadata fixture:
   - release runbook now includes exact local debug command for `ops:validate-release-draft-validator-metadata` against invalid fixture payload.
   - docs contract now enforces runbook command snippet markers to catch troubleshooting-doc drift.
+- Added runbook failure-fixture command parity for release metadata validation:
+  - release runbook now includes exact `ops:validate-release-draft-validator-metadata` command using `validator-metadata-preflight-failure-example.json`.
+  - docs contract now pins both invalid-shape and failure-path fixture command snippets.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -610,4 +613,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add release metadata validator docs coverage for the failure-path fixture command invocation (`validator-metadata-preflight-failure-example.json`) to mirror invalid-fixture troubleshooting parity.
+1. Add README quick-reference command snippet parity for both invalid and failure preflight metadata fixture validation commands.
