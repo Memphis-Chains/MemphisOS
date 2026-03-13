@@ -328,6 +328,11 @@ Updated: 2026-03-12
   - `ops:export-incident-bundle --profile strict-handoff` auto-enables manifest output + cognitive summary embedding.
   - profile defaults support strict verifier handoff workflows without extra `--include-cognitive-summaries` flag churn.
   - ops regression coverage validates strict-handoff profile behavior and completion/help surfaces.
+- Added one-command strict incident handoff workflow:
+  - `ops:strict-incident-handoff` now runs export (`strict-handoff`) + verify (`trust-root-strict`) in one step.
+  - command enforces strict prerequisites (signer key input, key-bundle path, trust-root path) before running.
+  - emits operator-friendly pass/fail summary and optional machine-readable `--json` output.
+  - ops regression coverage added for success, preflight failure, and verify-failure summary paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -338,4 +343,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a one-command strict incident handoff script that runs export + verify with strict profile defaults and emits operator-friendly pass/fail summary.
+1. Add shell-completion hints and runbook examples for `ops:strict-incident-handoff` argument/env contracts.
