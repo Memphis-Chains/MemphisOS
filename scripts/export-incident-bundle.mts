@@ -129,11 +129,12 @@ interface EncryptedArtifactManifestDescriptor {
   bytes: number;
 }
 
-type ExportProfileName = 'financial-strict' | 'forensics-lite';
+type ExportProfileName = 'financial-strict' | 'forensics-lite' | 'strict-handoff';
 
 interface ExportProfileDefaults {
   redactSensitive: boolean;
   requireEncryptedArtifacts: boolean;
+  includeCognitiveSummaries: boolean;
   writeManifest: boolean;
   auditLines: number;
   retentionCount: number;
@@ -143,7 +144,11 @@ interface ExportProfileDefaults {
 const REDACTED = '[REDACTED]';
 const INCIDENT_BUNDLE_PREFIX = 'incident-bundle-';
 const MANIFEST_SUFFIX = '.manifest.json';
-const EXPORT_PROFILE_VALUES: ExportProfileName[] = ['financial-strict', 'forensics-lite'];
+const EXPORT_PROFILE_VALUES: ExportProfileName[] = [
+  'financial-strict',
+  'forensics-lite',
+  'strict-handoff',
+];
 const EXPORT_PROFILE_ENV = 'MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE';
 const COGNITIVE_REPORT_TYPE_MAP = {
   insight_report: 'insight',
@@ -208,9 +213,10 @@ function parseIntArg(flag: string, fallback: number, envName?: string): number {
 function resolveExportProfileName(): ExportProfileName | null {
   const raw = parseArg('--profile') ?? process.env[EXPORT_PROFILE_ENV] ?? null;
   if (!raw) return null;
-  if (raw === 'financial-strict' || raw === 'forensics-lite') return raw;
+  if (raw === 'financial-strict' || raw === 'forensics-lite' || raw === 'strict-handoff')
+    return raw;
   throw new Error(
-    `unsupported export profile: ${raw}; expected one of financial-strict, forensics-lite`,
+    `unsupported export profile: ${raw}; expected one of financial-strict, forensics-lite, strict-handoff`,
   );
 }
 
@@ -219,6 +225,7 @@ function resolveExportProfileDefaults(profile: ExportProfileName | null): Export
     return {
       redactSensitive: true,
       requireEncryptedArtifacts: true,
+      includeCognitiveSummaries: false,
       writeManifest: true,
       auditLines: 100,
       retentionCount: 60,
@@ -229,15 +236,28 @@ function resolveExportProfileDefaults(profile: ExportProfileName | null): Export
     return {
       redactSensitive: true,
       requireEncryptedArtifacts: false,
+      includeCognitiveSummaries: false,
       writeManifest: true,
       auditLines: 75,
       retentionCount: 30,
       retentionDays: 14,
     };
   }
+  if (profile === 'strict-handoff') {
+    return {
+      redactSensitive: true,
+      requireEncryptedArtifacts: false,
+      includeCognitiveSummaries: true,
+      writeManifest: true,
+      auditLines: 100,
+      retentionCount: 45,
+      retentionDays: 21,
+    };
+  }
   return {
     redactSensitive: true,
     requireEncryptedArtifacts: false,
+    includeCognitiveSummaries: false,
     writeManifest: false,
     auditLines: 50,
     retentionCount: 20,
@@ -255,7 +275,7 @@ function renderHelp(): string {
     'Usage: npm run -s ops:export-incident-bundle -- [options]',
     '',
     'Options:',
-    '  --profile <name>                Export policy profile: financial-strict|forensics-lite',
+    '  --profile <name>                Export policy profile: financial-strict|forensics-lite|strict-handoff',
     '  --include-cognitive-summaries   Embed latest journal cognitive report summaries in bundle',
     '  --cognitive-report-limit <n>    Max cognitive summaries to include (default: 10)',
     '  --cognitive-journal-path <path> Override journal chain path for cognitive summaries',
@@ -263,7 +283,7 @@ function renderHelp(): string {
     '  -h, --help                      Show this help message',
     '',
     'Profile env variables:',
-    `  ${EXPORT_PROFILE_ENV}=financial-strict|forensics-lite`,
+    `  ${EXPORT_PROFILE_ENV}=financial-strict|forensics-lite|strict-handoff`,
     '  MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS=true|false',
     `  ${COGNITIVE_INCLUDE_ENV}=true|false`,
     `  ${COGNITIVE_LIMIT_ENV}=<positive integer>`,
@@ -839,7 +859,7 @@ async function main(): Promise<void> {
   const includeCognitiveSummariesEnv = parseOptionalBool(process.env[COGNITIVE_INCLUDE_ENV]);
   const includeCognitiveSummaries = hasFlag('--include-cognitive-summaries')
     ? true
-    : (includeCognitiveSummariesEnv ?? false);
+    : (includeCognitiveSummariesEnv ?? profileDefaults.includeCognitiveSummaries);
   const cognitiveReportLimit = parseIntArg('--cognitive-report-limit', 10, COGNITIVE_LIMIT_ENV);
   const cognitiveJournalPath = resolve(
     parseArg('--cognitive-journal-path') ??

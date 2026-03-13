@@ -214,7 +214,7 @@ Updated: 2026-03-12
   - fails closed when trust-root signer is not trusted by active `trust_root.json`
   - adds runbook `docs/runbooks/KEY_BUNDLE_ROTATION.md` and ops regression coverage.
 - Added export-side incident policy profile presets:
-  - `ops:export-incident-bundle --profile financial-strict|forensics-lite`
+  - `ops:export-incident-bundle --profile financial-strict|forensics-lite|strict-handoff`
   - profile defaults now reduce encryption/manifest/retention flag churn
   - profile selection supports env override (`MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE`)
   - ops regression coverage added for strict/lite/invalid profile behavior.
@@ -324,6 +324,10 @@ Updated: 2026-03-12
   - `trust-root-strict` profile now enables cognitive-summary requirement enforcement by default.
   - verifier output now reports `checks.cognitiveSummaryMetadataPresent` and `checks.cognitiveSummaryRequirementSatisfied`.
   - ops regression coverage added for strict pass/fail flows and profile behavior assertions.
+- Added strict handoff export profile for cognitive-aware incident evidence:
+  - `ops:export-incident-bundle --profile strict-handoff` auto-enables manifest output + cognitive summary embedding.
+  - profile defaults support strict verifier handoff workflows without extra `--include-cognitive-summaries` flag churn.
+  - ops regression coverage validates strict-handoff profile behavior and completion/help surfaces.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -334,4 +338,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add an export profile that auto-enables cognitive summaries for incident bundles intended for strict verifier handoff workflows.
+1. Add a one-command strict incident handoff script that runs export + verify with strict profile defaults and emits operator-friendly pass/fail summary.

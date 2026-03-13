@@ -70,6 +70,11 @@ npm run -s ops:export-incident-bundle -- \
 npm run -s ops:export-incident-bundle -- \
   --profile forensics-lite \
   --out data/incident-bundle.json
+
+# Export profile: strict handoff defaults (manifest + cognitive summaries)
+npm run -s ops:export-incident-bundle -- \
+  --profile strict-handoff \
+  --out data/incident-bundle.json
 ```
 
 ## 3. Verify Evidence Integrity
