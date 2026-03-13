@@ -415,6 +415,10 @@ Updated: 2026-03-13
   - `quality-gate` now prints `ops:validate-strict-handoff-fixtures -- --json` output before ops artifact regression.
   - CI step enforces `.ok == true` against machine-readable summary payload.
   - validator status is now visible in raw workflow logs for quick triage.
+- Added release-draft JSON summary visibility for strict-handoff validator:
+  - `release-draft` workflow now prints validator `--json` payload and enforces `.ok == true` before artifact regression tests.
+  - release notes quality-gate list now explicitly includes json-summary validator step.
+  - release runbook automated/manual gate lists now include json-summary validator command.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -425,4 +429,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Mirror the strict-handoff validator JSON summary step in `release-draft` workflow logs for release traceability.
+1. Add a short schema/version evolution policy note for strict-handoff validator JSON output contract in incident runbook.
