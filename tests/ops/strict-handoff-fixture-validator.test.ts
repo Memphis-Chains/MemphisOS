@@ -70,7 +70,7 @@ describe('strict-handoff fixture validation script', () => {
     expect(parsed.error).toBeNull();
     expect(parsed.errors).toEqual([]);
 
-    expect(parsed.checks.map((entry) => entry.id).sort()).toEqual([...validatorOutputContract.checkIds].sort());
+    expect(parsed.checks.map((entry) => entry.id)).toEqual(validatorOutputContract.checkIds);
     for (const entry of parsed.checks) {
       expect(Object.keys(entry).sort()).toEqual([...validatorOutputContract.checkTopLevelKeys].sort());
       expect(entry.ok).toBe(true);

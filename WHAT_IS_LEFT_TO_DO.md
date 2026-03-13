@@ -431,6 +431,10 @@ Updated: 2026-03-13
   - package step now emits `validator_schema_status` (`changed|unchanged|no-baseline`) plus current/previous version fields.
   - draft workflow summary now surfaces validator schema status/version/baseline metadata for automation parsing.
   - release signal now supports machine parsing without scanning free-form notes text.
+- Added stable check-order regression coverage for validator JSON mode:
+  - ops artifact regression now enforces exact `checks[].id` ordering from `validator-output-contract.json` (not just set equality).
+  - validator contract policy note now explicitly treats check ordering as stable within a schema version.
+  - contract consumers can rely on deterministic check ordering for lightweight log diffing.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -441,4 +445,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add an ops artifact regression test that snapshots expected `ops:validate-strict-handoff-fixtures --json` check-id ordering.
+1. Add a dedicated CI assertion that `ops:validate-strict-handoff-fixtures -- --json` check IDs appear in expected order.
