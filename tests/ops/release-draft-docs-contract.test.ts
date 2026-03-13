@@ -26,6 +26,7 @@ type ReleaseDraftDocsContract = {
   requiredStrictJsonGateScriptMarkers?: string[];
   requiredOpsArtifactsCommands?: string[];
   requiredChaosCommands?: string[];
+  requiredRustCommands?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -157,6 +158,12 @@ describe('release-draft docs fixture references', () => {
       if (Array.isArray(contract.requiredChaosCommands)) {
         for (const chaosCommand of contract.requiredChaosCommands) {
           expect(markdown.includes(chaosCommand)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredRustCommands)) {
+        for (const rustCommand of contract.requiredRustCommands) {
+          expect(markdown.includes(rustCommand)).toBe(true);
         }
       }
 

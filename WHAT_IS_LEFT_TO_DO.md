@@ -660,6 +660,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for fallback chaos command:
   - release docs contract now requires `npm run -s test:chaos` in README + runbook fallback command guidance.
   - regression now fails if chaos fallback command references drift.
+- Added docs-contract coverage for fallback rust command:
+  - release docs contract now requires `npm run -s test:rust` in README + runbook fallback command guidance.
+  - regression now fails if rust fallback command references drift.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -670,4 +673,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for fallback command token `npm run -s test:rust` in README/runbook release guidance.
+1. Add docs-contract coverage for fallback command token `npm run -s test:ts` in README/runbook release guidance.
