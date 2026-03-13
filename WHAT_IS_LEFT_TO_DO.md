@@ -270,6 +270,15 @@ Updated: 2026-03-12
   - `npm run -s test:chaos`
   - `npm run -s test:rust`
   - residual risk remains focused on operational runtime environment drift rather than test coverage gaps.
+- Implemented `reflect --save` chain persistence in active CLI path:
+  - `memphis reflect --save` now appends `reflection_report` blocks to `journal`.
+  - JSON output now reports `saved` and `savedBlock` metadata, aligned with `insights --save`.
+- Added end-to-end CLI save persistence coverage on fresh data directories:
+  - new integration test covers `insights --save` followed by `reflect --save`.
+  - assertions verify both `insight_report` and `reflection_report` blocks are persisted.
+- Added operator runbook for zero-downtime Telegram credential rotation:
+  - `docs/runbooks/TELEGRAM_CREDENTIAL_ROTATION.md`
+  - includes rolling cutover steps, validation checklist, and rollback procedure.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -280,5 +289,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add end-to-end CLI tests that exercise `insights --save` + `reflect --save` persistence on a fresh data dir.
-2. Add explicit operator guidance for rotating Telegram bot credentials without downtime.
+1. Continue consolidating any remaining legacy `src/cli/commands/*` wrappers into `infra/cli` routing where still duplicated.
+2. Add focused e2e coverage for `categorize --save` once journal persistence is implemented for categorize flow.
