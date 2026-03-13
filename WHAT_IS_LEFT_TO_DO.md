@@ -368,6 +368,9 @@ Updated: 2026-03-12
   - documents stable JSON keys and stage semantics for operator tooling consumers.
   - links summary + failure contract fixtures for implementation-safe parsing.
   - clarifies additive-key compatibility guidance for automation clients.
+- Added README pointers to strict-handoff fixture contracts:
+  - quick-reference section now links summary/completion and failure fixture paths for integrators.
+  - README now serves as a single operator + tooling handoff entrypoint for strict incident workflows.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -378,4 +381,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add README pointer to strict-handoff fixture contract files for external integrators.
+1. Add explicit example parser snippets (`jq`/TypeScript) for strict-handoff JSON contract consumption in docs.
