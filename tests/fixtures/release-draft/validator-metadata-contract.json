@@ -35,6 +35,7 @@
     "validator_check_ids"
   ],
   "releaseNotesMarkers": [
+    "npm run -s ops:release-preflight -- --json",
     "Validator contract status:",
     "Validator check-id order contract:",
     "Validator metadata artifact:",
@@ -64,6 +65,14 @@
   "metadataExamplePath": "tests/fixtures/release-draft/validator-metadata-example.json",
   "metadataValidatorOutputContractPath": "tests/fixtures/release-draft/validator-metadata-validator-output-contract.json",
   "metadataValidationCommandId": "ops:validate-release-draft-validator-metadata",
+  "preflightCommand": "npm run -s ops:release-preflight -- --json",
+  "preflightMarkers": [
+    "MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: \"1\"",
+    "VALIDATOR_CHECK_ORDER_STATUS: ${{ steps.",
+    "VALIDATOR_CHECK_IDS: ${{ steps.",
+    ".outputs.check_order_status",
+    ".outputs.check_ids"
+  ],
   "metadataValidatorSchemaStatusValues": [
     "changed",
     "unchanged",

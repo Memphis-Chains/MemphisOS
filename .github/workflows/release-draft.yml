@@ -68,36 +68,43 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Lint
-        run: npm run -s lint
-
-      - name: Typecheck
-        run: npm run -s typecheck
-
-      - name: Strict-handoff fixture/schema validator
-        run: npm run -s ops:validate-strict-handoff-fixtures
-
-      - name: Strict-handoff validator JSON summary
+      - name: Release preflight gate
         id: validator_json
         env:
           MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: "1"
-        run: ./scripts/strict-handoff-validator-json-gate.sh
-
-      - name: Ops artifact regression
-        run: npm run -s test:ops-artifacts
-
-      - name: Test (TS)
-        run: npm run -s test:ts
-
-      - name: Chaos gate
-        run: npm run -s test:chaos
-
-      - name: Test (Rust)
-        run: npm run -s test:rust
+        run: |
+          set -euo pipefail
+          PREFLIGHT_SUMMARY_JSON="$(npm run -s ops:release-preflight -- --json)"
+          printf '%s\n' "$PREFLIGHT_SUMMARY_JSON"
+          PREFLIGHT_GATE_IDS="$(jq -c '.gates | map(.id)' <<<"$PREFLIGHT_SUMMARY_JSON")"
+          if [[ "$PREFLIGHT_GATE_IDS" == "[]" ]]; then
+            echo "::error::ops:release-preflight returned an empty gate list"
+            exit 1
+          fi
+          if ! grep -q '^check_order_status=' "$GITHUB_OUTPUT" || ! grep -q '^check_ids=' "$GITHUB_OUTPUT"; then
+            echo "::error::strict-handoff gate outputs were not emitted by ops:release-preflight"
+            exit 1
+          fi
+          {
+            echo "preflight_summary_json<<EOF"
+            printf '%s\n' "$PREFLIGHT_SUMMARY_JSON"
+            echo "EOF"
+            echo "preflight_gate_ids=$PREFLIGHT_GATE_IDS"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "## Release Preflight Gate"
+            echo
+            echo '```json'
+            printf '%s\n' "$PREFLIGHT_SUMMARY_JSON"
+            echo '```'
+            echo
+            echo "- deterministic gate ids: \`$PREFLIGHT_GATE_IDS\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Build package artifact
         id: package
         env:
+          PREFLIGHT_GATE_IDS: ${{ steps.validator_json.outputs.preflight_gate_ids }}
           VALIDATOR_CHECK_ORDER_STATUS: ${{ steps.validator_json.outputs.check_order_status }}
           VALIDATOR_CHECK_IDS: ${{ steps.validator_json.outputs.check_ids }}
         run: |
@@ -164,15 +171,10 @@ jobs:
           Source ref: \`$TARGET_REF\`
 
           Quality gates run in this workflow:
-          - npm run -s lint
-          - npm run -s typecheck
-          - npm run -s ops:validate-strict-handoff-fixtures
-          - ./scripts/strict-handoff-validator-json-gate.sh
+          - npm run -s ops:release-preflight -- --json
+          - deterministic gate ids: \`$PREFLIGHT_GATE_IDS\`
+          - includes strict-handoff check-order gate: \`./scripts/strict-handoff-validator-json-gate.sh\`
           - npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json
-          - npm run -s test:ops-artifacts
-          - npm run -s test:ts
-          - npm run -s test:chaos
-          - npm run -s test:rust
 
           Validator contract status:
           - \`$VALIDATOR_SCHEMA_NOTE\`
@@ -261,6 +263,7 @@ jobs:
             echo "- validator schema version: \`${{ steps.package.outputs.validator_schema_version }}\`"
             echo "- validator baseline tag: \`${{ steps.package.outputs.validator_schema_reference_tag }}\`"
             echo "- validator previous schema version: \`${{ steps.package.outputs.validator_schema_previous_version }}\`"
+            echo "- release preflight gate ids: \`${{ steps.validator_json.outputs.preflight_gate_ids }}\`"
             echo "- validator check-id order status: \`${{ steps.package.outputs.validator_check_order_status }}\`"
             echo "- validator checkIds: \`${{ steps.package.outputs.validator_check_ids }}\`"
             echo "- release: ${{ steps.release.outputs.release_url }}"

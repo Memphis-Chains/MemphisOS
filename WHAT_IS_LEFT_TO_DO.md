@@ -546,6 +546,16 @@ Updated: 2026-03-13
   - README and release runbook now recommend `ops:release-preflight` as the primary preflight path.
   - docs now treat `validator-metadata.json.sha256` as a standard release artifact.
   - manual per-step gate list remains documented as fallback execution path.
+- Adopted single preflight gate flow for release-draft operations:
+  - workflow preflight path now uses one command: `npm run -s ops:release-preflight -- --json`.
+  - docs now present per-step gates strictly as manual fallback diagnostics.
+- Added workflow contract regression coverage for single preflight gate wiring:
+  - `tests/ops/strict-handoff-workflow-contract.test.ts` now asserts release-draft uses `npm run -s ops:release-preflight -- --json`.
+  - release-draft contract tests now pin strict-handoff output forwarding (`check_order_status`, `check_ids`) through the preflight step.
+  - release metadata contract fixtures now include preflight command markers to fail on workflow drift.
+- Closed CI preflight parity for `quality-gate`:
+  - `.github/workflows/ci.yml` now runs `npm run -s ops:release-preflight -- --json`.
+  - retained `npm run -s ops:drill-guards` in CI before the preflight gate.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -556,4 +566,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Adopt `ops:release-preflight` in `release-draft` workflow as a single preflight gate step (with JSON summary emission) while preserving deterministic release diagnostics.
+1. Add CI failure triage mapping for `ops:release-preflight -- --json` check IDs so `quality-gate` failures link directly to runbook remediation steps.

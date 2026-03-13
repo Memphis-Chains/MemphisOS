@@ -8,7 +8,7 @@ Use this runbook to produce and publish a MemphisOS release after sprint complet
 - branch is `main` and synced with `origin/main`
 - all sprint checklist items are complete
 - GitHub release permissions are available
-- run `npm run -s ops:release-preflight` before triggering release workflow
+- run `npm run -s ops:release-preflight -- --json` before triggering release workflow
 
 ## 2. Preferred Path: Automated Draft Release Workflow
 
@@ -22,27 +22,19 @@ Inputs:
 
 Preflight flow:
 
-- primary: run `npm run -s ops:release-preflight`
-- fallback: run the gate list below directly when per-step execution is needed
+- primary: `npm run -s ops:release-preflight -- --json` (single preflight gate step in workflow)
+- fallback: run the per-step gate list below when command-level diagnostics are needed
 
-The workflow performs all release gates automatically:
+The workflow then performs release packaging automatically:
 
-- `npm run -s lint`
-- `npm run -s typecheck`
-- `npm run -s ops:validate-strict-handoff-fixtures`
-- `./scripts/strict-handoff-validator-json-gate.sh`
-  - wraps `ops:validate-strict-handoff-fixtures -- --json` and enforces deterministic `checks[].id` ordering contract
-- `npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json`
-  - validates release metadata against `tests/fixtures/release-draft/validator-metadata.schema.json`
-- `npm run -s test:ops-artifacts`
-- `npm run -s test:ts`
-- `npm run -s test:chaos`
-- `npm run -s test:rust`
+- preflight command above runs lint/typecheck/strict-handoff validator/ops artifact/TS/chaos/Rust gates in deterministic fail-fast order
 - `npm pack --dry-run`
 - `npm pack --pack-destination release-dist`
 - generates `release-dist/validator-metadata.json` (schema + check-order status contract)
   - schema fixture: `tests/fixtures/release-draft/validator-metadata.schema.json`
   - example payload: `tests/fixtures/release-draft/validator-metadata-example.json`
+- `npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json`
+  - validates release metadata against `tests/fixtures/release-draft/validator-metadata.schema.json`
 - creates draft GitHub release `v<version>` with:
   - package tarball asset
   - `.sha256` checksum asset
@@ -59,6 +51,8 @@ The workflow performs all release gates automatically:
 
 ## 4. Manual Fallback (If Workflow Is Unavailable)
 
+Use this when `ops:release-preflight` cannot be run and you need direct gate-by-gate execution.
+
 ```bash
 npm run -s lint
 npm run -s typecheck
@@ -69,8 +63,9 @@ npm run -s test:ts
 npm run -s test:chaos
 npm run -s test:rust
 npm pack --dry-run
-npm pack
-sha256sum memphis-chains-memphisos-<version>.tgz
+mkdir -p release-dist
+npm pack --pack-destination release-dist
+sha256sum release-dist/memphis-chains-memphisos-<version>.tgz
 git tag -a vX.Y.Z -m "MemphisOS vX.Y.Z"
 git push origin main
 git push origin vX.Y.Z
