@@ -591,6 +591,9 @@ Updated: 2026-03-13
 - Added contract parity checks for success/failure preflight metadata examples:
   - release metadata contract fixture now tracks both success and failure example paths.
   - contract tests now enforce top-level + nested gate key parity across both examples and validate both against the schema.
+- Added docs-contract coverage for success/failure release metadata fixture references:
+  - README and release runbook now reference both success + failure preflight metadata examples.
+  - `tests/fixtures/release-draft/docs-contract.json` now requires both fixture links so docs drift fails regression.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -601,4 +604,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs/reference contract coverage to ensure release runbook/README mention both success and failure preflight metadata fixtures for operator handoff context.
+1. Add docs/reference coverage for invalid preflight metadata fixture usage (`validator-metadata-invalid-preflight-gate.json`) in operator troubleshooting guidance.
