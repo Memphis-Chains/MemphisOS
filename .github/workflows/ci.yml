@@ -54,27 +54,23 @@ jobs:
           fi
 
           GATE_IDS="$(
-            node - "$SUMMARY_JSON" <<'NODE'
-            const fs = require('node:fs');
-
-            const summaryPath = process.argv[2];
-            const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
-            if (!Array.isArray(summary.gates) || summary.gates.length === 0) {
-              console.error('release preflight produced an empty gates list');
-              process.exit(1);
-            }
-
-            const gateIds = summary.gates
-              .map((gate) => (typeof gate?.id === 'string' ? gate.id.trim() : ''))
-              .filter(Boolean)
-              .sort((left, right) => left.localeCompare(right));
-            if (gateIds.length === 0) {
-              console.error('release preflight produced gates without IDs');
-              process.exit(1);
-            }
-
-            process.stdout.write(gateIds.join('\n'));
-            NODE
+            node -e "
+              const fs = require('node:fs');
+              const summary = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+              if (!Array.isArray(summary.gates) || summary.gates.length === 0) {
+                console.error('release preflight produced an empty gates list');
+                process.exit(1);
+              }
+              const gateIds = summary.gates
+                .map((gate) => (typeof gate?.id === 'string' ? gate.id.trim() : ''))
+                .filter(Boolean)
+                .sort((left, right) => left.localeCompare(right));
+              if (gateIds.length === 0) {
+                console.error('release preflight produced gates without IDs');
+                process.exit(1);
+              }
+              process.stdout.write(gateIds.join('\n'));
+            " "$SUMMARY_JSON"
           )"
 
           echo 'Release preflight JSON summary:'
