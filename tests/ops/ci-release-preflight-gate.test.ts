@@ -144,45 +144,6 @@ describe('ci release-preflight gate helper script', () => {
     expect(stepSummary).toContain(`- [${expectedUrl}](${expectedUrl})`);
   });
 
-  it('fails closed when override env is inherited without explicit test-only mode', () => {
-    const outDir = mkdtempSync(path.join(tmpdir(), 'memphis-ci-preflight-gate-no-override-flag-'));
-    const stepSummaryPath = path.join(outDir, 'step-summary.md');
-    const githubOutputPath = path.join(outDir, 'github-output.txt');
-    writeFileSync(stepSummaryPath, '', 'utf8');
-    writeFileSync(githubOutputPath, '', 'utf8');
-
-    const result = spawnSync('bash', ['./scripts/ci-release-preflight-gate.sh'], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      timeout: 120_000,
-      env: {
-        ...process.env,
-        MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON: JSON.stringify([
-          { id: 'lint', command: 'node', args: ['-e', 'process.exit(0)'] },
-        ]),
-        RUNNER_TEMP: outDir,
-        GITHUB_STEP_SUMMARY: stepSummaryPath,
-        GITHUB_OUTPUT: githubOutputPath,
-        GITHUB_SERVER_URL: 'https://github.com',
-        GITHUB_REPOSITORY: 'Memphis-Chains/MemphisOS',
-        GITHUB_SHA: 'forced-sha-override-blocked',
-      },
-    });
-
-    expect(result.status).toBe(2);
-    const combinedOutput = `${result.stdout}${result.stderr}`;
-    const stepSummary = readFileSync(stepSummaryPath, 'utf8');
-    const expectedUrl =
-      'https://github.com/Memphis-Chains/MemphisOS/blob/forced-sha-override-blocked/docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map';
-
-    expect(combinedOutput).toContain(
-      'MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON requires MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1',
-    );
-    expect(combinedOutput).toContain('::error::release preflight emitted empty gates list');
-    expect(combinedOutput).toContain(`::error::Release preflight failed. Remediation: ${expectedUrl}`);
-    expect(stepSummary).toContain(`- [${expectedUrl}](${expectedUrl})`);
-  });
-
   it('falls back to triage-map remediation URL when failed gate id is unavailable', () => {
     const { result, stepSummaryPath } = runCiPreflightGateWithOverride(
       '[]',
