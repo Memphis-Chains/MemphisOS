@@ -55,5 +55,8 @@
   "requiredPackCommands": [
     "npm pack --dry-run",
     "npm pack --pack-destination release-dist"
+  ],
+  "requiredReleaseDirCommands": [
+    "mkdir -p release-dist"
   ]
 }
