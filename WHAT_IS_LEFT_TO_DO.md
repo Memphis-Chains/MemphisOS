@@ -678,6 +678,10 @@ Updated: 2026-03-13
   - workflow now derives package name/version from `package.json` and rejects any `workflow_dispatch` release version that drifts from package metadata.
   - release packaging now fails if the produced `.tgz` artifact name/version diverges from the expected package slug + version.
   - `test:ops-artifacts` now includes dedicated workflow contract coverage for version/tag parity guards.
+- Locked down release-preflight gate overrides to test-only mode:
+  - `MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON` is now rejected unless `MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1` is explicitly set.
+  - direct preflight regression tests now assert default-deny behavior for inherited override env in non-test mode.
+  - CI/release wrapper regression tests now fail closed when override env is injected without the explicit test-only allow flag.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -688,4 +692,6 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Disable `MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON` for CI/release paths unless an explicit test-only override mode is enabled.
+1. Product finish-line blockers are closed; remaining work is optional release/ops hardening rather than required product completion.
+2. Optional: fetch tag history in `release-draft` checkout so validator baseline comparison does not degrade to `no-baseline` when tags exist.
+3. Optional: add `ops:drill-guards -- --json` parity into `ops:release-preflight` / `release-draft` so release gating matches CI startup-guard drill coverage.

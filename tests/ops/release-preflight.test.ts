@@ -24,6 +24,7 @@ const outputContractPath = path.join(
 function runReleasePreflight(
   overrideGates: Array<{ id: string; command: string; args: string[] }>,
   extraArgs: string[] = [],
+  extraEnv: Record<string, string> = {},
 ): ReturnType<typeof spawnSync> {
   return spawnSync(
     'npm',
@@ -35,6 +36,8 @@ function runReleasePreflight(
       env: {
         ...process.env,
         MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON: JSON.stringify(overrideGates),
+        MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE: '1',
+        ...extraEnv,
       },
     },
   );
@@ -100,5 +103,31 @@ describe('ops:release-preflight', () => {
       expect(gate.ok).toBe(true);
       expect(gate.error).toBeNull();
     }
+  });
+
+  it('fails closed when override env is set without explicit test-only mode', () => {
+    const result = spawnSync('npm', ['run', '-s', 'ops:release-preflight', '--', '--json'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON: JSON.stringify([
+          { id: 'lint', command: 'node', args: ['-e', 'process.exit(0)'] },
+        ]),
+      },
+    });
+
+    expect(result.status).toBe(2);
+    const parsed = JSON.parse(result.stdout) as {
+      ok: boolean;
+      gates: unknown[];
+      error: string | null;
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.gates).toEqual([]);
+    expect(parsed.error).toBe(
+      'MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON requires MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1',
+    );
   });
 });
