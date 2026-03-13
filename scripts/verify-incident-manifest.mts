@@ -84,6 +84,7 @@ interface VerifyOutput {
     profile: VerifyProfileName | null;
     requireSignature: boolean;
     requireSignedKeyBundle: boolean;
+    requireCognitiveSummaries: boolean;
     skipChainEvent: boolean;
     requireChainEvent: boolean;
     chainEventRetries: number;
@@ -96,8 +97,10 @@ interface VerifyOutput {
     bundleEncrypted: boolean;
     bundleHashMatch: boolean;
     bundleSizeMatch: boolean;
+    cognitiveSummaryMetadataPresent: boolean;
     cognitiveSummaryCountMatch: boolean;
     cognitiveSummaryDigestMatch: boolean;
+    cognitiveSummaryRequirementSatisfied: boolean;
     signaturePresent: boolean;
     signatureVerified: boolean;
     payloadHashMatch: boolean;
@@ -123,6 +126,7 @@ type VerifyProfileName = 'trust-root-strict' | 'legacy-compat';
 interface VerifyProfileDefaults {
   requireSignature: boolean;
   requireSignedKeyBundle: boolean;
+  requireCognitiveSummaries: boolean;
   requireChainEvent: boolean;
   chainEventRetries: number;
   chainEventBackoffMs: number;
@@ -130,6 +134,7 @@ interface VerifyProfileDefaults {
 
 const VERIFY_PROFILE_VALUES: VerifyProfileName[] = ['trust-root-strict', 'legacy-compat'];
 const VERIFY_PROFILE_ENV = 'MEMPHIS_INCIDENT_MANIFEST_VERIFY_PROFILE';
+const REQUIRE_COGNITIVE_SUMMARIES_ENV = 'MEMPHIS_INCIDENT_REQUIRE_COGNITIVE_SUMMARIES';
 
 function parseArg(flag: string): string | null {
   const idx = process.argv.indexOf(flag);
@@ -175,12 +180,14 @@ function renderHelp(): string {
     '',
     'Options:',
     '  --profile <name>                Verify policy profile: trust-root-strict|legacy-compat',
+    '  --require-cognitive-summaries   Fail when manifest/bundle cognitive summary metadata is missing',
     '  --completion-hints              Print machine-readable profile/completion hints as JSON',
     '  -h, --help                      Show this help message',
     '',
     'Profile env variables:',
     `  ${VERIFY_PROFILE_ENV}=trust-root-strict|legacy-compat`,
     '  MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED=true|false',
+    `  ${REQUIRE_COGNITIVE_SUMMARIES_ENV}=true|false`,
   ].join('\n');
 }
 
@@ -193,7 +200,7 @@ function printCompletionHints(): void {
         profiles: VERIFY_PROFILE_VALUES,
         profileFlag: '--profile',
         profileEnv: VERIFY_PROFILE_ENV,
-        policyEnvVars: ['MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED'],
+        policyEnvVars: ['MEMPHIS_INCIDENT_CHAIN_EVENT_REQUIRED', REQUIRE_COGNITIVE_SUMMARIES_ENV],
       },
       null,
       2,
@@ -215,6 +222,7 @@ function resolveVerifyProfileDefaults(profile: VerifyProfileName | null): Verify
     return {
       requireSignature: true,
       requireSignedKeyBundle: true,
+      requireCognitiveSummaries: true,
       requireChainEvent: true,
       chainEventRetries: 2,
       chainEventBackoffMs: 50,
@@ -224,6 +232,7 @@ function resolveVerifyProfileDefaults(profile: VerifyProfileName | null): Verify
     return {
       requireSignature: false,
       requireSignedKeyBundle: false,
+      requireCognitiveSummaries: false,
       requireChainEvent: false,
       chainEventRetries: 0,
       chainEventBackoffMs: 0,
@@ -232,6 +241,7 @@ function resolveVerifyProfileDefaults(profile: VerifyProfileName | null): Verify
   return {
     requireSignature: false,
     requireSignedKeyBundle: false,
+    requireCognitiveSummaries: false,
     requireChainEvent: true,
     chainEventRetries: 2,
     chainEventBackoffMs: 50,
@@ -643,16 +653,36 @@ function canonicalizeCognitiveReportsForDigest(reports: unknown[]): string {
 function verifyCognitiveSummaryIntegrity(options: {
   manifest: IncidentBundleManifest;
   bundleBytes: Buffer;
+  requireCognitiveSummaries: boolean;
   checks: VerifyOutput['checks'];
   errors: string[];
 }): void {
   const cognitive = options.manifest.cognitiveReports;
-  if (!cognitive) return;
+  options.checks.cognitiveSummaryMetadataPresent = Boolean(cognitive);
+  if (!cognitive) {
+    if (options.requireCognitiveSummaries) {
+      options.checks.cognitiveSummaryRequirementSatisfied = false;
+      options.checks.cognitiveSummaryCountMatch = false;
+      options.checks.cognitiveSummaryDigestMatch = false;
+      options.errors.push(
+        'cognitive summaries are required but manifest.cognitiveReports is missing',
+      );
+    }
+    return;
+  }
+
+  if (options.requireCognitiveSummaries && !cognitive.included) {
+    options.checks.cognitiveSummaryRequirementSatisfied = false;
+    options.errors.push(
+      'cognitive summaries are required but manifest.cognitiveReports.included=false',
+    );
+  }
 
   let bundle: unknown;
   try {
     bundle = JSON.parse(options.bundleBytes.toString('utf8'));
   } catch (error) {
+    options.checks.cognitiveSummaryRequirementSatisfied = false;
     options.checks.cognitiveSummaryCountMatch = false;
     options.checks.cognitiveSummaryDigestMatch = false;
     options.errors.push(
@@ -671,8 +701,10 @@ function verifyCognitiveSummaryIntegrity(options: {
     !Array.isArray(bundleObject.cognitiveReports)
       ? (bundleObject.cognitiveReports as { [k: string]: unknown })
       : null;
-  const reports = Array.isArray(bundleCognitive?.reports) ? bundleCognitive.reports : [];
-  if (cognitive.included && !Array.isArray(bundleCognitive?.reports)) {
+  const hasReports = Array.isArray(bundleCognitive?.reports);
+  const reports = hasReports ? bundleCognitive.reports : [];
+  if (cognitive.included && !hasReports) {
+    options.checks.cognitiveSummaryRequirementSatisfied = false;
     options.checks.cognitiveSummaryCountMatch = false;
     options.checks.cognitiveSummaryDigestMatch = false;
     options.errors.push(
@@ -680,10 +712,20 @@ function verifyCognitiveSummaryIntegrity(options: {
     );
     return;
   }
+  if (options.requireCognitiveSummaries && !hasReports) {
+    options.checks.cognitiveSummaryRequirementSatisfied = false;
+    options.checks.cognitiveSummaryCountMatch = false;
+    options.checks.cognitiveSummaryDigestMatch = false;
+    options.errors.push(
+      'cognitive summaries are required but bundle payload is missing cognitiveReports.reports',
+    );
+    return;
+  }
 
   const actualCount = reports.length;
   options.checks.cognitiveSummaryCountMatch = actualCount === cognitive.count;
   if (!options.checks.cognitiveSummaryCountMatch) {
+    options.checks.cognitiveSummaryRequirementSatisfied = false;
     options.errors.push(
       `cognitive summary count mismatch (expected=${cognitive.count}, actual=${actualCount})`,
     );
@@ -696,6 +738,7 @@ function verifyCognitiveSummaryIntegrity(options: {
       : null;
   options.checks.cognitiveSummaryDigestMatch = actualDigest === cognitive.digestSha256;
   if (!options.checks.cognitiveSummaryDigestMatch) {
+    options.checks.cognitiveSummaryRequirementSatisfied = false;
     options.errors.push(
       `cognitive summary digest mismatch (expected=${cognitive.digestSha256 ?? 'null'}, actual=${actualDigest ?? 'null'})`,
     );
@@ -1102,6 +1145,10 @@ async function main(): Promise<void> {
   const requireSignature = hasFlag('--require-signature') || profileDefaults.requireSignature;
   const requireSignedKeyBundle =
     hasFlag('--require-key-bundle-signature') || profileDefaults.requireSignedKeyBundle;
+  const requireCognitiveSummaries = hasFlag('--require-cognitive-summaries')
+    ? true
+    : (parseOptionalBool(process.env[REQUIRE_COGNITIVE_SUMMARIES_ENV]) ??
+      profileDefaults.requireCognitiveSummaries);
   const decryptionPassphrase = resolveDecryptionPassphrase();
   const skipChainEvent = hasFlag('--skip-chain-event');
   const requireChainEvent =
@@ -1126,8 +1173,10 @@ async function main(): Promise<void> {
     bundleEncrypted: false,
     bundleHashMatch: false,
     bundleSizeMatch: false,
+    cognitiveSummaryMetadataPresent: false,
     cognitiveSummaryCountMatch: true,
     cognitiveSummaryDigestMatch: true,
+    cognitiveSummaryRequirementSatisfied: true,
     signaturePresent: false,
     signatureVerified: false,
     payloadHashMatch: false,
@@ -1167,6 +1216,7 @@ async function main(): Promise<void> {
       verifyCognitiveSummaryIntegrity({
         manifest,
         bundleBytes: bundleResolution.bytes,
+        requireCognitiveSummaries,
         checks,
         errors,
       });
@@ -1223,6 +1273,7 @@ async function main(): Promise<void> {
       profile,
       requireSignature,
       requireSignedKeyBundle,
+      requireCognitiveSummaries,
       skipChainEvent,
       requireChainEvent,
       chainEventRetries,
