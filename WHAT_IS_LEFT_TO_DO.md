@@ -402,6 +402,10 @@ Updated: 2026-03-13
   - `quality-gate` workflow now runs `ops:validate-strict-handoff-fixtures` before `test:ops-artifacts`.
   - `release-draft` workflow now enforces the same validator gate before artifact regression tests.
   - release runbook + README manual release checklist now include validator command in required gates.
+- Added validator troubleshooting guidance to incident runbook:
+  - runbook now includes failure-class matrix for fixture-schema drift vs runtime-output/schema drift.
+  - troubleshooting now maps concrete `[FAIL]` signals from `ops:validate-strict-handoff-fixtures` to operator remediation steps.
+  - guidance now calls out stdout contamination (`invalid JSON output`) as a contract-break root cause.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -412,4 +416,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a troubleshooting section for `ops:validate-strict-handoff-fixtures` failures (schema mismatch vs command-output mismatch) in the incident runbook.
+1. Add `--json` output mode to `ops:validate-strict-handoff-fixtures` for CI/automation ingestion.

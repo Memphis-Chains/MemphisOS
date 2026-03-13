@@ -494,6 +494,18 @@ if (!validateCompletion(completionPayload)) {
 }
 ```
 
+Validator troubleshooting (`ops:validate-strict-handoff-fixtures`):
+
+| Failure Signal | Failure Class | Typical Cause | Operator Action |
+| --- | --- | --- | --- |
+| `[FAIL] summary example fixture matches summary schema` | Fixture-schema drift | `summary-example-preflight.json` no longer satisfies `summary.schema.json` | Regenerate/update the summary example fixture from current strict-handoff output and confirm `summaryTopLevelKeys` contract alignment. |
+| `[FAIL] completion-hints example fixture matches completion-hints schema` | Fixture-schema drift | `completion-hints-example.json` missing/renamed fields expected by schema | Refresh completion-hints example fixture from `ops:strict-incident-handoff --completion-hints` and re-run validator. |
+| `[FAIL] completion-hints command output matches completion-hints schema` | Runtime-output/schema drift | command output key or value semantics changed without schema update | Compare live output with `completion-hints.schema.json`; update schema + fixtures + contract tests together or revert output change. |
+| `[FAIL] summary command output matches summary schema` | Runtime-output/schema drift | strict-handoff `--json` output shape changed, or non-JSON noise leaked to stdout | Ensure machine JSON remains stdout-only, update schema/contracts intentionally, and rerun `test:ops-artifacts`. |
+| `invalid JSON output` | Output channel contamination | additional logs or warnings printed to stdout in command scripts | Move diagnostic logs to stderr and keep stdout strictly JSON for machine-mode commands. |
+
+When troubleshooting, treat schema files, output-contract fixtures, and command output as one contract surface; update them in a single PR.
+
 ## 5. Handoff Package
 
 Attach these artifacts to incident records:
