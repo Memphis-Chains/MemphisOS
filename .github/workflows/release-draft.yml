@@ -128,6 +128,7 @@ jobs:
           SHA_FILE="release-dist/${ASSET_NAME}.sha256"
           NOTES_PATH="release-dist/release-notes.md"
           VALIDATOR_METADATA_PATH="release-dist/validator-metadata.json"
+          VALIDATOR_METADATA_SHA_FILE="release-dist/validator-metadata.json.sha256"
           VALIDATOR_METADATA_SCHEMA_PATH="tests/fixtures/release-draft/validator-metadata.schema.json"
           printf '%s  %s\n' "$SHA256" "$ASSET_NAME" > "$SHA_FILE"
           jq -n \
@@ -153,6 +154,8 @@ jobs:
           npm run -s ops:validate-release-draft-validator-metadata -- \
             --metadata-path "$VALIDATOR_METADATA_PATH" \
             --schema-path "$VALIDATOR_METADATA_SCHEMA_PATH"
+          VALIDATOR_METADATA_SHA256="$(sha256sum "$VALIDATOR_METADATA_PATH" | awk '{print $1}')"
+          printf '%s  %s\n' "$VALIDATOR_METADATA_SHA256" "$(basename "$VALIDATOR_METADATA_PATH")" > "$VALIDATOR_METADATA_SHA_FILE"
           cat > "$NOTES_PATH" <<EOF
           MemphisOS v$VERSION (draft)
 
@@ -181,6 +184,8 @@ jobs:
 
           Validator metadata artifact:
           - \`$(basename "$VALIDATOR_METADATA_PATH")\`
+          - sha256: \`$VALIDATOR_METADATA_SHA256\`
+          - checksum file: \`$(basename "$VALIDATOR_METADATA_SHA_FILE")\`
 
           Artifact:
           - \`$ASSET_NAME\`
@@ -193,6 +198,8 @@ jobs:
             echo "sha_file=$SHA_FILE"
             echo "notes_path=$NOTES_PATH"
             echo "validator_metadata_path=$VALIDATOR_METADATA_PATH"
+            echo "validator_metadata_sha_file=$VALIDATOR_METADATA_SHA_FILE"
+            echo "validator_metadata_sha256=$VALIDATOR_METADATA_SHA256"
             echo "validator_schema_status=$VALIDATOR_SCHEMA_STATUS"
             echo "validator_schema_version=$CURRENT_VALIDATOR_SCHEMA_VERSION"
             echo "validator_schema_previous_version=$PREV_VALIDATOR_SCHEMA_VERSION"
@@ -210,6 +217,7 @@ jobs:
             ${{ steps.package.outputs.sha_file }}
             ${{ steps.package.outputs.notes_path }}
             ${{ steps.package.outputs.validator_metadata_path }}
+            ${{ steps.package.outputs.validator_metadata_sha_file }}
 
       - name: Create draft GitHub release
         id: release
@@ -230,6 +238,7 @@ jobs:
             "${{ steps.package.outputs.asset_path }}" \
             "${{ steps.package.outputs.sha_file }}" \
             "${{ steps.package.outputs.validator_metadata_path }}" \
+            "${{ steps.package.outputs.validator_metadata_sha_file }}" \
             --draft \
             --target "$TARGET_REF" \
             --title "MemphisOS v$VERSION" \
@@ -246,6 +255,8 @@ jobs:
             echo "- artifact: \`${{ steps.package.outputs.asset_name }}\`"
             echo "- sha256: \`${{ steps.package.outputs.sha256 }}\`"
             echo "- validator metadata artifact: \`${{ steps.package.outputs.validator_metadata_path }}\`"
+            echo "- validator metadata checksum artifact: \`${{ steps.package.outputs.validator_metadata_sha_file }}\`"
+            echo "- validator metadata sha256: \`${{ steps.package.outputs.validator_metadata_sha256 }}\`"
             echo "- validator schema status: \`${{ steps.package.outputs.validator_schema_status }}\`"
             echo "- validator schema version: \`${{ steps.package.outputs.validator_schema_version }}\`"
             echo "- validator baseline tag: \`${{ steps.package.outputs.validator_schema_reference_tag }}\`"
