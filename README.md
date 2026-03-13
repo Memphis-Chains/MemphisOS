@@ -258,6 +258,7 @@ npm run -s test:rust
 - fallback artifact checksum command: `sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`
 - fallback tag command: `git tag -a vX.Y.Z -m "MemphisOS vX.Y.Z"`
 - fallback push command: `git push origin main`
+- fallback tag push command: `git push origin vX.Y.Z`
 
 Draft release workflow artifacts also include:
 
