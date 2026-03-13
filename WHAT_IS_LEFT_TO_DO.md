@@ -553,6 +553,9 @@ Updated: 2026-03-13
   - `tests/ops/strict-handoff-workflow-contract.test.ts` now asserts release-draft uses `npm run -s ops:release-preflight -- --json`.
   - release-draft contract tests now pin strict-handoff output forwarding (`check_order_status`, `check_ids`) through the preflight step.
   - release metadata contract fixtures now include preflight command markers to fail on workflow drift.
+- Closed CI preflight parity for `quality-gate`:
+  - `.github/workflows/ci.yml` now runs `npm run -s ops:release-preflight -- --json`.
+  - retained `npm run -s ops:drill-guards` in CI before the preflight gate.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -563,4 +566,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Enforce CI/release preflight parity by migrating `.github/workflows/ci.yml` to `npm run -s ops:release-preflight -- --json` (while preserving `ops:drill-guards`) and adding/adjusting workflow contract assertions accordingly.
+1. Add CI failure triage mapping for `ops:release-preflight -- --json` check IDs so `quality-gate` failures link directly to runbook remediation steps.
