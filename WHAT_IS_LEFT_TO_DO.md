@@ -615,6 +615,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for strict preflight output env controls:
   - README + release runbook now explicitly document `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT` and `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT`.
   - release docs contract now enforces these env control names in both docs.
+- Added docs-contract coverage for shared preflight helper script path:
+  - README + release runbook now explicitly reference `scripts/ci-release-preflight-gate.sh` as CI/release wrapper script.
+  - release docs contract now enforces helper-script path presence and path existence.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -625,4 +628,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for shared helper script path reference (`scripts/ci-release-preflight-gate.sh`) in both README and release runbook.
+1. Add docs-contract coverage for explicit `ops:release-preflight -- --json` command reference in both README and release runbook.

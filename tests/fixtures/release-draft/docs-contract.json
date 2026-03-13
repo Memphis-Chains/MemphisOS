@@ -29,5 +29,8 @@
   "requiredOutputEnvControls": [
     "MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT",
     "MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT"
+  ],
+  "requiredHelperScriptPaths": [
+    "scripts/ci-release-preflight-gate.sh"
   ]
 }
