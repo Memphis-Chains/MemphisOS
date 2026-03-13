@@ -300,6 +300,10 @@ Updated: 2026-03-12
 - Added operator helper command for cognitive report lookup:
   - `npm run -s ops:query-cognitive-reports -- [--json] [--type all|insight|categorize|reflection] [--limit <n>]`
   - script surfaces latest journal report summaries for incident response workflows.
+  - watch mode added for live triage: `--watch [--interval-ms <n>] [--count <n>]`.
+- Added stable schema contracts for cognitive report query output:
+  - fixture contract file: `tests/fixtures/cognitive-report-query/output-contract.json`.
+  - ops regression coverage now enforces top-level/report keysets and error contract stability.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -310,5 +314,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add stable JSON schema contracts (with fixtures) for `ops:query-cognitive-reports` output to prevent parser drift in external automation.
-2. Add a lightweight `ops:query-cognitive-reports --watch` mode for live triage during active incidents.
+1. Add NDJSON output mode for `ops:query-cognitive-reports --watch` to support streaming integrations.
+2. Extend incident export workflow to optionally embed latest cognitive report summaries from `journal`.
