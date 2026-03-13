@@ -14,13 +14,15 @@ const docsToCheck = [
 
 const requiredStrictFixtureReferences = [
   'tests/fixtures/strict-handoff/output-contract.json',
+  'tests/fixtures/strict-handoff/summary.schema.json',
+  'tests/fixtures/strict-handoff/completion-hints.schema.json',
   'tests/fixtures/strict-handoff/failure-preflight.json',
   'tests/fixtures/strict-handoff/failure-export.json',
   'tests/fixtures/strict-handoff/failure-verify.json',
 ] as const;
 
 function extractStrictFixtureReferences(markdown: string): Set<string> {
-  return new Set(markdown.match(/tests\/fixtures\/strict-handoff\/[a-z0-9-]+\.json/g) ?? []);
+  return new Set(markdown.match(/tests\/fixtures\/strict-handoff\/[a-z0-9.-]+\.json/g) ?? []);
 }
 
 describe('strict-handoff docs fixture references', () => {

@@ -264,6 +264,9 @@ Verification must report:
 Operator tooling should consume strict-handoff JSON outputs using the stable contract fixtures:
 
 - summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
+- formal JSON Schemas:
+  - summary output: `tests/fixtures/strict-handoff/summary.schema.json`
+  - completion hints output: `tests/fixtures/strict-handoff/completion-hints.schema.json`
 - failure stage contracts:
   - `tests/fixtures/strict-handoff/failure-preflight.json`
   - `tests/fixtures/strict-handoff/failure-export.json`

@@ -383,6 +383,11 @@ Updated: 2026-03-13
   - incident verification runbook now includes a `jq` completion-hints pipeline with required flag/env guard checks.
   - runbook now includes a TypeScript completion-hints parser snippet aligned with stable key contracts.
   - docs now cover machine ingestion patterns for both strict summary output and completion hints.
+- Added formal JSON Schema artifacts for strict-handoff outputs:
+  - new schema files: `tests/fixtures/strict-handoff/summary.schema.json`, `completion-hints.schema.json`.
+  - strict-handoff output contract fixture now publishes schema paths for external validator/codegen consumers.
+  - new ops regression coverage ensures schema key requirements stay aligned with output-contract fixtures.
+  - README/runbook fixture sections now reference schema paths alongside existing contract fixtures.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -393,4 +398,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add formal JSON Schema files for strict-handoff summary + completion-hints outputs to support external validator/codegen tooling.
+1. Add end-to-end fixture validation examples (Ajv CLI + TypeScript) that consume the new strict-handoff JSON Schema files.
