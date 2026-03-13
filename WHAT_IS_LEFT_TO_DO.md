@@ -411,6 +411,10 @@ Updated: 2026-03-13
   - new fixture contract: `tests/fixtures/strict-handoff/validator-output-contract.json`.
   - ops regression coverage now validates json-mode top-level/check keysets and check-id stability.
   - README/runbook now include json-mode command usage for CI/automation ingestion.
+- Added CI JSON summary visibility for strict-handoff validator:
+  - `quality-gate` now prints `ops:validate-strict-handoff-fixtures -- --json` output before ops artifact regression.
+  - CI step enforces `.ok == true` against machine-readable summary payload.
+  - validator status is now visible in raw workflow logs for quick triage.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -421,4 +425,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a tiny CI summary step that captures and prints `ops:validate-strict-handoff-fixtures --json` output in `quality-gate` logs.
+1. Mirror the strict-handoff validator JSON summary step in `release-draft` workflow logs for release traceability.
