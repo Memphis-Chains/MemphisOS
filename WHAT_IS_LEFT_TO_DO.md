@@ -423,6 +423,14 @@ Updated: 2026-03-13
   - incident runbook now documents additive-vs-breaking evolution rules for `validator-output-contract.json`.
   - policy now explicitly anchors `schemaVersion` bump semantics and stable key/check-id expectations.
   - contract-breaking updates now require synchronized fixture/script/test/runbook edits in one PR.
+- Added release checklist guidance for validator contract schemaVersion bumps:
+  - release runbook now requires explicit release-note migration guidance when validator `schemaVersion` changes.
+  - release-draft workflow now computes validator schemaVersion status vs latest tag and injects it into draft notes.
+  - draft notes now include a deterministic reminder to add migration guidance when schemaVersion changes.
+- Added release-draft automation outputs for validator schema status:
+  - package step now emits `validator_schema_status` (`changed|unchanged|no-baseline`) plus current/previous version fields.
+  - draft workflow summary now surfaces validator schema status/version/baseline metadata for automation parsing.
+  - release signal now supports machine parsing without scanning free-form notes text.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -433,4 +441,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a brief release checklist note to call out validator contract changes (`schemaVersion` bumps) in release notes.
+1. Add an ops artifact regression test that snapshots expected `ops:validate-strict-handoff-fixtures --json` check-id ordering.

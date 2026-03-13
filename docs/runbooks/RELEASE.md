@@ -40,6 +40,7 @@ The workflow performs all release gates automatically:
 
 - verify draft release body and links
 - confirm checksum in draft notes matches uploaded `.sha256` file
+- check validator contract status line in draft notes; if `schemaVersion` changed, add explicit JSON contract change + migration guidance before publish
 - publish draft release when approved
 
 ## 4. Manual Fallback (If Workflow Is Unavailable)
