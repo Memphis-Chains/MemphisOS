@@ -670,6 +670,14 @@ Updated: 2026-03-13
 - Added CI preflight rerun command alignment contract:
   - runbook `rerun gate:` commands are now parsed and compared against a pinned fixture list.
   - README release guidance must contain the same rerun command set, so drift between runbook mappings and README guidance now fails regression.
+- Added offline package artifact validator coverage:
+  - new command: `npm run -s ops:validate-package-artifact [-- --artifact-path <path>] [--json]`.
+  - validator extracts the packed `.tgz`, asserts required package entries, and executes the packaged `memphis` CLI entrypoint offline via a symlinked `node_modules` probe.
+  - `test:ops-artifacts` now includes dedicated regression coverage for packaged artifact layout + CLI smoke validation.
+- Added release-draft version parity fail-closed guards:
+  - workflow now derives package name/version from `package.json` and rejects any `workflow_dispatch` release version that drifts from package metadata.
+  - release packaging now fails if the produced `.tgz` artifact name/version diverges from the expected package slug + version.
+  - `test:ops-artifacts` now includes dedicated workflow contract coverage for version/tag parity guards.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -680,4 +688,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Identify the next non-doc release/ops gap after docs-contract hardening and promote it to the top of the backlog.
+1. Disable `MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON` for CI/release paths unless an explicit test-only override mode is enabled.
