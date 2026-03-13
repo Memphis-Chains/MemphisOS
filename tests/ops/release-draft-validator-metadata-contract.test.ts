@@ -14,6 +14,8 @@ type ReleaseDraftValidatorMetadataContract = {
   releaseNotesMarkers: string[];
   summaryMarkers: string[];
   metadataTopLevelKeys: string[];
+  metadataPreflightSummaryKeys: string[];
+  metadataPreflightGateKeys: string[];
   metadataValidatorSchemaKeys: string[];
   metadataValidatorCheckOrderKeys: string[];
   metadataSchemaPath: string;
@@ -56,6 +58,13 @@ function asStringArray(value: unknown): string[] {
     throw new Error('expected string[] value');
   }
   return value as string[];
+}
+
+function asRecordArray(value: unknown): Record<string, unknown>[] {
+  if (!Array.isArray(value) || value.some((entry) => !entry || typeof entry !== 'object')) {
+    throw new Error('expected object[] value');
+  }
+  return value as Record<string, unknown>[];
 }
 
 function assertJsonPayload(validate: ValidateFunction, payload: unknown, label: string, ajv: Ajv2020): void {
@@ -116,6 +125,16 @@ describe('release-draft validator metadata contract', () => {
 
     expect(Object.keys(examplePayload).sort()).toEqual([...contract.metadataTopLevelKeys].sort());
 
+    const preflightSummary = asRecord(examplePayload.preflightSummary);
+    expect(Object.keys(preflightSummary).sort()).toEqual(
+      [...contract.metadataPreflightSummaryKeys].sort(),
+    );
+    const preflightGates = asRecordArray(preflightSummary.gates);
+    expect(preflightGates.length).toBeGreaterThan(0);
+    expect(Object.keys(preflightGates[0]).sort()).toEqual(
+      [...contract.metadataPreflightGateKeys].sort(),
+    );
+
     const validatorSchema = asRecord(examplePayload.validatorSchema);
     expect(Object.keys(validatorSchema).sort()).toEqual(
       [...contract.metadataValidatorSchemaKeys].sort(),
@@ -151,6 +170,17 @@ describe('release-draft validator metadata contract', () => {
 
     const schemaProperties = asRecord(schema.properties);
     expect(Object.keys(schemaProperties).sort()).toEqual([...contract.metadataTopLevelKeys].sort());
+
+    const preflightSummary = asRecord(schemaProperties.preflightSummary);
+    expect(asStringArray(preflightSummary.required).sort()).toEqual(
+      [...contract.metadataPreflightSummaryKeys].sort(),
+    );
+    const preflightSummaryProperties = asRecord(preflightSummary.properties);
+    const preflightSummaryGates = asRecord(preflightSummaryProperties.gates);
+    const preflightSummaryGateItems = asRecord(preflightSummaryGates.items);
+    expect(asStringArray(preflightSummaryGateItems.required).sort()).toEqual(
+      [...contract.metadataPreflightGateKeys].sort(),
+    );
 
     const validatorSchema = asRecord(schemaProperties.validatorSchema);
     expect(asStringArray(validatorSchema.required).sort()).toEqual(
