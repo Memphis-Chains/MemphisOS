@@ -563,6 +563,10 @@ Updated: 2026-03-13
   - new fixture `tests/fixtures/release-draft/ci-preflight-triage-docs-contract.json` pins gate ids + README/runbook expectations.
   - new ops test `tests/ops/release-preflight-ci-triage-docs-contract.test.ts` enforces explicit runbook anchors and README release reference parity.
   - `test:ops-artifacts` now includes the triage docs contract gate.
+- Added CI regression coverage for forced preflight failure remediation URL mapping:
+  - extracted quality-gate preflight logic into shared script `scripts/ci-release-preflight-gate.sh`.
+  - new ops test `tests/ops/ci-release-preflight-gate.test.ts` forces gate failures and asserts emitted remediation URLs for both gate-id and fallback triage-map anchors.
+  - `test:ops-artifacts` now includes the CI preflight gate regression test.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -573,4 +577,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add CI regression coverage that exercises a forced preflight gate failure and asserts `quality-gate` emits the expected runbook remediation URL for the failing gate id.
+1. Deduplicate release-draft preflight execution by reusing `scripts/ci-release-preflight-gate.sh` semantics (or a shared helper) while preserving release-draft-specific output wiring (`check_order_status`, `check_ids`) and contract tests.

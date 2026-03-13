@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest';
 
 type CiPreflightTriageContract = {
   gateIds: string[];
-  ciRequiredSnippets: string[];
+  ciWorkflowRequiredSnippets: string[];
+  ciGateScriptPath: string;
+  ciGateScriptRequiredSnippets: string[];
   runbookSectionHeading: string;
 };
 
@@ -41,11 +43,19 @@ describe('release preflight CI triage mapping contract', () => {
     expect(gateIds).toEqual(contract.gateIds);
   });
 
-  it('keeps .github/workflows/ci.yml triage snippets required by the fixture', () => {
+  it('keeps .github/workflows/ci.yml wired to the shared preflight gate script', () => {
     const ciWorkflow = readFileSync(path.join(repoRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
 
-    for (const snippet of contract.ciRequiredSnippets) {
+    for (const snippet of contract.ciWorkflowRequiredSnippets) {
       expect(ciWorkflow).toContain(snippet);
+    }
+  });
+
+  it('keeps shared CI preflight gate script triage snippets required by the fixture', () => {
+    const ciGateScript = readFileSync(path.join(repoRoot, contract.ciGateScriptPath), 'utf8');
+
+    for (const snippet of contract.ciGateScriptRequiredSnippets) {
+      expect(ciGateScript).toContain(snippet);
     }
   });
 
