@@ -277,7 +277,7 @@ Validator JSON contract versioning policy:
 
 - `schemaVersion` in `validator-output-contract.json` increments only for breaking changes.
 - Additive fields/check IDs are allowed within the same `schemaVersion`; automation should ignore unknown keys.
-- Existing keys (`schemaVersion`, `ok`, `checks`, `error`, `errors`) and existing check IDs must remain stable for the current schema version.
+- Existing keys (`schemaVersion`, `ok`, `checks`, `error`, `errors`) plus existing check IDs/order must remain stable for the current schema version.
 - Breaking changes must update: contract fixture, validator script, regression tests, and this runbook section in the same PR.
 
 Stable summary top-level keys:
