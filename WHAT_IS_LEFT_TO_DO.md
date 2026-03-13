@@ -588,6 +588,9 @@ Updated: 2026-03-13
 - Added failure-path preflight summary acceptance regression:
   - new fixture `validator-metadata-preflight-failure-example.json` captures a valid `preflightSummary.ok=false` payload with failed gate details.
   - validator ops test now asserts this failure-path payload still passes schema validation when shape contracts are intact.
+- Added contract parity checks for success/failure preflight metadata examples:
+  - release metadata contract fixture now tracks both success and failure example paths.
+  - contract tests now enforce top-level + nested gate key parity across both examples and validate both against the schema.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -598,4 +601,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add contract-fixture parity checks for the preflight failure example so top-level and nested gate keys are pinned exactly like the success-path example.
+1. Add docs/reference contract coverage to ensure release runbook/README mention both success and failure preflight metadata fixtures for operator handoff context.

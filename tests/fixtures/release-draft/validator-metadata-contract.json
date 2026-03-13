@@ -80,6 +80,7 @@
   ],
   "metadataSchemaPath": "tests/fixtures/release-draft/validator-metadata.schema.json",
   "metadataExamplePath": "tests/fixtures/release-draft/validator-metadata-example.json",
+  "metadataFailureExamplePath": "tests/fixtures/release-draft/validator-metadata-preflight-failure-example.json",
   "metadataValidatorOutputContractPath": "tests/fixtures/release-draft/validator-metadata-validator-output-contract.json",
   "metadataValidationCommandId": "ops:validate-release-draft-validator-metadata",
   "preflightCommand": "./scripts/ci-release-preflight-gate.sh",
