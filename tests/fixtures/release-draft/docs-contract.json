@@ -58,5 +58,8 @@
   ],
   "requiredReleaseDirCommands": [
     "mkdir -p release-dist"
+  ],
+  "requiredStrictFixtureValidationCommands": [
+    "npm run -s ops:validate-strict-handoff-fixtures"
   ]
 }

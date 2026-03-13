@@ -642,6 +642,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for manual fallback release-dir preparation command:
   - README now includes explicit fallback `mkdir -p release-dist` command reference.
   - release docs contract now enforces release-dir prep command references in README + runbook guidance.
+- Added docs-contract coverage for strict fixture validation fallback command:
+  - release docs contract now requires `npm run -s ops:validate-strict-handoff-fixtures` in README + runbook fallback command guidance.
+  - regression now fails if strict fixture validation command references drift.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -652,4 +655,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for manual fallback strict fixture validation command (`npm run -s ops:validate-strict-handoff-fixtures`) in README/runbook release guidance.
+1. Add docs-contract coverage for strict fixture gate rerun command reference (`npm run -s ops:validate-strict-handoff-fixtures -- --json`) in runbook/README guidance.
