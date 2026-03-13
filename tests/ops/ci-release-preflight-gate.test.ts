@@ -8,8 +8,28 @@ import { describe, expect, it } from 'vitest';
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..', '..');
+const strictValidatorOutputContractPath = path.resolve(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'strict-handoff',
+  'validator-output-contract.json',
+);
+const releaseGateOutputContractPath = path.resolve(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'release-draft',
+  'ci-release-preflight-gate-output-contract.json',
+);
 
 type GateOverride = { id: string; command: string; args: string[] };
+type StrictValidatorOutputContract = { checkIds: string[] };
+type ReleaseGateOutputContract = {
+  requiredOutputKeys: string[];
+  strictGateIds: string[];
+  strictCheckOrderStatus: string;
+};
 
 function runCiPreflightGateWithOverride(
   overrideGatesRaw: string,
@@ -139,5 +159,46 @@ describe('ci release-preflight gate helper script', () => {
     expect(`${result.stdout}${result.stderr}`).toContain(
       'strict-handoff gate outputs were not emitted by ops:release-preflight',
     );
+  });
+
+  it('emits stable strict output keys in release-output mode when strict gate runs', () => {
+    const override: GateOverride[] = [
+      {
+        id: 'strictHandoffJsonGate',
+        command: 'bash',
+        args: ['./scripts/strict-handoff-validator-json-gate.sh'],
+      },
+    ];
+    const { result, githubOutputPath } = runCiPreflightGateWithOverride(
+      JSON.stringify(override),
+      'forced-sha-5',
+      {
+        MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: '1',
+        MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: '1',
+      },
+    );
+
+    expect(result.status).toBe(0);
+    const output = parseGithubOutput(readFileSync(githubOutputPath, 'utf8'));
+    const strictValidatorContract = JSON.parse(
+      readFileSync(strictValidatorOutputContractPath, 'utf8'),
+    ) as StrictValidatorOutputContract;
+    const releaseGateContract = JSON.parse(
+      readFileSync(releaseGateOutputContractPath, 'utf8'),
+    ) as ReleaseGateOutputContract;
+
+    for (const key of releaseGateContract.requiredOutputKeys) {
+      expect(Object.prototype.hasOwnProperty.call(output, key)).toBe(true);
+    }
+    expect(output.preflight_gate_ids).toBe(JSON.stringify(releaseGateContract.strictGateIds));
+    expect(output.check_order_status).toBe(releaseGateContract.strictCheckOrderStatus);
+    expect(output.check_ids).toBe(JSON.stringify(strictValidatorContract.checkIds));
+
+    const summary = JSON.parse(output.preflight_summary_json) as {
+      ok: boolean;
+      gates: Array<{ id: string }>;
+    };
+    expect(summary.ok).toBe(true);
+    expect(summary.gates.map((gate) => gate.id)).toEqual(releaseGateContract.strictGateIds);
   });
 });
