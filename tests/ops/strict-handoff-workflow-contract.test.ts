@@ -7,20 +7,23 @@ import { describe, expect, it } from 'vitest';
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..', '..');
 
-const workflows = [
-  path.join('.github', 'workflows', 'ci.yml'),
-  path.join('.github', 'workflows', 'release-draft.yml'),
-] as const;
-
-const requiredSnippets = [
-  './scripts/strict-handoff-validator-json-gate.sh',
+const workflowContracts = [
+  {
+    workflowRelativePath: path.join('.github', 'workflows', 'ci.yml'),
+    requiredSnippets: ['./scripts/strict-handoff-validator-json-gate.sh'],
+  },
+  {
+    workflowRelativePath: path.join('.github', 'workflows', 'release-draft.yml'),
+    requiredSnippets: ['npm run -s ops:release-preflight -- --json'],
+  },
 ] as const;
 
 const releaseDraftRequiredSnippets = [
-  'id: validator_json',
   'MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: "1"',
   'validator_check_order_status',
   'validator_check_ids',
+  `grep -q '^check_order_status=' "$GITHUB_OUTPUT"`,
+  `grep -q '^check_ids=' "$GITHUB_OUTPUT"`,
 ] as const;
 
 const gateScriptRequiredSnippets = [
@@ -34,8 +37,8 @@ const gateScriptRequiredSnippets = [
 ] as const;
 
 describe('strict-handoff workflow contracts', () => {
-  for (const workflowRelativePath of workflows) {
-    it(`${workflowRelativePath} enforces validator JSON check-id ordering`, () => {
+  for (const { workflowRelativePath, requiredSnippets } of workflowContracts) {
+    it(`${workflowRelativePath} keeps strict-handoff gate contract wiring`, () => {
       const workflow = readFileSync(path.join(repoRoot, workflowRelativePath), 'utf8');
 
       for (const snippet of requiredSnippets) {
@@ -53,6 +56,8 @@ describe('strict-handoff workflow contracts', () => {
     for (const snippet of releaseDraftRequiredSnippets) {
       expect(workflow).toContain(snippet);
     }
+    expect(workflow).toMatch(/\$\{\{\s*steps\.[A-Za-z0-9_-]+\.outputs\.check_order_status\s*\}\}/);
+    expect(workflow).toMatch(/\$\{\{\s*steps\.[A-Za-z0-9_-]+\.outputs\.check_ids\s*\}\}/);
   });
 
   it('shared gate script enforces validator success, check-id order, and optional outputs', () => {

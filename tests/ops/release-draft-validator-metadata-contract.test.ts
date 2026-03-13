@@ -20,6 +20,8 @@ type ReleaseDraftValidatorMetadataContract = {
   metadataExamplePath: string;
   metadataValidatorOutputContractPath: string;
   metadataValidationCommandId: string;
+  preflightCommand: string;
+  preflightMarkers: string[];
   metadataValidatorSchemaStatusValues: string[];
   metadataValidatorCheckOrderStatusValues: string[];
 };
@@ -77,7 +79,12 @@ describe('release-draft validator metadata contract', () => {
     expect(workflow).toContain('schemaVersion: 1,');
     expect(workflow).toContain('validatorSchema: {');
     expect(workflow).toContain('validatorCheckOrder: {');
+    expect(workflow).toContain(contract.preflightCommand);
     expect(workflow).toContain(contract.metadataValidationCommandId);
+
+    for (const marker of contract.preflightMarkers) {
+      expect(workflow).toContain(marker);
+    }
 
     for (const key of contract.packageOutputKeys) {
       expect(workflow).toContain(`echo "${key}=`);
