@@ -51,6 +51,48 @@ memphis apps dashboard <id> --apply
 
 Planning is the default. Real execution requires `--apply`.
 
+## Vault-Backed Secrets
+
+Managed-app actions can broker vault secrets into subprocess env vars or managed files:
+
+- `vaultEnv`: map env var name to Memphis vault key
+- `vaultFiles`: map target file path template to a vault key or `{ key, mode }`
+
+Example:
+
+```json
+{
+  "install": {
+    "summary": "Run installer with a vault-backed token",
+    "steps": ["app install --token \"$APP_TOKEN\""],
+    "vaultEnv": {
+      "APP_TOKEN": "APP_TOKEN"
+    },
+    "vaultFiles": {
+      "${APP_STATE_DIR}/license.key": {
+        "key": "APP_LICENSE_KEY",
+        "mode": "600"
+      }
+    }
+  }
+}
+```
+
+Operator flow:
+
+```bash
+npm run -s cli -- vault init --passphrase 'strong-passphrase' --recovery-question 'pet' --recovery-answer 'nori'
+npm run -s cli -- vault add --key APP_TOKEN --value 'secret-token'
+npm run -s cli -- vault add --key APP_LICENSE_KEY --value 'secret-license'
+npm run -s cli -- apps install vendor-app --file path/to/vendor.manifest.json --apply --json
+```
+
+Behavior:
+
+- Directly exported env vars still override `vaultEnv` lookups for one-off debugging.
+- `vaultFiles` are materialized only inside the managed app path before action execution.
+- Plan and JSON output report binding status but never print secret values.
+
 ## Example Manifest
 
 A safe example manifest is included at:

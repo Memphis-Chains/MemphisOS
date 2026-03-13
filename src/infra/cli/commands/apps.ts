@@ -21,7 +21,7 @@ function printAppsHelp(json: boolean): void {
       usage:
         'memphis apps list|show <id>|plan <id> [--action <name>] | run <id> --action <name> [--dry-run|--apply] [--file <manifest.json>] [--json]',
       notes:
-        'Lifecycle aliases: install|start|stop|restart|status|doctor|dashboard <id> [--dry-run|--apply] [--file <manifest.json>]',
+        'Lifecycle aliases: install|start|stop|restart|status|doctor|dashboard <id> [--dry-run|--apply] [--file <manifest.json>] ; actions may resolve vault-backed env/file bindings via manifest vaultEnv and vaultFiles entries',
     },
     json,
   );
@@ -77,6 +77,21 @@ function printPlanHuman(plan: ReturnType<typeof planManagedAppAction> | ReturnTy
   for (const status of plan.requirements) {
     const color = status.status === 'pass' ? chalk.green : status.status === 'warn' ? chalk.yellow : chalk.red;
     console.log(`  ${color(status.status.toUpperCase())} ${status.id} :: ${status.detail}`);
+  }
+  if (plan.secretBindings.length > 0) {
+    console.log('secretBindings:');
+    for (const binding of plan.secretBindings) {
+      const color = binding.ok ? chalk.green : chalk.red;
+      const target =
+        binding.target === 'file'
+          ? binding.path ?? '(file)'
+          : binding.envName;
+      console.log(
+        `  ${color(binding.status.toUpperCase())} ${target} <= ${binding.source}${
+          binding.vaultKey ? ` (${binding.vaultKey})` : ''
+        } :: ${binding.detail}`,
+      );
+    }
   }
   console.log('steps:');
   plan.steps.forEach((step, index) => console.log(`  ${index + 1}. ${step}`));

@@ -1,9 +1,11 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { vaultEncrypt } from '../../src/infra/storage/rust-vault-adapter.js';
+import { saveVaultEntry } from '../../src/infra/storage/vault-entry-store.js';
 import { runCli } from '../helpers/cli.js';
 
 describe('CLI apps', () => {
@@ -125,5 +127,155 @@ describe('CLI apps', () => {
     expect(data.results[0]?.stdout).toContain('cli-ready');
     expect(data.installedRecord?.installed).toBe(true);
     expect(data.installedRecord?.lastAction).toBe('doctor');
+  });
+
+  it('executes a file-backed action with a vault-backed env binding', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-app-vault-'));
+    const bridgePath = join(dir, 'mock-bridge.cjs');
+    const entriesPath = join(dir, 'vault-entries.json');
+    const manifestPath = join(dir, 'demo.json');
+
+    writeFileSync(
+      bridgePath,
+      `module.exports = {
+  vault_init: () => JSON.stringify({ ok: true, data: { version: 1, did: 'did:memphis:cli-apps' } }),
+  vault_encrypt: (key, plaintext) => JSON.stringify({ ok: true, data: { key, encrypted: 'enc:' + plaintext, iv: 'iv' } }),
+  vault_decrypt: (entryJson) => {
+    const e = JSON.parse(entryJson);
+    return JSON.stringify({ ok: true, data: { plaintext: String(e.encrypted).replace('enc:', '') } });
+  }
+};`,
+      'utf8',
+    );
+
+    writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'demo-app',
+          name: 'Demo App',
+          description: 'demo app with vault-backed env binding',
+          actions: {
+            install: {
+              summary: 'install demo app',
+              steps: ['test "$DEMO_TOKEN" = "secret-demo" && printf cli-vault-ready'],
+              vaultEnv: {
+                DEMO_TOKEN: 'DEMO_TOKEN',
+              },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const env = {
+      MEMPHIS_DATA_DIR: dir,
+      MEMPHIS_VAULT_ENTRIES_PATH: entriesPath,
+      MEMPHIS_VAULT_PEPPER: 'very-secure-pepper',
+      RUST_CHAIN_ENABLED: 'true',
+      RUST_CHAIN_BRIDGE_PATH: bridgePath,
+    };
+    saveVaultEntry(vaultEncrypt('DEMO_TOKEN', 'secret-demo', env), env);
+
+    const out = await runCli(['apps', 'install', 'demo-app', '--file', manifestPath, '--apply', '--json'], {
+      env,
+    });
+
+    const data = JSON.parse(out) as {
+      executed: boolean;
+      secretBindings: Array<{ envName: string; source: string; ok: boolean }>;
+      results: Array<{ stdout: string }>;
+    };
+    expect(data.executed).toBe(true);
+    expect(data.secretBindings).toEqual([
+      expect.objectContaining({
+        envName: 'DEMO_TOKEN',
+        source: 'vault',
+        ok: true,
+      }),
+    ]);
+    expect(data.results[0]?.stdout).toContain('cli-vault-ready');
+  });
+
+  it('executes a file-backed action with a vault-backed file binding', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-app-vault-file-'));
+    const bridgePath = join(dir, 'mock-bridge.cjs');
+    const entriesPath = join(dir, 'vault-entries.json');
+    const manifestPath = join(dir, 'demo.json');
+
+    writeFileSync(
+      bridgePath,
+      `module.exports = {
+  vault_init: () => JSON.stringify({ ok: true, data: { version: 1, did: 'did:memphis:cli-apps-file' } }),
+  vault_encrypt: (key, plaintext) => JSON.stringify({ ok: true, data: { key, encrypted: 'enc:' + plaintext, iv: 'iv' } }),
+  vault_decrypt: (entryJson) => {
+    const e = JSON.parse(entryJson);
+    return JSON.stringify({ ok: true, data: { plaintext: String(e.encrypted).replace('enc:', '') } });
+  }
+};`,
+      'utf8',
+    );
+
+    writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'demo-app',
+          name: 'Demo App',
+          description: 'demo app with vault-backed file binding',
+          actions: {
+            install: {
+              summary: 'install demo app',
+              steps: ['test "$(cat "$APP_STATE_DIR/token.txt")" = "secret-file-demo" && printf cli-vault-file-ready'],
+              vaultFiles: {
+                '${APP_STATE_DIR}/token.txt': {
+                  key: 'DEMO_FILE_TOKEN',
+                  mode: '600',
+                },
+              },
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const env = {
+      MEMPHIS_DATA_DIR: dir,
+      MEMPHIS_VAULT_ENTRIES_PATH: entriesPath,
+      MEMPHIS_VAULT_PEPPER: 'very-secure-pepper',
+      RUST_CHAIN_ENABLED: 'true',
+      RUST_CHAIN_BRIDGE_PATH: bridgePath,
+    };
+    saveVaultEntry(vaultEncrypt('DEMO_FILE_TOKEN', 'secret-file-demo', env), env);
+
+    const out = await runCli(['apps', 'install', 'demo-app', '--file', manifestPath, '--apply', '--json'], {
+      env,
+    });
+
+    const data = JSON.parse(out) as {
+      executed: boolean;
+      secretBindings: Array<{ target: string; path?: string; source: string; ok: boolean }>;
+      results: Array<{ stdout: string }>;
+      paths: { state: string };
+    };
+    expect(data.executed).toBe(true);
+    expect(data.secretBindings).toEqual([
+      expect.objectContaining({
+        target: 'file',
+        path: join(dir, 'apps', 'demo-app', 'state', 'token.txt'),
+        source: 'vault',
+        ok: true,
+      }),
+    ]);
+    expect(data.results[0]?.stdout).toContain('cli-vault-file-ready');
+    expect(readFileSync(join(data.paths.state, 'token.txt'), 'utf8')).toBe('secret-file-demo');
   });
 });
