@@ -654,6 +654,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for release-tag push command:
   - README now includes explicit fallback `git push origin vX.Y.Z` command reference.
   - release docs contract now enforces release-tag push command references in README + runbook guidance.
+- Added docs-contract coverage for fallback ops-artifacts command:
+  - release docs contract now requires `npm run -s test:ops-artifacts` in README + runbook fallback command guidance.
+  - regression now fails if ops-artifacts fallback command references drift.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -664,4 +667,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for fallback command token `npm run -s test:ops-artifacts` in README/runbook release guidance.
+1. Add docs-contract coverage for fallback command token `npm run -s test:chaos` in README/runbook release guidance.
