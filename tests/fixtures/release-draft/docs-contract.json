@@ -47,5 +47,9 @@
   ],
   "requiredChecksumCommands": [
     "sha256sum release-dist/memphis-chains-memphisos-<version>.tgz"
+  ],
+  "requiredTagPushCommands": [
+    "git tag -a vX.Y.Z -m \"MemphisOS vX.Y.Z\"",
+    "git push origin main"
   ]
 }
