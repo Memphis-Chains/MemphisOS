@@ -64,5 +64,9 @@
   ],
   "requiredStrictFixtureRerunCommands": [
     "npm run -s ops:validate-strict-handoff-fixtures -- --json"
+  ],
+  "requiredStrictJsonGateScriptMarkers": [
+    "preflight strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`",
+    "fallback strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`"
   ]
 }

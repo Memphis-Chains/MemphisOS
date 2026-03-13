@@ -234,6 +234,7 @@ Preflight gate (single workflow step):
 - shared preflight helper output keys: `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`
 - strict output-mode env controls: `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT=1`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`
 - CI/release wrapper script: `scripts/ci-release-preflight-gate.sh`
+- preflight strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 - CI/release preflight failures map by gate id to runbook anchors: `docs/runbooks/RELEASE.md#ci-preflight-gate-<gate-id>`
 - full triage map anchor: `docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map`
 - fallback: run the manual gate list below when you need per-step diagnostics
@@ -251,6 +252,7 @@ npm run -s test:chaos
 npm run -s test:rust
 ```
 - strict fixture gate rerun command: `npm run -s ops:validate-strict-handoff-fixtures -- --json`
+- fallback strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 - fallback pack commands: `npm pack --dry-run`, `npm pack --pack-destination release-dist`
 - fallback release-dir prep command: `mkdir -p release-dist`
 - fallback artifact checksum command: `sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`
