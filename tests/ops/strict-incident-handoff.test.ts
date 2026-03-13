@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash, generateKeyPairSync, sign as signDetached } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -172,8 +172,39 @@ describe('strict incident handoff script', () => {
     expect(parsed.profiles).toEqual({ export: 'strict-handoff', verify: 'trust-root-strict' });
     expect(parsed.requiredFlags).toContain('--public-key-bundle-path');
     expect(parsed.optionalBooleanFlags).toContain('--json');
+    expect(parsed.optionalBooleanFlags).toContain('--preflight-only');
     expect(parsed.optionalBooleanFlags).toContain('--completion-hints');
     expect(parsed.policyEnvVars).toContain('MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH');
+  });
+
+  it('supports preflight-only mode for readiness checks without export/verify', () => {
+    const dir = makeTempDir('memphis-strict-handoff-preflight-only-');
+    const keyId = 'strict-preflight-only-key-v1';
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const { signingKeyPath, publicKeyBundlePath, trustRootPath } = writeStrictKeyFixtures(dir, keyId);
+
+    const result = runStrictHandoff([
+      '--preflight-only',
+      '--out',
+      bundlePath,
+      '--signing-key-path',
+      signingKeyPath,
+      '--signing-key-id',
+      keyId,
+      '--public-key-bundle-path',
+      publicKeyBundlePath,
+      '--trust-root-path',
+      trustRootPath,
+      '--json',
+    ]);
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout) as HandoffSummary;
+    expect(parsed.ok).toBe(true);
+    expect(parsed.stage).toBe('preflight');
+    expect(parsed.artifacts.bundlePath).toBeNull();
+    expect(parsed.artifacts.manifestPath).toBeNull();
+    expect(parsed.errors).toEqual([]);
+    expect(existsSync(bundlePath)).toBe(false);
   });
 
   it('runs strict export+verify flow and returns pass summary in json mode', async () => {

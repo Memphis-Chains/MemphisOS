@@ -90,6 +90,7 @@ const VALUE_FLAGS = new Set([
 const BOOLEAN_FLAGS = new Set([
   '--json',
   '--completion-hints',
+  '--preflight-only',
   '--help',
   '-h',
   '--require-encrypted-artifacts',
@@ -134,6 +135,7 @@ const OPTIONAL_BOOLEAN_FLAGS = [
   '--require-encrypted-artifacts',
   '--no-redact',
   '--include-cognitive-summaries',
+  '--preflight-only',
   '--json',
   '--completion-hints',
 ];
@@ -174,6 +176,7 @@ function renderHelp(): string {
     '  --decryption-passphrase <value>',
     '  --chain-event-retry-count <n>',
     '  --chain-event-retry-backoff-ms <n>',
+    '  --preflight-only               Validate strict prerequisites and exit without export/verify',
     '  --completion-hints',
     '  --json',
     '  -h, --help',
@@ -330,6 +333,10 @@ function buildSummary(init: {
 
 function printHumanSummary(summary: HandoffSummary): void {
   if (summary.ok) {
+    if (summary.stage === 'preflight') {
+      console.log('[PASS] strict incident handoff preflight checks passed');
+      return;
+    }
     console.log('[PASS] strict incident handoff complete');
     console.log(`bundle=${summary.artifacts.bundlePath ?? 'unknown'}`);
     console.log(`manifest=${summary.artifacts.manifestPath ?? 'unknown'}`);
@@ -535,6 +542,15 @@ function main(): never {
         stage: 'preflight',
         error: 'strict handoff preflight failed',
         errors: preflightErrors,
+      }),
+      json,
+    );
+  }
+  if (hasFlag('--preflight-only')) {
+    return emitSummary(
+      buildSummary({
+        ok: true,
+        stage: 'preflight',
       }),
       json,
     );
