@@ -567,6 +567,10 @@ Updated: 2026-03-13
   - extracted quality-gate preflight logic into shared script `scripts/ci-release-preflight-gate.sh`.
   - new ops test `tests/ops/ci-release-preflight-gate.test.ts` forces gate failures and asserts emitted remediation URLs for both gate-id and fallback triage-map anchors.
   - `test:ops-artifacts` now includes the CI preflight gate regression test.
+- Deduplicated release-draft preflight execution onto shared CI helper semantics:
+  - `.github/workflows/release-draft.yml` now calls `./scripts/ci-release-preflight-gate.sh` with release-specific output mode enabled.
+  - shared script now supports release output emission (`preflight_summary_json`, `preflight_gate_ids`) and strict output wiring checks (`check_order_status`, `check_ids`) when requested.
+  - workflow/metadata contract coverage updated to enforce shared-helper usage in both CI and release-draft paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -577,4 +581,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Deduplicate release-draft preflight execution by reusing `scripts/ci-release-preflight-gate.sh` semantics (or a shared helper) while preserving release-draft-specific output wiring (`check_order_status`, `check_ids`) and contract tests.
+1. Add release-draft regression coverage that executes `scripts/ci-release-preflight-gate.sh` in release-output mode and asserts `preflight_gate_ids` plus strict output keys are emitted with stable contracts.

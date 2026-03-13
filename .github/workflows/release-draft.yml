@@ -72,34 +72,8 @@ jobs:
         id: validator_json
         env:
           MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: "1"
-        run: |
-          set -euo pipefail
-          PREFLIGHT_SUMMARY_JSON="$(npm run -s ops:release-preflight -- --json)"
-          printf '%s\n' "$PREFLIGHT_SUMMARY_JSON"
-          PREFLIGHT_GATE_IDS="$(jq -c '.gates | map(.id)' <<<"$PREFLIGHT_SUMMARY_JSON")"
-          if [[ "$PREFLIGHT_GATE_IDS" == "[]" ]]; then
-            echo "::error::ops:release-preflight returned an empty gate list"
-            exit 1
-          fi
-          if ! grep -q '^check_order_status=' "$GITHUB_OUTPUT" || ! grep -q '^check_ids=' "$GITHUB_OUTPUT"; then
-            echo "::error::strict-handoff gate outputs were not emitted by ops:release-preflight"
-            exit 1
-          fi
-          {
-            echo "preflight_summary_json<<EOF"
-            printf '%s\n' "$PREFLIGHT_SUMMARY_JSON"
-            echo "EOF"
-            echo "preflight_gate_ids=$PREFLIGHT_GATE_IDS"
-          } >> "$GITHUB_OUTPUT"
-          {
-            echo "## Release Preflight Gate"
-            echo
-            echo '```json'
-            printf '%s\n' "$PREFLIGHT_SUMMARY_JSON"
-            echo '```'
-            echo
-            echo "- deterministic gate ids: \`$PREFLIGHT_GATE_IDS\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: "1"
+        run: ./scripts/ci-release-preflight-gate.sh
 
       - name: Build package artifact
         id: package

@@ -9,12 +9,14 @@ mkdir -p "$TMP_ROOT"
 
 SUMMARY_JSON="$TMP_ROOT/release-preflight-summary.json"
 GATE_IDS_FILE="$TMP_ROOT/release-preflight-gate-ids.txt"
+GATE_IDS_JSON_FILE="$TMP_ROOT/release-preflight-gate-ids.json"
 FAILED_GATE_ID_FILE="$TMP_ROOT/release-preflight-failed-gate-id.txt"
 HAS_GATES_FILE="$TMP_ROOT/release-preflight-has-gates.txt"
 PARSE_ERROR_FILE="$TMP_ROOT/release-preflight-parse-error.log"
 STEP_SUMMARY_PATH="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
 : >"$GATE_IDS_FILE"
+: >"$GATE_IDS_JSON_FILE"
 : >"$FAILED_GATE_ID_FILE"
 printf '0\n' >"$HAS_GATES_FILE"
 : >"$PARSE_ERROR_FILE"
@@ -43,11 +45,13 @@ else
     const failedGateId =
       typeof failedGate?.id === 'string' ? failedGate.id.trim() : '';
     fs.writeFileSync(process.argv[2], gateIds.length > 0 ? gateIds.join('\n') + '\n' : '');
-    fs.writeFileSync(process.argv[3], failedGateId.length > 0 ? failedGateId + '\n' : '');
-    fs.writeFileSync(process.argv[4], gates.length > 0 ? '1\n' : '0\n');
+    fs.writeFileSync(process.argv[3], JSON.stringify(gateIds));
+    fs.writeFileSync(process.argv[4], failedGateId.length > 0 ? failedGateId + '\n' : '');
+    fs.writeFileSync(process.argv[5], gates.length > 0 ? '1\n' : '0\n');
   " \
     "$SUMMARY_JSON" \
     "$GATE_IDS_FILE" \
+    "$GATE_IDS_JSON_FILE" \
     "$FAILED_GATE_ID_FILE" \
     "$HAS_GATES_FILE" \
     2>"$PARSE_ERROR_FILE"
@@ -136,4 +140,29 @@ fi
 if [[ "$HAS_GATES" != '1' ]]; then
   echo '::error::release preflight emitted empty gates list'
   exit 1
+fi
+
+if [[ "${MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT:-}" == "1" ]]; then
+  if [[ -z "${GITHUB_OUTPUT:-}" ]]; then
+    echo '::error::MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT=1 requires GITHUB_OUTPUT'
+    exit 1
+  fi
+
+  PREFLIGHT_GATE_IDS_JSON="$(tr -d '\n' <"$GATE_IDS_JSON_FILE")"
+  if [[ -z "$PREFLIGHT_GATE_IDS_JSON" ]]; then
+    PREFLIGHT_GATE_IDS_JSON='[]'
+  fi
+  {
+    echo "preflight_summary_json<<EOF"
+    cat "$SUMMARY_JSON"
+    echo "EOF"
+    echo "preflight_gate_ids=$PREFLIGHT_GATE_IDS_JSON"
+  } >> "$GITHUB_OUTPUT"
+
+  if [[ "${MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT:-}" == "1" ]]; then
+    if ! grep -q '^check_order_status=' "$GITHUB_OUTPUT" || ! grep -q '^check_ids=' "$GITHUB_OUTPUT"; then
+      echo '::error::strict-handoff gate outputs were not emitted by ops:release-preflight'
+      exit 1
+    fi
+  fi
 fi
