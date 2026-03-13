@@ -358,6 +358,65 @@ export function parseStrictHandoffSummary(rawJson: string): StrictHandoffSummary
 }
 ```
 
+Example `jq` parser for completion hints (`--completion-hints` contract):
+
+```bash
+npm run -s ops:strict-incident-handoff -- --completion-hints \
+| jq -e '
+  .schemaVersion == 1 and
+  .command == "ops:strict-incident-handoff" and
+  (.requiredFlags | index("--public-key-bundle-path") != null) and
+  (.policyEnvVars | index("MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH") != null)
+' \
+| jq '{
+  command,
+  profiles,
+  requiredFlags,
+  requiredSigningKeyFlags,
+  optionalValueFlags,
+  optionalBooleanFlags,
+  policyEnvVars
+}'
+```
+
+Example TypeScript parser for completion hints:
+
+```ts
+type StrictHandoffCompletionHints = {
+  schemaVersion: number;
+  command: 'ops:strict-incident-handoff';
+  profiles: { export: string; verify: string };
+  requiredFlags: string[];
+  requiredSigningKeyFlags: string[];
+  optionalValueFlags: string[];
+  optionalBooleanFlags: string[];
+  policyEnvVars: string[];
+};
+
+const REQUIRED_COMPLETION_HINT_KEYS = [
+  'schemaVersion',
+  'command',
+  'profiles',
+  'requiredFlags',
+  'requiredSigningKeyFlags',
+  'optionalValueFlags',
+  'optionalBooleanFlags',
+  'policyEnvVars',
+] as const;
+
+export function parseStrictHandoffCompletionHints(rawJson: string): StrictHandoffCompletionHints {
+  const parsed = JSON.parse(rawJson) as Record<string, unknown>;
+  for (const key of REQUIRED_COMPLETION_HINT_KEYS) {
+    if (!(key in parsed)) throw new Error(`strict-handoff completion hints missing key: ${key}`);
+  }
+  if (parsed.schemaVersion !== 1) throw new Error('unsupported completion-hints schemaVersion');
+  if (parsed.command !== 'ops:strict-incident-handoff') {
+    throw new Error('unexpected completion-hints command value');
+  }
+  return parsed as StrictHandoffCompletionHints;
+}
+```
+
 ## 5. Handoff Package
 
 Attach these artifacts to incident records:
