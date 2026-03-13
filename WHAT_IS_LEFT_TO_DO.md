@@ -651,6 +651,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for strict JSON gate script in preflight + fallback guidance:
   - README and release runbook now include explicit preflight and fallback markers for `./scripts/strict-handoff-validator-json-gate.sh`.
   - release docs contract now enforces both markers in both operator-facing docs.
+- Added docs-contract coverage for release-tag push command:
+  - README now includes explicit fallback `git push origin vX.Y.Z` command reference.
+  - release docs contract now enforces release-tag push command references in README + runbook guidance.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -661,4 +664,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for manual fallback release tag push command `git push origin vX.Y.Z` in runbook/README release guidance.
+1. Add docs-contract coverage for fallback command token `npm run -s test:ops-artifacts` in README/runbook release guidance.
