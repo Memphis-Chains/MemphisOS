@@ -4,7 +4,7 @@ import { InsightGenerator } from '../../src/cognitive/insight-generator.js';
 import { ModelA_ConsciousCapture } from '../../src/cognitive/model-a.js';
 import { ModelB_InferredDecisions } from '../../src/cognitive/model-b.js';
 import { ModelC_PredictivePatterns } from '../../src/cognitive/model-c.js';
-import { ModelD_CollectiveCoordination } from '../../src/cognitive/model-d.js';
+import { AgentCoordinator, ModelD_CollectiveCoordination } from '../../src/cognitive/model-d.js';
 import { ModelE_MetaCognitiveReflection } from '../../src/cognitive/model-e.js';
 import { ProactiveAssistant } from '../../src/cognitive/proactive-assistant.js';
 import type { IStore } from '../../src/cognitive/store.js';
@@ -105,5 +105,39 @@ describe('Cognitive chain integration', () => {
     expect(chains).toContain('insights');
     expect(chains).toContain('proactive');
     expect(store.append).toHaveBeenCalled();
+  });
+
+  it('keeps proposal flow non-blocking when coordinator broadcast delivery partially fails', async () => {
+    const broadcaster = {
+      broadcastProposal: vi.fn().mockImplementation(async ({ to }: { to: { id: string } }) => {
+        if (to.id === 'a3') {
+          throw new Error('timeout');
+        }
+      }),
+    };
+    const coordinator = new AgentCoordinator(
+      { id: 'a1', name: 'A1', endpoint: 'local', publicKey: 'k1', weight: 1 },
+      [
+        { id: 'a2', name: 'A2', endpoint: 'local', publicKey: 'k2', weight: 1 },
+        { id: 'a3', name: 'A3', endpoint: 'local', publicKey: 'k3', weight: 1 },
+      ],
+      0.6,
+      {
+        broadcastEnabled: true,
+        broadcaster,
+      },
+    );
+
+    const proposal = await coordinator.proposeToNetwork('Broadcast test', 'Validate fail-safe mode');
+    const summary = coordinator.getLastBroadcastSummary();
+
+    expect(proposal.status).toBe('voting');
+    expect(broadcaster.broadcastProposal).toHaveBeenCalledTimes(2);
+    expect(summary).toMatchObject({
+      proposalId: proposal.id,
+      attempted: 2,
+      delivered: 1,
+      failed: 1,
+    });
   });
 });

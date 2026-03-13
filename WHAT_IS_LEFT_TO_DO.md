@@ -232,6 +232,33 @@ Updated: 2026-03-12
   - `.github/workflows/release-draft.yml` (`workflow_dispatch`)
   - validates release gates, builds package/checksum, and creates draft GitHub release artifacts.
   - requires explicit confirmation token (`draft-release`) and `target_ref=main`.
+- Replaced Memphis DID placeholder encoding with multibase `base58btc` + Ed25519 multicodec:
+  - `crates/memphis-vault/src/did.rs` now emits `did:memphis:z...` payloads with multicodec prefix.
+  - vault tests assert multicodec payload shape and key round-trip consistency.
+- Implemented insight command persistence + block-loading paths:
+  - `src/cli/commands/insight.ts` now loads real chain blocks for `daily|weekly|deep`.
+  - `--save` now persists compact insight reports to `journal` chain.
+  - active CLI `memphis insights --save` now emits save metadata and appends `insight_report` blocks.
+- Added feature-flagged remote broadcast behavior for Model D coordinator:
+  - `AgentCoordinator` now supports optional proposal broadcast transport with fail-safe default.
+  - broadcast summaries capture attempted/delivered/failed counts without breaking proposal flow.
+- Added sprint closure documentation template:
+  - `docs/templates/SPRINT_CLOSURE_NOTE.md` records PRs, CI evidence, artifacts, checksums, and rollback notes.
+- Expanded CLI help/completion coverage for insights save path:
+  - system help now documents `insights [--weekly] [--input|--query] [--save]`.
+  - bash/fish completion now suggest `--weekly`, `--input`, `--query`, and `--save` for `insights`.
+- Added proactive-assistant Telegram delivery path behind explicit opt-in controls:
+  - requires `MEMPHIS_PROACTIVE_TELEGRAM_ENABLED=true` plus token/chat credentials.
+  - delivery remains fail-safe when disabled, unconfigured, or transport errors occur.
+  - unit coverage validates disabled-by-default and enabled delivery paths.
+- Added integration coverage for Model D coordinator broadcast behavior:
+  - broadcast-enabled mode now has non-blocking failure-path assertions.
+  - partial delivery failures are recorded without interrupting proposal creation.
+- Added operator runbook for proactive Telegram delivery:
+  - `docs/runbooks/PROACTIVE_TELEGRAM_DELIVERY.md` documents opt-in env vars, failure triage, and rollback.
+- Added filled sprint closure record using the new template:
+  - `docs/sprints/SPRINT_CLOSURE_2026-03-12.md`
+  - captures delivered commits, validation evidence, and rollback references.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -242,8 +269,8 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Replace placeholder Memphis DID key encoding with multibase `base58btc` + Ed25519 multicodec compliance and tests.
-2. Implement `src/cli/commands/insight.ts` chain persistence path (`save` flow) and cover with unit tests.
-3. Implement `src/cli/commands/insight.ts` real block-loading path for analysis mode and cover with unit tests.
-4. Define remote-agent broadcast behavior in `src/cognitive/model-d.ts` (feature-flagged, fail-safe default) and add contract tests.
-5. Add sprint closure note template and capture release evidence links/checksums in-repo.
+1. Add dedicated integration coverage for legacy `insight` command wiring once command routing is unified.
+2. Run full regression (`test:ts`, `test:chaos`, `test:rust`) after follow-up items and document residual risks.
+3. Consolidate legacy `src/cli/commands/*` entrypoints with `infra/cli` routing or remove dead paths.
+4. Add end-to-end CLI tests that exercise `insights --save` + `reflect --save` persistence on a fresh data dir.
+5. Add explicit operator guidance for rotating Telegram bot credentials without downtime.

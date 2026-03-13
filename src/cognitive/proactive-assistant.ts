@@ -13,6 +13,10 @@ import type { Insight } from './model-e-types.js';
 import { ChainStore, IStore } from './store.js';
 import type { Block } from '../memory/chain.js';
 
+interface ProactiveAssistantDeps {
+  fetchImpl?: typeof fetch;
+}
+
 export interface AssistantConfig {
   /** Telegram bot token */
   botToken?: string;
@@ -57,11 +61,13 @@ export class ProactiveAssistant {
   private lastMessageTime: Date | null = null;
   private lastMood: string | null = null;
   private readonly store: IStore;
+  private readonly fetchImpl: typeof fetch | null;
 
   constructor(
     blocks: Block[],
     config: Partial<AssistantConfig> = {},
     store: IStore = new ChainStore(),
+    deps: ProactiveAssistantDeps = {},
   ) {
     this.blocks = blocks;
     this.config = {
@@ -75,6 +81,7 @@ export class ProactiveAssistant {
     };
     this.store = store;
     this.insightGenerator = new InsightGenerator(blocks, store);
+    this.fetchImpl = deps.fetchImpl ?? (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
   }
 
   /**
@@ -373,15 +380,94 @@ export class ProactiveAssistant {
 
         if (messages.length > 0) {
           console.log(`📬 Generated ${messages.length} proactive message(s)`);
+          const delivered = await this.sendMessagesViaTelegram(messages);
 
-          // TODO: Send via Telegram if configured
-          for (const msg of messages) {
-            console.log(`  ${msg.emoji} ${msg.title}`);
+          if (delivered.delivered > 0) {
+            console.log(`📨 Telegram delivery ${delivered.delivered}/${delivered.attempted}`);
+          } else {
+            for (const msg of messages) {
+              console.log(`  ${msg.emoji} ${msg.title}`);
+            }
           }
         }
       },
       this.config.checkIntervalMinutes * 60 * 1000,
     );
+  }
+
+  async sendMessagesViaTelegram(messages: ProactiveMessage[]): Promise<{
+    attempted: number;
+    delivered: number;
+    skipped: boolean;
+    reason?: string;
+  }> {
+    const enabled = (process.env.MEMPHIS_PROACTIVE_TELEGRAM_ENABLED ?? 'false').toLowerCase() === 'true';
+    if (!enabled) {
+      return {
+        attempted: messages.length,
+        delivered: 0,
+        skipped: true,
+        reason: 'telegram delivery is disabled',
+      };
+    }
+
+    if (!this.fetchImpl) {
+      return {
+        attempted: messages.length,
+        delivered: 0,
+        skipped: true,
+        reason: 'fetch implementation is unavailable',
+      };
+    }
+
+    const botToken =
+      this.config.botToken ??
+      process.env.MEMPHIS_PROACTIVE_TELEGRAM_BOT_TOKEN ??
+      process.env.MEMPHIS_TELEGRAM_BOT_TOKEN;
+    const chatId =
+      this.config.chatId ??
+      process.env.MEMPHIS_PROACTIVE_TELEGRAM_CHAT_ID ??
+      process.env.MEMPHIS_TELEGRAM_CHAT_ID;
+    if (!botToken || !chatId) {
+      return {
+        attempted: messages.length,
+        delivered: 0,
+        skipped: true,
+        reason: 'telegram credentials are missing',
+      };
+    }
+
+    let delivered = 0;
+    const endpoint = `https://api.telegram.org/bot${botToken}/sendMessage`;
+    for (const message of messages) {
+      try {
+        const response = await this.fetchImpl(endpoint, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: this.formatForTelegram(message),
+            parse_mode: 'Markdown',
+            disable_web_page_preview: true,
+          }),
+        });
+        if (response.ok) {
+          delivered += 1;
+        } else {
+          console.warn(`Telegram delivery failed with status ${response.status}`);
+        }
+      } catch (error) {
+        console.warn(`Telegram delivery failed: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+
+    return {
+      attempted: messages.length,
+      delivered,
+      skipped: false,
+    };
   }
 
   /**

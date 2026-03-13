@@ -60,6 +60,35 @@ export interface CollectiveDecision {
   consensusThreshold: number; // 0.0-1.0
 }
 
+export interface AgentProposalBroadcastPayload {
+  proposal: Proposal;
+  from: AgentConfig;
+  to: AgentConfig;
+}
+
+export interface AgentProposalBroadcaster {
+  broadcastProposal: (payload: AgentProposalBroadcastPayload) => Promise<void>;
+}
+
+export interface AgentBroadcastResult {
+  agentId: string;
+  delivered: boolean;
+  error?: string;
+}
+
+export interface AgentBroadcastSummary {
+  proposalId: string;
+  attempted: number;
+  delivered: number;
+  failed: number;
+  results: AgentBroadcastResult[];
+}
+
+export interface AgentCoordinatorOptions {
+  broadcastEnabled?: boolean;
+  broadcaster?: AgentProposalBroadcaster;
+}
+
 // ============================================================================
 // MODEL D — COLLECTIVE COORDINATION
 // ============================================================================
@@ -434,13 +463,19 @@ export class AgentCoordinator {
   private localAgent: AgentConfig;
   private remoteAgents: Map<string, AgentConfig> = new Map();
   private modelD: ModelD_CollectiveCoordination;
+  private readonly broadcastEnabled: boolean;
+  private readonly broadcaster: AgentProposalBroadcaster | null;
+  private lastBroadcastSummary: AgentBroadcastSummary | null = null;
 
   constructor(
     localAgent: AgentConfig,
     remoteAgents: AgentConfig[],
     consensusThreshold: number = 0.6,
+    options: AgentCoordinatorOptions = {},
   ) {
     this.localAgent = localAgent;
+    this.broadcastEnabled = options.broadcastEnabled ?? false;
+    this.broadcaster = options.broadcaster ?? null;
 
     for (const agent of remoteAgents) {
       this.remoteAgents.set(agent.id, agent);
@@ -463,8 +498,9 @@ export class AgentCoordinator {
   ): Promise<Proposal> {
     const proposal = this.modelD.propose(title, description, this.localAgent.id, type);
 
-    // TODO: Broadcast to remote agents via network
-    // For now, simulate local voting
+    if (this.broadcastEnabled) {
+      this.lastBroadcastSummary = await this.broadcastProposalToRemoteAgents(proposal);
+    }
 
     return proposal;
   }
@@ -509,6 +545,58 @@ export class AgentCoordinator {
     }
   }
 
+  getLastBroadcastSummary(): AgentBroadcastSummary | null {
+    return this.lastBroadcastSummary;
+  }
+
+  private async broadcastProposalToRemoteAgents(proposal: Proposal): Promise<AgentBroadcastSummary> {
+    const remoteAgents = Array.from(this.remoteAgents.values());
+    if (remoteAgents.length === 0) {
+      return {
+        proposalId: proposal.id,
+        attempted: 0,
+        delivered: 0,
+        failed: 0,
+        results: [],
+      };
+    }
+
+    const results = await Promise.all(
+      remoteAgents.map(async (remoteAgent): Promise<AgentBroadcastResult> => {
+        if (!this.broadcaster) {
+          return {
+            agentId: remoteAgent.id,
+            delivered: false,
+            error: 'broadcast transport is not configured',
+          };
+        }
+        try {
+          await this.broadcaster.broadcastProposal({
+            proposal,
+            from: this.localAgent,
+            to: remoteAgent,
+          });
+          return { agentId: remoteAgent.id, delivered: true };
+        } catch (error) {
+          return {
+            agentId: remoteAgent.id,
+            delivered: false,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      }),
+    );
+
+    const delivered = results.filter((item) => item.delivered).length;
+    return {
+      proposalId: proposal.id,
+      attempted: results.length,
+      delivered,
+      failed: results.length - delivered,
+      results,
+    };
+  }
+
   /**
    * Get coordinator stats
    */
@@ -517,12 +605,28 @@ export class AgentCoordinator {
     remoteAgents: number;
     activeProposals: number;
     consensusThreshold: number;
+    broadcastEnabled: boolean;
+    lastBroadcast?: {
+      proposalId: string;
+      attempted: number;
+      delivered: number;
+      failed: number;
+    };
   } {
     return {
       localAgent: this.localAgent.name,
       remoteAgents: this.remoteAgents.size,
       activeProposals: this.modelD.getActiveProposals().length,
       consensusThreshold: this.modelD['config'].consensusThreshold,
+      broadcastEnabled: this.broadcastEnabled,
+      lastBroadcast: this.lastBroadcastSummary
+        ? {
+            proposalId: this.lastBroadcastSummary.proposalId,
+            attempted: this.lastBroadcastSummary.attempted,
+            delivered: this.lastBroadcastSummary.delivered,
+            failed: this.lastBroadcastSummary.failed,
+          }
+        : undefined,
     };
   }
 }

@@ -9,6 +9,7 @@ describe('CLI completion', () => {
     expect(out).toContain('setup configure init');
     expect(out).toContain('--provider');
     expect(out).toContain('decentralized-llm');
+    expect(out).toContain('insights) flag_candidates="--weekly --input --query --save --json"');
   });
 
   it('prints zsh completion script', async () => {
