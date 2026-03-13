@@ -356,6 +356,10 @@ Updated: 2026-03-12
 - Added CI smoke assertion for human-readable strict preflight pass output:
   - `tests/ops/strict-incident-handoff.test.ts` now asserts `[PASS] strict incident handoff preflight checks passed`.
   - coverage confirms preflight-only human-mode runs without writing bundle artifacts.
+- Added strict-handoff JSON output contract fixture:
+  - new fixture: `tests/fixtures/strict-handoff/output-contract.json`.
+  - ops regression tests now enforce top-level/nested key stability for JSON summary outputs.
+  - completion-hints output keysets are now contract-checked for shell/automation compatibility.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -366,4 +370,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a strict-handoff JSON output contract fixture (`tests/fixtures/...`) to lock top-level key stability for automation.
+1. Add strict-handoff failure output fixture contracts (preflight/export/verify sample payload snapshots) for operator tooling regression checks.

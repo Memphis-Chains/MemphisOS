@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash, generateKeyPairSync, sign as signDetached } from 'node:crypto';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -11,10 +11,32 @@ import { afterEach, describe, expect, it } from 'vitest';
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..', '..');
 const tempDirs: string[] = [];
+const contractFixturePath = path.resolve(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'strict-handoff',
+  'output-contract.json',
+);
+
+type OutputContractFixture = {
+  schemaVersion: number;
+  summaryTopLevelKeys: string[];
+  summaryProfileKeys: string[];
+  summaryArtifactKeys: string[];
+  summaryCheckKeys: string[];
+  validStages: string[];
+  completionHintTopLevelKeys: string[];
+  completionHintProfileKeys: string[];
+};
+
+const outputContract = JSON.parse(readFileSync(contractFixturePath, 'utf8')) as OutputContractFixture;
 
 interface HandoffSummary {
+  schemaVersion: number;
   ok: boolean;
   stage: 'preflight' | 'export' | 'verify';
+  profiles: { export: string; verify: string };
   artifacts: { bundlePath: string | null; manifestPath: string | null };
   checks: {
     signatureVerified: boolean | null;
@@ -22,6 +44,8 @@ interface HandoffSummary {
     keyBundleTrustRootMatch: boolean | null;
     cognitiveSummaryRequirementSatisfied: boolean | null;
     chainEventWritten: boolean | null;
+    chainEventIndex: number | null;
+    chainEventHash: string | null;
   };
   error: string | null;
   errors: string[];
@@ -146,6 +170,15 @@ function writeStrictKeyFixtures(dir: string, keyId: string): {
   return { signingKeyPath, publicKeyBundlePath, trustRootPath };
 }
 
+function expectSummaryContract(summary: HandoffSummary): void {
+  expect(summary.schemaVersion).toBe(outputContract.schemaVersion);
+  expect(outputContract.validStages.includes(summary.stage)).toBe(true);
+  expect(Object.keys(summary).sort()).toEqual([...outputContract.summaryTopLevelKeys].sort());
+  expect(Object.keys(summary.profiles).sort()).toEqual([...outputContract.summaryProfileKeys].sort());
+  expect(Object.keys(summary.artifacts).sort()).toEqual([...outputContract.summaryArtifactKeys].sort());
+  expect(Object.keys(summary.checks).sort()).toEqual([...outputContract.summaryCheckKeys].sort());
+}
+
 describe('strict incident handoff script', () => {
   it('prints help hints for operators and shell completion tooling', () => {
     const result = runStrictHandoff(['--help']);
@@ -164,10 +197,14 @@ describe('strict incident handoff script', () => {
       command: string;
       profiles: { export: string; verify: string };
       requiredFlags: string[];
+      requiredSigningKeyFlags: string[];
+      optionalValueFlags: string[];
       optionalBooleanFlags: string[];
       policyEnvVars: string[];
     };
     expect(parsed.schemaVersion).toBe(1);
+    expect(Object.keys(parsed).sort()).toEqual([...outputContract.completionHintTopLevelKeys].sort());
+    expect(Object.keys(parsed.profiles).sort()).toEqual([...outputContract.completionHintProfileKeys].sort());
     expect(parsed.command).toBe('ops:strict-incident-handoff');
     expect(parsed.profiles).toEqual({ export: 'strict-handoff', verify: 'trust-root-strict' });
     expect(parsed.requiredFlags).toContain('--public-key-bundle-path');
@@ -199,6 +236,7 @@ describe('strict incident handoff script', () => {
     ]);
     expect(result.status).toBe(0);
     const parsed = JSON.parse(result.stdout) as HandoffSummary;
+    expectSummaryContract(parsed);
     expect(parsed.ok).toBe(true);
     expect(parsed.stage).toBe('preflight');
     expect(parsed.artifacts.bundlePath).toBeNull();
@@ -267,6 +305,7 @@ describe('strict incident handoff script', () => {
       expect(result.status).toBe(0);
 
       const parsed = JSON.parse(result.stdout) as HandoffSummary;
+      expectSummaryContract(parsed);
       expect(parsed.ok).toBe(true);
       expect(parsed.stage).toBe('verify');
       expect(parsed.artifacts.bundlePath).toBe(bundlePath);
@@ -301,6 +340,7 @@ describe('strict incident handoff script', () => {
     ]);
     expect(result.status).toBe(1);
     const parsed = JSON.parse(result.stdout) as HandoffSummary;
+    expectSummaryContract(parsed);
     expect(parsed.ok).toBe(false);
     expect(parsed.stage).toBe('preflight');
     expect(parsed.error).toContain('preflight failed');
@@ -344,6 +384,7 @@ describe('strict incident handoff script', () => {
       );
       expect(result.status).toBe(1);
       const parsed = JSON.parse(result.stdout) as HandoffSummary;
+      expectSummaryContract(parsed);
       expect(parsed.ok).toBe(false);
       expect(parsed.stage).toBe('verify');
       expect(parsed.error).toContain('verify command failed');
