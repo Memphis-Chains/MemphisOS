@@ -1,0 +1,7 @@
+{
+  "docs": ["README.md", "docs/runbooks/RELEASE.md"],
+  "requiredReferences": [
+    "tests/fixtures/release-draft/validator-metadata.schema.json",
+    "tests/fixtures/release-draft/validator-metadata-example.json"
+  ]
+}

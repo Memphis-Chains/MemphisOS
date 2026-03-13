@@ -47,5 +47,17 @@
   "metadataValidatorCheckOrderKeys": [
     "status",
     "checkIds"
+  ],
+  "metadataSchemaPath": "tests/fixtures/release-draft/validator-metadata.schema.json",
+  "metadataExamplePath": "tests/fixtures/release-draft/validator-metadata-example.json",
+  "metadataValidatorOutputContractPath": "tests/fixtures/release-draft/validator-metadata-validator-output-contract.json",
+  "metadataValidationCommandId": "ops:validate-release-draft-validator-metadata",
+  "metadataValidatorSchemaStatusValues": [
+    "changed",
+    "unchanged",
+    "no-baseline"
+  ],
+  "metadataValidatorCheckOrderStatusValues": [
+    "matched"
   ]
 }

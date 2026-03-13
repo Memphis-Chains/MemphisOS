@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memphis-chains.dev/schemas/release-draft/validator-metadata.schema.json",
+  "title": "Release Draft Validator Metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "validatorSchema", "validatorCheckOrder"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "validatorSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "version", "previousVersion", "referenceTag"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["changed", "unchanged", "no-baseline"]
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "previousVersion": {
+          "type": ["string", "null"]
+        },
+        "referenceTag": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "validatorCheckOrder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "checkIds"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["matched"]
+        },
+        "checkIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

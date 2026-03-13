@@ -494,6 +494,34 @@ Updated: 2026-03-13
 - Synced release documentation for validator metadata artifact:
   - release runbook now documents `validator-metadata.json` generation and publication in draft workflow outputs.
   - README package/release section now calls out metadata artifact availability for automation consumers.
+- Added formal JSON Schema contract for release-draft validator metadata artifact:
+  - new schema fixture: `tests/fixtures/release-draft/validator-metadata.schema.json`.
+  - contract fixture now pins schema/example paths plus allowed status values for schema/check-order metadata.
+  - release-draft workflow now validates generated metadata against schema using Ajv before publishing artifacts.
+- Extended release-draft metadata regression coverage for schema enforcement:
+  - ops regression now validates schema-required keysets, enum contracts, and example payload compatibility.
+  - contract test now asserts release workflow includes metadata schema validation guardrails.
+  - `test:ops-artifacts` now fails on schema drift for release-draft validator metadata payloads.
+- Added docs contract coverage for release-draft validator metadata schema/example references:
+  - new fixture `tests/fixtures/release-draft/docs-contract.json` defines required doc references.
+  - new ops regression test validates README + release runbook include required schema/example links.
+  - `test:ops-artifacts` now fails when release-draft metadata fixture links drift in operator docs.
+- Updated release runbook fixture references for validator metadata schema/example:
+  - release runbook now explicitly references `validator-metadata.schema.json`.
+  - release runbook now explicitly references `validator-metadata-example.json`.
+  - docs and regression contracts now align for automation handoff consumers.
+- Added local validator metadata schema helper command for release parity:
+  - new command: `npm run -s ops:validate-release-draft-validator-metadata -- [--metadata-path <path>] [--schema-path <path>] [--json]`.
+  - command validates metadata payloads against `validator-metadata.schema.json` with fail-closed behavior.
+  - machine-readable `--json` output now has stable contract fixture for automation consumers.
+- Replaced inline release-draft metadata schema validation with shared CLI helper:
+  - release-draft workflow now calls `ops:validate-release-draft-validator-metadata` for generated `release-dist/validator-metadata.json`.
+  - workflow release-notes quality-gate list now references the same helper command used in execution.
+  - schema validation path now has local/manual and workflow parity under one command surface.
+- Added regression coverage for release metadata validator command:
+  - new ops tests cover pass/fail/json output contract behavior for `ops:validate-release-draft-validator-metadata`.
+  - new fixture `tests/fixtures/release-draft/validator-metadata-validator-output-contract.json` pins json-mode keys.
+  - `test:ops-artifacts` now includes command-level contract drift detection for release metadata validation.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -504,4 +532,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a JSON Schema for `release-dist/validator-metadata.json` plus `ajv` validation in ops regression and release-draft workflow gate.
+1. Merge current branch to `main` and verify `quality-gate` is green on the merge commit.

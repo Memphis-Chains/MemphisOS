@@ -128,6 +128,7 @@ jobs:
           SHA_FILE="release-dist/${ASSET_NAME}.sha256"
           NOTES_PATH="release-dist/release-notes.md"
           VALIDATOR_METADATA_PATH="release-dist/validator-metadata.json"
+          VALIDATOR_METADATA_SCHEMA_PATH="tests/fixtures/release-draft/validator-metadata.schema.json"
           printf '%s  %s\n' "$SHA256" "$ASSET_NAME" > "$SHA_FILE"
           jq -n \
             --arg schema_status "$VALIDATOR_SCHEMA_STATUS" \
@@ -149,6 +150,9 @@ jobs:
                 checkIds: $check_ids
               }
             }' > "$VALIDATOR_METADATA_PATH"
+          npm run -s ops:validate-release-draft-validator-metadata -- \
+            --metadata-path "$VALIDATOR_METADATA_PATH" \
+            --schema-path "$VALIDATOR_METADATA_SCHEMA_PATH"
           cat > "$NOTES_PATH" <<EOF
           MemphisOS v$VERSION (draft)
 
@@ -161,6 +165,7 @@ jobs:
           - npm run -s typecheck
           - npm run -s ops:validate-strict-handoff-fixtures
           - ./scripts/strict-handoff-validator-json-gate.sh
+          - npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json
           - npm run -s test:ops-artifacts
           - npm run -s test:ts
           - npm run -s test:chaos
