@@ -56,6 +56,7 @@ npm run -s ops:validate-release-draft-validator-metadata -- \
 - creates draft GitHub release `v<version>` with:
   - package tarball asset
   - `.sha256` checksum asset
+  - checksum asset pattern: `*.sha256`
   - `validator-metadata.json` asset
   - `validator-metadata.json.sha256` asset
   - generated draft release notes
