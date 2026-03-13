@@ -20,6 +20,7 @@ type ReleaseDraftValidatorMetadataContract = {
   metadataValidatorCheckOrderKeys: string[];
   metadataSchemaPath: string;
   metadataExamplePath: string;
+  metadataFailureExamplePath: string;
   metadataValidatorOutputContractPath: string;
   metadataValidationCommandId: string;
   preflightCommand: string;
@@ -37,13 +38,6 @@ const fixturePath = path.join(
   'fixtures',
   'release-draft',
   'validator-metadata-contract.json',
-);
-const exampleFixturePath = path.join(
-  repoRoot,
-  'tests',
-  'fixtures',
-  'release-draft',
-  'validator-metadata-example.json',
 );
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -120,49 +114,58 @@ describe('release-draft validator metadata contract', () => {
     }
   });
 
-  it('keeps validator metadata JSON example keys and values aligned with fixture contract', () => {
-    const examplePayload = asRecord(JSON.parse(readFileSync(exampleFixturePath, 'utf8')));
+  it('keeps validator metadata success/failure JSON examples aligned with fixture contract', () => {
+    const examplePaths = [
+      path.join(repoRoot, contract.metadataExamplePath),
+      path.join(repoRoot, contract.metadataFailureExamplePath),
+    ];
 
-    expect(Object.keys(examplePayload).sort()).toEqual([...contract.metadataTopLevelKeys].sort());
+    for (const examplePath of examplePaths) {
+      const examplePayload = asRecord(JSON.parse(readFileSync(examplePath, 'utf8')));
+      expect(Object.keys(examplePayload).sort()).toEqual([...contract.metadataTopLevelKeys].sort());
 
-    const preflightSummary = asRecord(examplePayload.preflightSummary);
-    expect(Object.keys(preflightSummary).sort()).toEqual(
-      [...contract.metadataPreflightSummaryKeys].sort(),
-    );
-    const preflightGates = asRecordArray(preflightSummary.gates);
-    expect(preflightGates.length).toBeGreaterThan(0);
-    expect(Object.keys(preflightGates[0]).sort()).toEqual(
-      [...contract.metadataPreflightGateKeys].sort(),
-    );
+      const preflightSummary = asRecord(examplePayload.preflightSummary);
+      expect(Object.keys(preflightSummary).sort()).toEqual(
+        [...contract.metadataPreflightSummaryKeys].sort(),
+      );
+      const preflightGates = asRecordArray(preflightSummary.gates);
+      expect(preflightGates.length).toBeGreaterThan(0);
+      expect(Object.keys(preflightGates[0]).sort()).toEqual(
+        [...contract.metadataPreflightGateKeys].sort(),
+      );
 
-    const validatorSchema = asRecord(examplePayload.validatorSchema);
-    expect(Object.keys(validatorSchema).sort()).toEqual(
-      [...contract.metadataValidatorSchemaKeys].sort(),
-    );
+      const validatorSchema = asRecord(examplePayload.validatorSchema);
+      expect(Object.keys(validatorSchema).sort()).toEqual(
+        [...contract.metadataValidatorSchemaKeys].sort(),
+      );
 
-    const validatorCheckOrder = asRecord(examplePayload.validatorCheckOrder);
-    expect(Object.keys(validatorCheckOrder).sort()).toEqual(
-      [...contract.metadataValidatorCheckOrderKeys].sort(),
-    );
+      const validatorCheckOrder = asRecord(examplePayload.validatorCheckOrder);
+      expect(Object.keys(validatorCheckOrder).sort()).toEqual(
+        [...contract.metadataValidatorCheckOrderKeys].sort(),
+      );
 
-    expect(contract.metadataValidatorSchemaStatusValues).toContain(String(validatorSchema.status));
-    expect(contract.metadataValidatorCheckOrderStatusValues).toContain(
-      String(validatorCheckOrder.status),
-    );
-    expect(asStringArray(validatorCheckOrder.checkIds).length).toBeGreaterThan(0);
+      expect(contract.metadataValidatorSchemaStatusValues).toContain(String(validatorSchema.status));
+      expect(contract.metadataValidatorCheckOrderStatusValues).toContain(
+        String(validatorCheckOrder.status),
+      );
+      expect(asStringArray(validatorCheckOrder.checkIds).length).toBeGreaterThan(0);
+    }
   });
 
   it('keeps validator metadata schema and example fixtures aligned with contract', () => {
     const schemaPath = path.join(repoRoot, contract.metadataSchemaPath);
     const examplePath = path.join(repoRoot, contract.metadataExamplePath);
+    const failureExamplePath = path.join(repoRoot, contract.metadataFailureExamplePath);
     const validatorOutputContractPath = path.join(repoRoot, contract.metadataValidatorOutputContractPath);
 
     expect(existsSync(schemaPath)).toBe(true);
     expect(existsSync(examplePath)).toBe(true);
+    expect(existsSync(failureExamplePath)).toBe(true);
     expect(existsSync(validatorOutputContractPath)).toBe(true);
 
     const schema = asRecord(JSON.parse(readFileSync(schemaPath, 'utf8')));
     const example = JSON.parse(readFileSync(examplePath, 'utf8'));
+    const failureExample = JSON.parse(readFileSync(failureExamplePath, 'utf8'));
 
     expect(schema.type).toBe('object');
     expect(schema.additionalProperties).toBe(false);
@@ -205,5 +208,11 @@ describe('release-draft validator metadata contract', () => {
     const ajv = new Ajv2020({ allErrors: true, strict: true });
     const validate = ajv.compile(schema);
     assertJsonPayload(validate, example, 'validator metadata example schema mismatch', ajv);
+    assertJsonPayload(
+      validate,
+      failureExample,
+      'validator metadata failure example schema mismatch',
+      ajv,
+    );
   });
 });
