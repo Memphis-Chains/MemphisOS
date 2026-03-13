@@ -250,6 +250,7 @@ npm run -s test:ts
 npm run -s test:chaos
 npm run -s test:rust
 ```
+- fallback artifact checksum command: `sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`
 
 Draft release workflow artifacts also include:
 

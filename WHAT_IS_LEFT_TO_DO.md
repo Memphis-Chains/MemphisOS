@@ -630,6 +630,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for manual fallback strict-handoff command:
   - release docs contract now requires `./scripts/strict-handoff-validator-json-gate.sh` in README + runbook fallback command guidance.
   - regression now fails if strict-handoff fallback command references drift.
+- Added docs-contract coverage for manual fallback checksum command:
+  - README now includes explicit fallback checksum command `sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`.
+  - release docs contract now enforces this checksum command in README + runbook guidance.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -640,4 +643,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for manual fallback package checksum command reference (`sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`) in README/runbook release guidance.
+1. Add docs-contract coverage for manual fallback tag/push command references (`git tag -a vX.Y.Z ...`, `git push origin main`) in README/runbook release guidance.

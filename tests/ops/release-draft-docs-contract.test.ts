@@ -17,6 +17,7 @@ type ReleaseDraftDocsContract = {
   requiredTriageAnchors?: string[];
   requiredGateAnchorTokens?: string[];
   requiredManualFallbackCommands?: string[];
+  requiredChecksumCommands?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -94,6 +95,12 @@ describe('release-draft docs fixture references', () => {
       if (Array.isArray(contract.requiredManualFallbackCommands)) {
         for (const command of contract.requiredManualFallbackCommands) {
           expect(markdown.includes(command)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredChecksumCommands)) {
+        for (const checksumCommand of contract.requiredChecksumCommands) {
+          expect(markdown.includes(checksumCommand)).toBe(true);
         }
       }
 
