@@ -44,6 +44,9 @@ jobs:
           grep -q 'trust-root-invalid-strict' <<<"$OUT"
           grep -q 'revocation-stale' <<<"$OUT"
 
+      - name: Strict-handoff fixture/schema validator
+        run: npm run -s ops:validate-strict-handoff-fixtures
+
       - name: Ops artifacts regression (bundle + manifest + strict handoff)
         run: npm run test:ops-artifacts
 
