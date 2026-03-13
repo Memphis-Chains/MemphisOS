@@ -279,6 +279,10 @@ Updated: 2026-03-12
 - Added operator runbook for zero-downtime Telegram credential rotation:
   - `docs/runbooks/TELEGRAM_CREDENTIAL_ROTATION.md`
   - includes rolling cutover steps, validation checklist, and rollback procedure.
+- Consolidated remaining legacy `src/cli/*` compatibility paths into `infra/cli`:
+  - moved interactive ask-session runner into `src/infra/cli/utils/interactive-ask-session.ts`.
+  - updated interaction command wiring to use infra-local implementation.
+  - removed dead legacy shim files `src/cli/ask-session.ts` and `src/cli/index.ts`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -289,5 +293,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Continue consolidating any remaining legacy `src/cli/commands/*` wrappers into `infra/cli` routing where still duplicated.
-2. Add focused e2e coverage for `categorize --save` once journal persistence is implemented for categorize flow.
+1. Implement `categorize --save` journal persistence (parity with `insights --save` / `reflect --save`).
+2. Add focused e2e coverage for `categorize --save` on fresh data directories once persistence is implemented.
