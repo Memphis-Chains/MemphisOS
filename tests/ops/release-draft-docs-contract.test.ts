@@ -25,6 +25,7 @@ type ReleaseDraftDocsContract = {
   requiredStrictFixtureRerunCommands?: string[];
   requiredStrictJsonGateScriptMarkers?: string[];
   requiredOpsArtifactsCommands?: string[];
+  requiredChaosCommands?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -150,6 +151,12 @@ describe('release-draft docs fixture references', () => {
       if (Array.isArray(contract.requiredOpsArtifactsCommands)) {
         for (const opsArtifactsCommand of contract.requiredOpsArtifactsCommands) {
           expect(markdown.includes(opsArtifactsCommand)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredChaosCommands)) {
+        for (const chaosCommand of contract.requiredChaosCommands) {
+          expect(markdown.includes(chaosCommand)).toBe(true);
         }
       }
 
