@@ -93,6 +93,19 @@ npm run -s ops:strict-incident-handoff -- \
 
 Use `--json` for automation-friendly stage/check output.
 
+Shell completion and env contract hints:
+
+```bash
+npm run -s ops:strict-incident-handoff -- --completion-hints
+```
+
+Common env defaults used by strict handoff:
+
+- `MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PATH` / `_PEM` / `_PEM_BASE64`
+- `MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID`
+- `MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH`
+- `MEMPHIS_TRUST_ROOT_PATH`
+
 ## 3. Verify Evidence Integrity
 
 ```bash

@@ -89,12 +89,54 @@ const VALUE_FLAGS = new Set([
 ]);
 const BOOLEAN_FLAGS = new Set([
   '--json',
+  '--completion-hints',
   '--help',
   '-h',
   '--require-encrypted-artifacts',
   '--no-redact',
   '--include-cognitive-summaries',
 ]);
+const REQUIRED_VALUE_FLAGS = ['--public-key-bundle-path', '--signing-key-id|--expected-key-id'];
+const REQUIRED_SIGNING_KEY_FLAGS = [
+  '--signing-key-path',
+  '--signing-key-pem',
+  '--signing-key-pem-base64',
+];
+const OPTIONAL_VALUE_FLAGS = [
+  '--status-url',
+  '--audit-path',
+  '--out',
+  '--manifest-out',
+  '--signing-key-path',
+  '--signing-key-pem',
+  '--signing-key-pem-base64',
+  '--signing-key-id',
+  '--expected-key-id',
+  '--public-key-bundle-path',
+  '--trust-root-path',
+  '--encryption-passphrase',
+  '--encryption-passphrase-base64',
+  '--encryption-passphrase-file',
+  '--encrypted-bundle-out',
+  '--encrypted-manifest-out',
+  '--cognitive-report-limit',
+  '--cognitive-journal-path',
+  '--retention-count',
+  '--retention-days',
+  '--audit-lines',
+  '--decryption-passphrase',
+  '--decryption-passphrase-base64',
+  '--decryption-passphrase-file',
+  '--chain-event-retry-count',
+  '--chain-event-retry-backoff-ms',
+];
+const OPTIONAL_BOOLEAN_FLAGS = [
+  '--require-encrypted-artifacts',
+  '--no-redact',
+  '--include-cognitive-summaries',
+  '--json',
+  '--completion-hints',
+];
 const EXPORT_PROFILE: HandoffSummary['profiles']['export'] = 'strict-handoff';
 const VERIFY_PROFILE: HandoffSummary['profiles']['verify'] = 'trust-root-strict';
 
@@ -132,9 +174,51 @@ function renderHelp(): string {
     '  --decryption-passphrase <value>',
     '  --chain-event-retry-count <n>',
     '  --chain-event-retry-backoff-ms <n>',
+    '  --completion-hints',
     '  --json',
     '  -h, --help',
+    '',
+    'Env defaults:',
+    '  MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PATH / _PEM / _PEM_BASE64',
+    '  MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID',
+    '  MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH',
+    '  MEMPHIS_TRUST_ROOT_PATH',
   ].join('\n');
+}
+
+function printCompletionHints(): void {
+  console.log(
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        command: 'ops:strict-incident-handoff',
+        profiles: {
+          export: EXPORT_PROFILE,
+          verify: VERIFY_PROFILE,
+        },
+        requiredFlags: REQUIRED_VALUE_FLAGS,
+        requiredSigningKeyFlags: REQUIRED_SIGNING_KEY_FLAGS,
+        optionalValueFlags: OPTIONAL_VALUE_FLAGS,
+        optionalBooleanFlags: OPTIONAL_BOOLEAN_FLAGS,
+        policyEnvVars: [
+          'MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PATH',
+          'MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM',
+          'MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_PEM_BASE64',
+          'MEMPHIS_INCIDENT_BUNDLE_SIGNING_KEY_ID',
+          'MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH',
+          'MEMPHIS_TRUST_ROOT_PATH',
+          'MEMPHIS_INCIDENT_BUNDLE_ENCRYPTION_PASSPHRASE',
+          'MEMPHIS_INCIDENT_BUNDLE_ENCRYPTION_PASSPHRASE_BASE64',
+          'MEMPHIS_INCIDENT_BUNDLE_ENCRYPTION_PASSPHRASE_FILE',
+          'MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE',
+          'MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE_BASE64',
+          'MEMPHIS_INCIDENT_BUNDLE_DECRYPTION_PASSPHRASE_FILE',
+        ],
+      },
+      null,
+      2,
+    ),
+  );
 }
 
 function validateArgs(): void {
@@ -434,6 +518,10 @@ function parseVerifyResult(commandResult: CommandResult): VerifyCommandOutput {
 function main(): never {
   if (hasFlag('--help') || hasFlag('-h')) {
     console.log(renderHelp());
+    process.exit(0);
+  }
+  if (hasFlag('--completion-hints')) {
+    printCompletionHints();
     process.exit(0);
   }
   validateArgs();

@@ -333,6 +333,10 @@ Updated: 2026-03-12
   - command enforces strict prerequisites (signer key input, key-bundle path, trust-root path) before running.
   - emits operator-friendly pass/fail summary and optional machine-readable `--json` output.
   - ops regression coverage added for success, preflight failure, and verify-failure summary paths.
+- Added shell completion/env-contract hints for strict incident handoff:
+  - `ops:strict-incident-handoff --completion-hints` now emits machine-readable flag/env metadata.
+  - `--help` now includes env default references for signer key, key bundle, and trust root inputs.
+  - ops regression coverage added for help/completion hint contracts.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -343,4 +347,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add shell-completion hints and runbook examples for `ops:strict-incident-handoff` argument/env contracts.
+1. Add CI smoke coverage for `ops:strict-incident-handoff --completion-hints` contract stability in `quality-gate`.

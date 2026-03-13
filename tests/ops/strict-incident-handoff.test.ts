@@ -147,6 +147,35 @@ function writeStrictKeyFixtures(dir: string, keyId: string): {
 }
 
 describe('strict incident handoff script', () => {
+  it('prints help hints for operators and shell completion tooling', () => {
+    const result = runStrictHandoff(['--help']);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Usage: npm run -s ops:strict-incident-handoff -- [options]');
+    expect(result.stdout).toContain('--completion-hints');
+    expect(result.stdout).toContain('MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH');
+    expect(result.stdout).toContain('MEMPHIS_TRUST_ROOT_PATH');
+  });
+
+  it('prints machine-readable completion hints', () => {
+    const result = runStrictHandoff(['--completion-hints']);
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout) as {
+      schemaVersion: number;
+      command: string;
+      profiles: { export: string; verify: string };
+      requiredFlags: string[];
+      optionalBooleanFlags: string[];
+      policyEnvVars: string[];
+    };
+    expect(parsed.schemaVersion).toBe(1);
+    expect(parsed.command).toBe('ops:strict-incident-handoff');
+    expect(parsed.profiles).toEqual({ export: 'strict-handoff', verify: 'trust-root-strict' });
+    expect(parsed.requiredFlags).toContain('--public-key-bundle-path');
+    expect(parsed.optionalBooleanFlags).toContain('--json');
+    expect(parsed.optionalBooleanFlags).toContain('--completion-hints');
+    expect(parsed.policyEnvVars).toContain('MEMPHIS_INCIDENT_BUNDLE_PUBLIC_KEY_BUNDLE_PATH');
+  });
+
   it('runs strict export+verify flow and returns pass summary in json mode', async () => {
     const dir = makeTempDir('memphis-strict-handoff-success-');
     const keyId = 'strict-handoff-key-v1';
