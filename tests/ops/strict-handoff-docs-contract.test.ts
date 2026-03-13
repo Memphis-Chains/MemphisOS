@@ -16,6 +16,8 @@ const requiredStrictFixtureReferences = [
   'tests/fixtures/strict-handoff/output-contract.json',
   'tests/fixtures/strict-handoff/summary.schema.json',
   'tests/fixtures/strict-handoff/completion-hints.schema.json',
+  'tests/fixtures/strict-handoff/summary-example-preflight.json',
+  'tests/fixtures/strict-handoff/completion-hints-example.json',
   'tests/fixtures/strict-handoff/failure-preflight.json',
   'tests/fixtures/strict-handoff/failure-export.json',
   'tests/fixtures/strict-handoff/failure-verify.json',

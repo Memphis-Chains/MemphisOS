@@ -21,10 +21,12 @@ type OutputContractFixture = {
   summaryArtifactKeys: string[];
   summaryCheckKeys: string[];
   summaryJsonSchemaPath: string;
+  summaryExamplePath: string;
   validStages: string[];
   completionHintTopLevelKeys: string[];
   completionHintProfileKeys: string[];
   completionHintsJsonSchemaPath: string;
+  completionHintsExamplePath: string;
 };
 
 const outputContract = JSON.parse(readFileSync(outputContractPath, 'utf8')) as OutputContractFixture;
@@ -116,5 +118,22 @@ describe('strict-handoff json schemas', () => {
     expect(Object.keys(asRecord(profiles.properties)).sort()).toEqual(
       [...outputContract.completionHintProfileKeys].sort(),
     );
+  });
+
+  it('example payload fixtures are present and aligned with output-contract key contracts', () => {
+    const summaryExamplePath = path.resolve(repoRoot, outputContract.summaryExamplePath);
+    const completionExamplePath = path.resolve(repoRoot, outputContract.completionHintsExamplePath);
+    expect(existsSync(summaryExamplePath)).toBe(true);
+    expect(existsSync(completionExamplePath)).toBe(true);
+
+    const summaryExample = asRecord(JSON.parse(readFileSync(summaryExamplePath, 'utf8')));
+    expect(Object.keys(summaryExample).sort()).toEqual([...outputContract.summaryTopLevelKeys].sort());
+    expect(outputContract.validStages.includes(String(summaryExample.stage))).toBe(true);
+
+    const completionExample = asRecord(JSON.parse(readFileSync(completionExamplePath, 'utf8')));
+    expect(Object.keys(completionExample).sort()).toEqual(
+      [...outputContract.completionHintTopLevelKeys].sort(),
+    );
+    expect(completionExample.command).toBe('ops:strict-incident-handoff');
   });
 });
