@@ -18,6 +18,27 @@ const contractFixturePath = path.resolve(
   'strict-handoff',
   'output-contract.json',
 );
+const preflightFailureFixturePath = path.resolve(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'strict-handoff',
+  'failure-preflight.json',
+);
+const exportFailureFixturePath = path.resolve(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'strict-handoff',
+  'failure-export.json',
+);
+const verifyFailureFixturePath = path.resolve(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'strict-handoff',
+  'failure-verify.json',
+);
 
 type OutputContractFixture = {
   schemaVersion: number;
@@ -30,7 +51,24 @@ type OutputContractFixture = {
   completionHintProfileKeys: string[];
 };
 
+type FailureContractFixture = {
+  stage: 'preflight' | 'export' | 'verify';
+  ok: boolean;
+  errorContains: string;
+  errorsContain?: string[];
+  errorsContainAny?: string[];
+};
+
 const outputContract = JSON.parse(readFileSync(contractFixturePath, 'utf8')) as OutputContractFixture;
+const preflightFailureContract = JSON.parse(
+  readFileSync(preflightFailureFixturePath, 'utf8'),
+) as FailureContractFixture;
+const exportFailureContract = JSON.parse(
+  readFileSync(exportFailureFixturePath, 'utf8'),
+) as FailureContractFixture;
+const verifyFailureContract = JSON.parse(
+  readFileSync(verifyFailureFixturePath, 'utf8'),
+) as FailureContractFixture;
 
 interface HandoffSummary {
   schemaVersion: number;
@@ -177,6 +215,21 @@ function expectSummaryContract(summary: HandoffSummary): void {
   expect(Object.keys(summary.profiles).sort()).toEqual([...outputContract.summaryProfileKeys].sort());
   expect(Object.keys(summary.artifacts).sort()).toEqual([...outputContract.summaryArtifactKeys].sort());
   expect(Object.keys(summary.checks).sort()).toEqual([...outputContract.summaryCheckKeys].sort());
+}
+
+function expectFailureContract(summary: HandoffSummary, contract: FailureContractFixture): void {
+  expectSummaryContract(summary);
+  expect(summary.ok).toBe(contract.ok);
+  expect(summary.stage).toBe(contract.stage);
+  expect(summary.error ?? '').toContain(contract.errorContains);
+  if (Array.isArray(contract.errorsContain) && contract.errorsContain.length > 0) {
+    for (const expected of contract.errorsContain) {
+      expect(summary.errors.some((entry) => entry.includes(expected))).toBe(true);
+    }
+  }
+  if (Array.isArray(contract.errorsContainAny) && contract.errorsContainAny.length > 0) {
+    expect(contract.errorsContainAny.some((expected) => summary.errors.some((entry) => entry.includes(expected)))).toBe(true);
+  }
 }
 
 describe('strict incident handoff script', () => {
@@ -340,11 +393,44 @@ describe('strict incident handoff script', () => {
     ]);
     expect(result.status).toBe(1);
     const parsed = JSON.parse(result.stdout) as HandoffSummary;
-    expectSummaryContract(parsed);
-    expect(parsed.ok).toBe(false);
-    expect(parsed.stage).toBe('preflight');
-    expect(parsed.error).toContain('preflight failed');
-    expect(parsed.errors.some((entry) => entry.includes('public-key-bundle-path'))).toBe(true);
+    expectFailureContract(parsed, preflightFailureContract);
+  });
+
+  it('fails export stage when encrypted artifacts are required without passphrase', async () => {
+    const dir = makeTempDir('memphis-strict-handoff-export-fail-');
+    const keyId = 'strict-export-key-v1';
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const commandEnv = { MEMPHIS_DATA_DIR: path.join(dir, '.memphis-data') };
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'startup.ok' })}\n`, 'utf8');
+    const { signingKeyPath, publicKeyBundlePath, trustRootPath } = writeStrictKeyFixtures(dir, keyId);
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = runStrictHandoff(
+        [
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--require-encrypted-artifacts',
+          '--signing-key-path',
+          signingKeyPath,
+          '--signing-key-id',
+          keyId,
+          '--public-key-bundle-path',
+          publicKeyBundlePath,
+          '--trust-root-path',
+          trustRootPath,
+          '--json',
+        ],
+        commandEnv,
+      );
+      expect(result.status).toBe(1);
+      const parsed = JSON.parse(result.stdout) as HandoffSummary;
+      expectFailureContract(parsed, exportFailureContract);
+    });
   });
 
   it('fails verify stage when expected key id does not match signer key id', async () => {
@@ -384,17 +470,7 @@ describe('strict incident handoff script', () => {
       );
       expect(result.status).toBe(1);
       const parsed = JSON.parse(result.stdout) as HandoffSummary;
-      expectSummaryContract(parsed);
-      expect(parsed.ok).toBe(false);
-      expect(parsed.stage).toBe('verify');
-      expect(parsed.error).toContain('verify command failed');
-      expect(
-        parsed.errors.some(
-          (entry) =>
-            entry.includes('signature key id mismatch') ||
-            entry.includes('public key bundle missing keyId'),
-        ),
-      ).toBe(true);
+      expectFailureContract(parsed, verifyFailureContract);
     });
   });
 });

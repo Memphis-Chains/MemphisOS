@@ -360,6 +360,10 @@ Updated: 2026-03-12
   - new fixture: `tests/fixtures/strict-handoff/output-contract.json`.
   - ops regression tests now enforce top-level/nested key stability for JSON summary outputs.
   - completion-hints output keysets are now contract-checked for shell/automation compatibility.
+- Added strict-handoff failure output fixture contracts:
+  - new fixtures: `tests/fixtures/strict-handoff/failure-preflight.json`, `failure-export.json`, `failure-verify.json`.
+  - ops regression tests now assert failure stage/error semantics against fixture contracts.
+  - added deterministic export-failure coverage for encrypted-artifact policy guardrails.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -370,4 +374,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add strict-handoff failure output fixture contracts (preflight/export/verify sample payload snapshots) for operator tooling regression checks.
+1. Add a dedicated strict-handoff output schema runbook section so operator tooling can consume the JSON contract fields safely.
