@@ -340,6 +340,10 @@ Updated: 2026-03-12
 - Added CI smoke coverage for strict-handoff command contract stability:
   - `test:ops-artifacts` now includes `tests/ops/strict-incident-handoff.test.ts`.
   - `quality-gate` ops artifact regression step now explicitly covers strict-handoff flows.
+- Added README operator quick-reference for strict incident handoff:
+  - documents `ops:strict-incident-handoff` one-command workflow and `--completion-hints` usage.
+  - syncs export profile docs to include `strict-handoff` defaults.
+  - adds concise strict-handoff behavior checklist for operators.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -350,4 +354,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add README operator quick-reference section for strict incident handoff (`ops:strict-incident-handoff`) and completion hint usage.
+1. Add a dedicated strict-handoff troubleshooting matrix (preflight/export/verify failure classes) to the incident verification runbook.
