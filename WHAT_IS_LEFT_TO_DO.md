@@ -612,6 +612,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for preflight helper output keys:
   - README + release runbook now explicitly document `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, and `check_ids`.
   - release docs contract now enforces those key names across both operator docs.
+- Added docs-contract coverage for strict preflight output env controls:
+  - README + release runbook now explicitly document `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT` and `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT`.
+  - release docs contract now enforces these env control names in both docs.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -622,4 +625,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for strict output-mode env controls (`MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT`) in README/runbook operator guidance.
+1. Add docs-contract coverage for shared helper script path reference (`scripts/ci-release-preflight-gate.sh`) in both README and release runbook.

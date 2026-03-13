@@ -232,6 +232,7 @@ Preflight gate (single workflow step):
 - `npm run -s ops:release-preflight -- --json`
 - emits a machine-readable summary and fails fast on the first failing gate
 - shared preflight helper output keys: `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`
+- strict output-mode env controls: `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT=1`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`
 - CI/release preflight failures map by gate id to runbook anchors: `docs/runbooks/RELEASE.md#ci-preflight-gate-<gate-id>`
 - fallback: run the manual gate list below when you need per-step diagnostics
 

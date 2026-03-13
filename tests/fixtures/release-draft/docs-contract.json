@@ -25,5 +25,9 @@
     "preflight_gate_ids",
     "check_order_status",
     "check_ids"
+  ],
+  "requiredOutputEnvControls": [
+    "MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT",
+    "MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT"
   ]
 }
