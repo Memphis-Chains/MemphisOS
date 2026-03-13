@@ -546,6 +546,9 @@ Updated: 2026-03-13
   - README and release runbook now recommend `ops:release-preflight` as the primary preflight path.
   - docs now treat `validator-metadata.json.sha256` as a standard release artifact.
   - manual per-step gate list remains documented as fallback execution path.
+- Adopted single preflight gate flow for release-draft operations:
+  - workflow preflight path now uses one command: `npm run -s ops:release-preflight -- --json`.
+  - docs now present per-step gates strictly as manual fallback diagnostics.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -556,4 +559,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Adopt `ops:release-preflight` in `release-draft` workflow as a single preflight gate step (with JSON summary emission) while preserving deterministic release diagnostics.
+1. Add workflow contract regression coverage that fails if `release-draft` stops using the single preflight gate command (`npm run -s ops:release-preflight -- --json`).

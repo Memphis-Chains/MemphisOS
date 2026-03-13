@@ -226,10 +226,11 @@ npm run -s ops:rotate-key-bundle -- \
 
 Preferred: run the guarded draft-release workflow in GitHub Actions (`release-draft`), then review and publish the generated draft release.
 
-Preflight flow:
+Preflight gate (single workflow step):
 
-- recommended: `npm run -s ops:release-preflight`
-- fallback: run the manual gate list below if you need per-step execution
+- `npm run -s ops:release-preflight -- --json`
+- emits a machine-readable summary and fails fast on the first failing gate
+- fallback: run the manual gate list below when you need per-step diagnostics
 
 Manual fallback:
 
@@ -242,8 +243,6 @@ npm run -s test:ops-artifacts
 npm run -s test:ts
 npm run -s test:chaos
 npm run -s test:rust
-npm pack --dry-run
-npm pack
 ```
 
 Draft release workflow artifacts also include:
