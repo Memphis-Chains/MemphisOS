@@ -435,6 +435,10 @@ Updated: 2026-03-13
   - ops artifact regression now enforces exact `checks[].id` ordering from `validator-output-contract.json` (not just set equality).
   - validator contract policy note now explicitly treats check ordering as stable within a schema version.
   - contract consumers can rely on deterministic check ordering for lightweight log diffing.
+- Added dedicated CI check-order assertion for validator JSON output:
+  - `quality-gate` now compares live `checks[].id` order from validator `--json` output against `validator-output-contract.json`.
+  - CI now fails fast with explicit expected/actual check-id ordering diagnostics on drift.
+  - strict-handoff contract enforcement now covers both pass/fail status and deterministic ordering in pipeline logs.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -445,4 +449,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a dedicated CI assertion that `ops:validate-strict-handoff-fixtures -- --json` check IDs appear in expected order.
+1. Mirror strict-handoff validator check-id order assertion in `release-draft` workflow JSON summary step.
