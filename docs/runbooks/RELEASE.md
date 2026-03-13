@@ -26,12 +26,13 @@ Preflight flow:
 - shared preflight helper output keys: `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`
 - strict output-mode env controls: `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT=1`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`
 - CI/release wrapper script: `scripts/ci-release-preflight-gate.sh`
+- preflight guard drill JSON gate script: `./scripts/guard-drill-json-gate.sh`
 - preflight strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 - fallback: run the per-step gate list below when command-level diagnostics are needed
 
 The workflow then performs release packaging automatically:
 
-- preflight command above runs lint/typecheck/strict-handoff validator/ops artifact/TS/chaos/Rust gates in deterministic fail-fast order
+- preflight command above runs lint/typecheck/startup-guard drill/strict-handoff validator/ops artifact/TS/chaos/Rust gates in deterministic fail-fast order
 - `npm pack --dry-run`
 - `npm pack --pack-destination release-dist`
 - generates `release-dist/validator-metadata.json` (schema + check-order status contract)
@@ -75,6 +76,7 @@ Use this when `ops:release-preflight` cannot be run and you need direct gate-by-
 ```bash
 npm run -s lint
 npm run -s typecheck
+./scripts/guard-drill-json-gate.sh
 npm run -s ops:validate-strict-handoff-fixtures
 ./scripts/strict-handoff-validator-json-gate.sh
 npm run -s test:ops-artifacts
@@ -90,6 +92,7 @@ git push origin main
 git push origin vX.Y.Z
 ```
 
+- fallback guard drill gate script: `./scripts/guard-drill-json-gate.sh`
 - fallback strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 
 <a id="ci-preflight-failure-triage-map"></a>
@@ -109,6 +112,13 @@ git push origin vX.Y.Z
 
 - rerun gate: `npm run -s typecheck`
 - fix TypeScript type errors, then rerun: `npm run -s typecheck`
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+<a id="ci-preflight-gate-guardDrill"></a>
+### CI Preflight Gate guardDrill
+
+- rerun gate: `./scripts/guard-drill-json-gate.sh`
+- fix startup-guard drill regressions until both required scenarios (`trust-root-invalid-strict`, `revocation-stale`) pass again
 - verify full preflight: `npm run -s ops:release-preflight -- --json`
 
 <a id="ci-preflight-gate-strictHandoffFixtureValidator"></a>

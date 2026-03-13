@@ -30,13 +30,5 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Ops drill (startup guards)
-        run: |
-          set -euo pipefail
-          OUT="$(npm run -s ops:drill-guards)"
-          printf '%s\n' "$OUT"
-          grep -q 'trust-root-invalid-strict' <<<"$OUT"
-          grep -q 'revocation-stale' <<<"$OUT"
-
       - name: Release preflight gate
         run: ./scripts/ci-release-preflight-gate.sh

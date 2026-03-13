@@ -84,6 +84,10 @@
   "metadataValidatorOutputContractPath": "tests/fixtures/release-draft/validator-metadata-validator-output-contract.json",
   "metadataValidationCommandId": "ops:validate-release-draft-validator-metadata",
   "preflightCommand": "./scripts/ci-release-preflight-gate.sh",
+  "checkoutRequiredSnippets": [
+    "fetch-depth: 0",
+    "fetch-tags: true"
+  ],
   "preflightMarkers": [
     "MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: \"1\"",
     "MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: \"1\"",

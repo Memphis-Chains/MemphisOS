@@ -25,6 +25,54 @@ Removed:
 - legacy benchmark/demo/deploy/plugin/package bulk
 - old release artifacts and non-core docs/workflows
 
+## Install From Source (New Users)
+
+Requirements:
+
+- Linux or macOS shell with `bash`
+- Node.js `22.x`
+- `npm`
+- Rust stable toolchain (`rustup`, `cargo`, `rustc`)
+- `git`
+- optional for local model usage: `ollama`
+
+Install and verify the repo:
+
+```bash
+git clone https://github.com/Memphis-Chains/MemphisOS.git
+cd MemphisOS
+npm ci
+npm run build
+npm run lint
+npm run typecheck
+npm run -s cli -- doctor --json
+npm run -s cli -- health --json
+```
+
+First local setup:
+
+```bash
+npm run -s cli -- onboarding wizard --interactive
+npm run -s cli -- onboarding bootstrap --profile dev-local --dry-run --json
+```
+
+If the dry-run output looks correct, start the local runtime:
+
+```bash
+npm run test:ops-artifacts
+npm run dev
+```
+
+CLI entrypoints:
+
+```bash
+npm run -s cli -- health --json
+npm run -s cli -- doctor --json
+node bin/memphis.js health --json
+```
+
+More detailed setup is in [docs/GETTING_STARTED.md](/home/memphis_ai_brain_on_chain/MemphisOS/docs/GETTING_STARTED.md).
+
 ## Quick Start
 
 ```bash
@@ -35,18 +83,6 @@ npm run test:ops-artifacts
 npm run test:ts
 npm run test:chaos
 npm run test:rust
-```
-
-Run API:
-
-```bash
-npm run dev
-```
-
-Run CLI:
-
-```bash
-npm run cli
 ```
 
 ## Setup For Anyone (Guided)
@@ -235,6 +271,7 @@ Preflight gate (single workflow step):
 - shared preflight helper output keys: `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`
 - strict output-mode env controls: `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT=1`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`
 - CI/release wrapper script: `scripts/ci-release-preflight-gate.sh`
+- preflight guard drill JSON gate script: `./scripts/guard-drill-json-gate.sh`
 - preflight strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 - CI/release preflight failures map by gate id to runbook anchors: `docs/runbooks/RELEASE.md#ci-preflight-gate-<gate-id>`
 - full triage map anchor: `docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map`
@@ -245,6 +282,7 @@ Manual fallback:
 ```bash
 npm run -s lint
 npm run -s typecheck
+./scripts/guard-drill-json-gate.sh
 npm run -s ops:validate-strict-handoff-fixtures
 ./scripts/strict-handoff-validator-json-gate.sh
 npm run -s test:ops-artifacts
@@ -252,6 +290,7 @@ npm run -s test:ts
 npm run -s test:chaos
 npm run -s test:rust
 ```
+- guard drill gate rerun command: `./scripts/guard-drill-json-gate.sh`
 - strict fixture gate rerun command: `npm run -s ops:validate-strict-handoff-fixtures -- --json`
 - fallback strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 - fallback pack dry-run command: `npm pack --dry-run`

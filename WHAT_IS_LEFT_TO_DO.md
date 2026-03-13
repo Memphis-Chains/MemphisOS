@@ -682,6 +682,14 @@ Updated: 2026-03-13
   - `MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON` is now rejected unless `MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1` is explicitly set.
   - direct preflight regression tests now assert default-deny behavior for inherited override env in non-test mode.
   - CI/release wrapper regression tests now fail closed when override env is injected without the explicit test-only allow flag.
+- Closed optional release hardening follow-ups:
+  - `release-draft` checkout now fetches full history + tags so validator baseline comparison can use tagged history when it exists.
+  - release preflight now includes a shared startup-guard drill JSON gate (`./scripts/guard-drill-json-gate.sh`) so release gating matches CI startup-guard drill coverage.
+  - release docs + triage contracts now include the guard drill gate in fallback and per-gate remediation guidance.
+- Added newbie installation guidance:
+  - new guide: `docs/GETTING_STARTED.md`
+  - README install section now covers prerequisites, first install, onboarding bootstrap dry-run, and first CLI health/doctor commands.
+  - docs index now points new users to the getting-started path before operator runbooks.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -692,6 +700,6 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Product finish-line blockers are closed; remaining work is optional release/ops hardening rather than required product completion.
-2. Optional: fetch tag history in `release-draft` checkout so validator baseline comparison does not degrade to `no-baseline` when tags exist.
-3. Optional: add `ops:drill-guards -- --json` parity into `ops:release-preflight` / `release-draft` so release gating matches CI startup-guard drill coverage.
+1. Product completion and optional release hardening are closed on `main`; next work is usage/release/adoption rather than missing product implementation.
+2. Optional next phase: cut and review the first guarded draft release from `.github/workflows/release-draft.yml`.
+3. Optional next phase: add user-facing examples/tutorials once real usage patterns are known.

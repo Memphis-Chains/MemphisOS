@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process';
 type PreflightGateId =
   | 'lint'
   | 'typecheck'
+  | 'guardDrill'
   | 'strictHandoffFixtureValidator'
   | 'strictHandoffJsonGate'
   | 'opsArtifacts'
@@ -37,6 +38,7 @@ type PreflightSummary = {
 const defaultGates: PreflightGate[] = [
   { id: 'lint', command: 'npm', args: ['run', '-s', 'lint'] },
   { id: 'typecheck', command: 'npm', args: ['run', '-s', 'typecheck'] },
+  { id: 'guardDrill', command: './scripts/guard-drill-json-gate.sh', args: [] },
   {
     id: 'strictHandoffFixtureValidator',
     command: 'npm',
