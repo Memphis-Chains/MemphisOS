@@ -263,12 +263,20 @@ Do not attach private signing keys.
 
 ## 5. Failure Handling
 
-- `bundle sha256 mismatch`:
-  - treat bundle as tampered/corrupted; regenerate and re-verify.
-- `signature verification failed`:
-  - verify public key source and signer identity; rotate keys if compromise is suspected.
-- `signature key id mismatch`:
-  - reject evidence package until signer identity is reconciled.
+Use this strict-handoff triage matrix when `ops:strict-incident-handoff` reports `[FAIL]`.
+
+| Stage | Failure Class | Typical Signal | Operator Action |
+| --- | --- | --- | --- |
+| `preflight` | Missing signer/key-bundle/trust-root inputs | `strict handoff preflight failed` | Provide `--signing-key-*`, `--signing-key-id` (or `--expected-key-id`), `--public-key-bundle-path`, `--trust-root-path`; rerun with `--json` to confirm resolved checks. |
+| `preflight` | Trust root manifest unavailable | `trust root manifest not found` | Confirm `MEMPHIS_TRUST_ROOT_PATH` or `--trust-root-path`; restore expected `trust_root.json` before retry. |
+| `export` | Encryption policy input gap | `encrypted artifacts are required by policy` | Provide one encryption passphrase source (`--encryption-passphrase`, `--encryption-passphrase-base64`, `--encryption-passphrase-file`, or env). |
+| `verify` | Bundle integrity mismatch | `bundle sha256 mismatch` or `bundle byte size mismatch` | Treat artifact as tampered/corrupted; regenerate bundle + manifest and rerun verification. |
+| `verify` | Signature/key identity failure | `signature verification failed` or `signature key id mismatch` | Validate signing key ownership, expected key id, and detached key bundle contents; rotate keys if compromise suspected. |
+| `verify` | Detached key-bundle provenance failure | `public key bundle signature verification failed` or trust-root mismatch | Rebuild/sign detached key bundle via `ops:rotate-key-bundle`, then verify with current trusted root manifest. |
+| `verify` | Cognitive evidence requirement failure | `cognitive summary metadata is required` or `bundle missing cognitiveReports payload` | Re-export with strict profile (`--profile strict-handoff`) and ensure cognitive summaries are embedded. |
+| `verify` | Chain-link append enforcement failure | `failed to append incident verification chain event` | Restore chain write path, rerun verification, and confirm `chainEvent.written=true`. |
+
+If strict-handoff still fails after remediation, escalate with attached artifacts (`bundle`, `manifest`, strict-handoff JSON output, and chain event status fields).
 
 ## 6. Closure Criteria
 
