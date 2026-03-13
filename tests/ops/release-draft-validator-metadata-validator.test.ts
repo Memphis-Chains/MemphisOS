@@ -37,6 +37,13 @@ const invalidPreflightGateContractPath = path.join(
   'release-draft',
   'validator-metadata-invalid-preflight-gate-contract.json',
 );
+const preflightFailureFixturePath = path.join(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'release-draft',
+  'validator-metadata-preflight-failure-example.json',
+);
 
 describe('release-draft validator metadata schema validator command', () => {
   it('passes for the release-draft validator metadata example fixture', () => {
@@ -49,6 +56,29 @@ describe('release-draft validator metadata schema validator command', () => {
         '--',
         '--metadata-path',
         'tests/fixtures/release-draft/validator-metadata-example.json',
+      ],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        timeout: 60_000,
+        env: process.env,
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('[PASS] validator metadata matches schema');
+  });
+
+  it('passes for failure-path preflight summaries when shape remains valid', () => {
+    const result = spawnSync(
+      'npm',
+      [
+        'run',
+        '-s',
+        'ops:validate-release-draft-validator-metadata',
+        '--',
+        '--metadata-path',
+        path.relative(repoRoot, preflightFailureFixturePath),
       ],
       {
         cwd: repoRoot,
