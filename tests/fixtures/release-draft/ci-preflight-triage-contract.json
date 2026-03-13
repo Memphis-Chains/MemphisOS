@@ -1,0 +1,18 @@
+{
+  "gateIds": [
+    "lint",
+    "typecheck",
+    "strictHandoffFixtureValidator",
+    "strictHandoffJsonGate",
+    "opsArtifacts",
+    "testTs",
+    "testChaos",
+    "testRust"
+  ],
+  "ciRequiredSnippets": [
+    "npm run -s ops:release-preflight -- --json",
+    "docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map",
+    "docs/runbooks/RELEASE.md#ci-preflight-gate-"
+  ],
+  "runbookSectionHeading": "## CI Preflight Failure Triage Map"
+}

@@ -11,7 +11,16 @@ const workflowContracts = [
   {
     workflowRelativePath: path.join('.github', 'workflows', 'ci.yml'),
     requiredSnippets: ['npm run -s ops:release-preflight -- --json'],
-    forbiddenSnippets: ['./scripts/strict-handoff-validator-json-gate.sh'],
+    forbiddenSnippets: [
+      'npm run -s lint',
+      'npm run -s typecheck',
+      'npm run -s ops:validate-strict-handoff-fixtures',
+      './scripts/strict-handoff-validator-json-gate.sh',
+      'npm run -s test:ops-artifacts',
+      'npm run -s test:ts',
+      'npm run -s test:chaos',
+      'npm run -s test:rust',
+    ],
   },
   {
     workflowRelativePath: path.join('.github', 'workflows', 'release-draft.yml'),
