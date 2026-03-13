@@ -21,6 +21,7 @@ type ReleaseDraftDocsContract = {
   requiredTagPushCommands?: string[];
   requiredPackCommands?: string[];
   requiredReleaseDirCommands?: string[];
+  requiredStrictFixtureValidationCommands?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -122,6 +123,12 @@ describe('release-draft docs fixture references', () => {
       if (Array.isArray(contract.requiredReleaseDirCommands)) {
         for (const releaseDirCommand of contract.requiredReleaseDirCommands) {
           expect(markdown.includes(releaseDirCommand)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredStrictFixtureValidationCommands)) {
+        for (const strictFixtureCommand of contract.requiredStrictFixtureValidationCommands) {
+          expect(markdown.includes(strictFixtureCommand)).toBe(true);
         }
       }
 
