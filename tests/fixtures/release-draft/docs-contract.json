@@ -44,5 +44,8 @@
   ],
   "requiredManualFallbackCommands": [
     "./scripts/strict-handoff-validator-json-gate.sh"
+  ],
+  "requiredChecksumCommands": [
+    "sha256sum release-dist/memphis-chains-memphisos-<version>.tgz"
   ]
 }
