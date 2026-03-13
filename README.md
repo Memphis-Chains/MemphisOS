@@ -252,6 +252,18 @@ Draft release workflow artifacts also include:
 - `validator-metadata.json` (validator schema/check-order status contract for automation consumers)
 - `validator-metadata.json.sha256` (validator metadata checksum contract)
 
+Local metadata validator quick checks:
+
+```bash
+npm run -s ops:validate-release-draft-validator-metadata -- \
+  --metadata-path tests/fixtures/release-draft/validator-metadata-invalid-preflight-gate.json
+```
+
+```bash
+npm run -s ops:validate-release-draft-validator-metadata -- \
+  --metadata-path tests/fixtures/release-draft/validator-metadata-preflight-failure-example.json
+```
+
 Release details and workflow inputs are documented in `docs/runbooks/RELEASE.md`.
 
 ## Security Notes
