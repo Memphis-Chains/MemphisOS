@@ -130,6 +130,12 @@ npm run -s ops:strict-incident-handoff -- \
   --signing-key-id incident-key-v2 \
   --public-key-bundle-path data/public-key-bundle.json \
   --trust-root-path config/trust_root.json
+npm run -s ops:strict-incident-handoff -- \
+  --preflight-only \
+  --signing-key-path /secure/path/incident-signing-key.pem \
+  --signing-key-id incident-key-v2 \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --trust-root-path config/trust_root.json
 npm run -s ops:strict-incident-handoff -- --completion-hints
 npm run -s ops:verify-incident-manifest -- \
   --manifest-path data/incident-bundle.manifest.json \
@@ -192,6 +198,7 @@ npm run -s ops:rotate-key-bundle -- \
 `ops:strict-incident-handoff` quick reference:
 
 - runs export (`--profile strict-handoff`) and verify (`--profile trust-root-strict`) in one command
+- supports `--preflight-only` readiness checks without running export/verify
 - fails preflight when signer key input, public key bundle path, trust root path, or signer key id are missing
 - `--completion-hints` prints machine-readable flag/env contracts for shell tooling
 

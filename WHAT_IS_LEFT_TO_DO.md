@@ -348,6 +348,11 @@ Updated: 2026-03-12
   - preflight/export/verify failure classes now map to concrete operator remediation actions.
   - matrix covers signature/key-bundle/trust-root, cognitive evidence, and chain-link append failure paths.
   - escalation guidance now points to strict-handoff JSON evidence package fields.
+- Added strict-handoff preflight-only readiness mode:
+  - `ops:strict-incident-handoff --preflight-only` now validates strict prerequisites and exits without export/verify.
+  - script help/completion metadata now documents preflight-only usage.
+  - ops regression coverage verifies preflight-only success contract and no side-effect bundle writes.
+  - README + runbook now include preflight-only operator command examples.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -358,4 +363,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a lightweight strict-handoff preflight-only command mode for operator readiness checks without running export/verify.
+1. Add CI smoke assertion for human-readable preflight-only success output (`[PASS] strict incident handoff preflight checks passed`).
