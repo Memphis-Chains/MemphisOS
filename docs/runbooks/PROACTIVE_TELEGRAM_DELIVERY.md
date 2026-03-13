@@ -52,3 +52,9 @@ Disable immediately by setting:
 - `MEMPHIS_PROACTIVE_TELEGRAM_ENABLED=false`
 
 No data migrations are required for rollback.
+
+## 6. Credential Rotation
+
+For production token/chat credential rotation without delivery downtime, follow:
+
+- `docs/runbooks/TELEGRAM_CREDENTIAL_ROTATION.md`

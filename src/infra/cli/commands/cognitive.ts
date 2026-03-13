@@ -5,6 +5,7 @@ import { KnowledgeSynthesizer } from '../../../cognitive/knowledge-synthesizer.j
 import { getLearningStorage } from '../../../cognitive/learning.js';
 import { ProactiveSuggestionEngine } from '../../../cognitive/proactive-suggestions.js';
 import { ReflectionEngine } from '../../../reflection/engine.js';
+import type { Reflection } from '../../../reflection/types.js';
 import { appendBlock, type AppendBlockResult } from '../../storage/chain-adapter.js';
 import type { CliContext } from '../context.js';
 import { loadCognitiveBlocks } from '../utils/cognitive.js';
@@ -62,10 +63,37 @@ async function saveInsightsReport(
   return appendBlock('journal', buildInsightSavePayload(window, insights, topic), process.env);
 }
 
+function serializeReflection(reflection: Reflection): Record<string, unknown> {
+  return {
+    ...reflection,
+    context: Object.fromEntries(reflection.context.entries()),
+    timestamp: reflection.timestamp.toISOString(),
+  };
+}
+
+function buildReflectionSavePayload(reflections: Reflection[]): Record<string, unknown> {
+  return {
+    type: 'reflection_report',
+    source: 'cli.reflect',
+    content: `Reflection Report: ${reflections.length} reflection(s) generated`,
+    tags: ['reflection', 'report', 'daily'],
+    report: {
+      generatedAt: new Date().toISOString(),
+      count: reflections.length,
+      reflections: reflections.slice(0, 20).map((item) => serializeReflection(item)),
+    },
+  };
+}
+
+async function saveReflectionReport(reflections: Reflection[]): Promise<AppendBlockResult> {
+  return appendBlock('journal', buildReflectionSavePayload(reflections), process.env);
+}
+
 export async function handleCognitiveCommand(context: CliContext): Promise<boolean> {
   const command = context.args.command;
   const handlers: Partial<Record<string, CognitiveHandler>> = {
     learn: handleLearnCommand,
+    insight: handleInsightsCommand,
     insights: handleInsightsCommand,
     connections: handleConnectionsCommand,
     suggest: handleSuggestCommand,
@@ -195,17 +223,16 @@ async function handleCategorizeCommand(context: CliContext): Promise<boolean> {
 async function handleReflectCommand(context: CliContext): Promise<boolean> {
   const { json, save } = context.args;
   const reflections = await new ReflectionEngine().reflectDaily('manual', new Map());
+  const renderedReflections = reflections.map((item) => serializeReflection(item));
+  const savedBlock = save ? await saveReflectionReport(reflections) : null;
   print(
     {
       ok: true,
       mode: 'reflect',
       count: reflections.length,
-      reflections: reflections.map((item) => ({
-        ...item,
-        context: Object.fromEntries(item.context.entries()),
-      })),
-      saved: save,
-      message: save ? 'save requested; chain persistence is not implemented yet' : undefined,
+      reflections: renderedReflections,
+      saved: Boolean(savedBlock),
+      savedBlock,
     },
     json,
   );

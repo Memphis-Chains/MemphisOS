@@ -10,6 +10,7 @@ Minimal documentation set for the clean-slate MemphisOS repository.
 - `runbooks/INCIDENT_MANIFEST_VERIFICATION.md`: incident evidence bundle/manifest signing and verification workflow.
 - `runbooks/KEY_BUNDLE_ROTATION.md`: detached key-bundle rotation and trust-root-signed provenance workflow.
 - `runbooks/PROACTIVE_TELEGRAM_DELIVERY.md`: opt-in Telegram delivery controls and failure triage for proactive assistant messages.
+- `runbooks/TELEGRAM_CREDENTIAL_ROTATION.md`: zero-downtime Telegram bot credential rotation procedure and rollback.
 - `runbooks/RELEASE.md`: sprint release packaging, tagging, and publication workflow.
 - `runbooks/STARTUP_GUARD_TRIAGE.md`: startup status-field triage map and remediation actions.
 - `runbooks/SYSTEMD_EXIT_CODES.md`: exit-code to systemd behavior mapping.
