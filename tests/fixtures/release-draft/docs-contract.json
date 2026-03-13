@@ -41,5 +41,8 @@
   ],
   "requiredGateAnchorTokens": [
     "ci-preflight-gate-"
+  ],
+  "requiredManualFallbackCommands": [
+    "./scripts/strict-handoff-validator-json-gate.sh"
   ]
 }

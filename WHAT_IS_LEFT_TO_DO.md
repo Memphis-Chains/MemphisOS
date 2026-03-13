@@ -627,6 +627,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for gate-specific triage anchor token pattern:
   - release docs contract now requires `ci-preflight-gate-` token in README + runbook release guidance.
   - regression now fails if gate-anchor token references are removed from operator docs.
+- Added docs-contract coverage for manual fallback strict-handoff command:
+  - release docs contract now requires `./scripts/strict-handoff-validator-json-gate.sh` in README + runbook fallback command guidance.
+  - regression now fails if strict-handoff fallback command references drift.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -637,4 +640,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for manual fallback gate command reference (`./scripts/strict-handoff-validator-json-gate.sh`) in README/runbook release guidance.
+1. Add docs-contract coverage for manual fallback package checksum command reference (`sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`) in README/runbook release guidance.
