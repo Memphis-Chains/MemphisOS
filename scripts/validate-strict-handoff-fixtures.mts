@@ -13,24 +13,52 @@ type OutputContractFixture = {
   completionHintsExamplePath: string;
 };
 
-function fail(message: string): never {
-  throw new Error(message);
+type ValidationCheckId =
+  | 'summaryExampleSchema'
+  | 'completionHintsExampleSchema'
+  | 'completionHintsCommandSchema'
+  | 'summaryCommandSchema';
+
+type ValidationCheckResult = {
+  id: ValidationCheckId;
+  ok: boolean;
+  error: string | null;
+};
+
+type ValidationSummary = {
+  schemaVersion: 1;
+  ok: boolean;
+  checks: ValidationCheckResult[];
+  error: string | null;
+  errors: string[];
+};
+
+function usage(): string {
+  return [
+    'Usage: npm run -s ops:validate-strict-handoff-fixtures -- [--json]',
+    '',
+    'Options:',
+    '  --json   Emit machine-readable summary output',
+  ].join('\n');
 }
 
 function readJsonFile(filePath: string): unknown {
   return JSON.parse(readFileSync(filePath, 'utf8'));
 }
 
-function validateJsonPayload(
-  validate: ValidateFunction,
-  payload: unknown,
-  label: string,
-  ajv: Ajv2020,
-): void {
-  if (!validate(payload)) {
-    fail(`[FAIL] ${label}: ${ajv.errorsText(validate.errors)}`);
+function parseJsonOutput(stdout: string, label: string): unknown {
+  try {
+    return JSON.parse(stdout);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${label}: invalid JSON output (${message})`);
   }
-  console.log(`[PASS] ${label}`);
+}
+
+function assertJsonPayload(validate: ValidateFunction, payload: unknown, label: string, ajv: Ajv2020): void {
+  if (!validate(payload)) {
+    throw new Error(`${label}: ${ajv.errorsText(validate.errors)}`);
+  }
 }
 
 function runCommand(commandArgs: string[], cwd: string): ReturnType<typeof spawnSync> {
@@ -42,14 +70,40 @@ function runCommand(commandArgs: string[], cwd: string): ReturnType<typeof spawn
   });
 }
 
-function parseJsonOutput(stdout: string, label: string): unknown {
+function runValidationCheck(
+  checks: ValidationCheckResult[],
+  errors: string[],
+  id: ValidationCheckId,
+  label: string,
+  jsonMode: boolean,
+  fn: () => void,
+): void {
   try {
-    return JSON.parse(stdout);
+    fn();
+    checks.push({ id, ok: true, error: null });
+    if (!jsonMode) console.log(`[PASS] ${label}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    fail(`[FAIL] ${label}: invalid JSON output (${message})`);
+    checks.push({ id, ok: false, error: message });
+    errors.push(message);
+    if (!jsonMode) console.error(`[FAIL] ${label}: ${message}`);
   }
 }
+
+const rawArgs = process.argv.slice(2);
+if (rawArgs.includes('--help')) {
+  console.log(usage());
+  process.exit(0);
+}
+for (const arg of rawArgs) {
+  if (arg !== '--json') {
+    console.error(`Unknown option: ${arg}`);
+    console.error(usage());
+    process.exit(2);
+  }
+}
+
+const jsonMode = rawArgs.includes('--json');
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..');
@@ -65,39 +119,94 @@ const ajv = new Ajv2020({ allErrors: true, strict: true });
 const validateSummary = ajv.compile(summarySchema);
 const validateCompletion = ajv.compile(completionSchema);
 
-validateJsonPayload(validateSummary, summaryExample, 'summary example fixture matches summary schema', ajv);
-validateJsonPayload(
-  validateCompletion,
-  completionExample,
+const checks: ValidationCheckResult[] = [];
+const errors: string[] = [];
+
+runValidationCheck(
+  checks,
+  errors,
+  'summaryExampleSchema',
+  'summary example fixture matches summary schema',
+  jsonMode,
+  () => assertJsonPayload(validateSummary, summaryExample, 'summary fixture schema mismatch', ajv),
+);
+
+runValidationCheck(
+  checks,
+  errors,
+  'completionHintsExampleSchema',
   'completion-hints example fixture matches completion-hints schema',
-  ajv,
+  jsonMode,
+  () =>
+    assertJsonPayload(
+      validateCompletion,
+      completionExample,
+      'completion-hints fixture schema mismatch',
+      ajv,
+    ),
 );
 
-const completionHintsResult = runCommand(
-  ['run', '-s', 'ops:strict-incident-handoff', '--', '--completion-hints'],
-  repoRoot,
-);
-if (completionHintsResult.status !== 0) {
-  fail(
-    `[FAIL] completion-hints command failed (status=${String(completionHintsResult.status)}): ${completionHintsResult.stderr}`,
-  );
-}
-const completionHintsPayload = parseJsonOutput(
-  completionHintsResult.stdout,
-  'completion-hints command output',
-);
-validateJsonPayload(
-  validateCompletion,
-  completionHintsPayload,
+runValidationCheck(
+  checks,
+  errors,
+  'completionHintsCommandSchema',
   'completion-hints command output matches completion-hints schema',
-  ajv,
+  jsonMode,
+  () => {
+    const completionHintsResult = runCommand(
+      ['run', '-s', 'ops:strict-incident-handoff', '--', '--completion-hints'],
+      repoRoot,
+    );
+    if (completionHintsResult.status !== 0) {
+      throw new Error(
+        `completion-hints command failed (status=${String(completionHintsResult.status)}): ${completionHintsResult.stderr}`,
+      );
+    }
+    const completionHintsPayload = parseJsonOutput(
+      completionHintsResult.stdout,
+      'completion-hints command output',
+    );
+    assertJsonPayload(
+      validateCompletion,
+      completionHintsPayload,
+      'completion-hints command schema mismatch',
+      ajv,
+    );
+  },
 );
 
-const summaryResult = runCommand(['run', '-s', 'ops:strict-incident-handoff', '--', '--json'], repoRoot);
-if (summaryResult.status !== 0 && summaryResult.status !== 1) {
-  fail(`[FAIL] summary command returned unexpected status=${String(summaryResult.status)}: ${summaryResult.stderr}`);
-}
-const summaryPayload = parseJsonOutput(summaryResult.stdout, 'strict-handoff summary command output');
-validateJsonPayload(validateSummary, summaryPayload, 'summary command output matches summary schema', ajv);
+runValidationCheck(
+  checks,
+  errors,
+  'summaryCommandSchema',
+  'summary command output matches summary schema',
+  jsonMode,
+  () => {
+    const summaryResult = runCommand(['run', '-s', 'ops:strict-incident-handoff', '--', '--json'], repoRoot);
+    if (summaryResult.status !== 0 && summaryResult.status !== 1) {
+      throw new Error(
+        `summary command returned unexpected status=${String(summaryResult.status)}: ${summaryResult.stderr}`,
+      );
+    }
+    const summaryPayload = parseJsonOutput(summaryResult.stdout, 'strict-handoff summary command output');
+    assertJsonPayload(validateSummary, summaryPayload, 'summary command schema mismatch', ajv);
+  },
+);
 
-console.log('[PASS] strict-handoff fixture/schema validation completed');
+const summary: ValidationSummary = {
+  schemaVersion: 1,
+  ok: errors.length === 0,
+  checks,
+  error: errors.length > 0 ? errors[0] : null,
+  errors,
+};
+
+if (jsonMode) {
+  console.log(JSON.stringify(summary, null, 2));
+} else if (summary.ok) {
+  console.log('[PASS] strict-handoff fixture/schema validation completed');
+} else {
+  console.error('[FAIL] strict-handoff fixture/schema validation failed');
+}
+
+process.exit(summary.ok ? 0 : 1);

@@ -36,5 +36,6 @@
   ],
   "completionHintsJsonSchemaPath": "tests/fixtures/strict-handoff/completion-hints.schema.json",
   "completionHintsExamplePath": "tests/fixtures/strict-handoff/completion-hints-example.json",
+  "validatorOutputContractPath": "tests/fixtures/strict-handoff/validator-output-contract.json",
   "completionHintProfileKeys": ["export", "verify"]
 }

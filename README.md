@@ -202,9 +202,11 @@ npm run -s ops:rotate-key-bundle -- \
 - fails preflight when signer key input, public key bundle path, trust root path, or signer key id are missing
 - `--completion-hints` prints machine-readable flag/env contracts for shell tooling
 - `ops:validate-strict-handoff-fixtures` validates strict-handoff fixture payloads + live command output against JSON Schemas
+- `ops:validate-strict-handoff-fixtures --json` emits machine-readable validation summary for CI/automation
 - integration contract fixtures for tooling:
   - summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
   - JSON Schemas: `tests/fixtures/strict-handoff/summary.schema.json`, `tests/fixtures/strict-handoff/completion-hints.schema.json`
+  - validator JSON contract: `tests/fixtures/strict-handoff/validator-output-contract.json`
   - schema example payloads: `tests/fixtures/strict-handoff/summary-example-preflight.json`, `tests/fixtures/strict-handoff/completion-hints-example.json`
   - failure contracts: `tests/fixtures/strict-handoff/failure-preflight.json`, `tests/fixtures/strict-handoff/failure-export.json`, `tests/fixtures/strict-handoff/failure-verify.json`
   - parser/validation examples (`jq`, TypeScript, Ajv CLI): `docs/runbooks/INCIDENT_MANIFEST_VERIFICATION.md`
