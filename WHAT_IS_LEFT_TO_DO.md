@@ -364,6 +364,10 @@ Updated: 2026-03-12
   - new fixtures: `tests/fixtures/strict-handoff/failure-preflight.json`, `failure-export.json`, `failure-verify.json`.
   - ops regression tests now assert failure stage/error semantics against fixture contracts.
   - added deterministic export-failure coverage for encrypted-artifact policy guardrails.
+- Added strict-handoff output schema section to incident runbook:
+  - documents stable JSON keys and stage semantics for operator tooling consumers.
+  - links summary + failure contract fixtures for implementation-safe parsing.
+  - clarifies additive-key compatibility guidance for automation clients.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -374,4 +378,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a dedicated strict-handoff output schema runbook section so operator tooling can consume the JSON contract fields safely.
+1. Add README pointer to strict-handoff fixture contract files for external integrators.
