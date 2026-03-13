@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createHash, generateKeyPairSync, verify } from 'node:crypto';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -180,6 +181,121 @@ describe('incident bundle exporter', () => {
         ]);
       },
     );
+  });
+
+  it('optionally embeds latest cognitive report summaries from journal', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-cognitive-');
+    const dataDir = path.join(dir, 'memphis-data');
+    const journalPath = path.join(dataDir, 'chains', 'journal');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'bundle-with-cognitive.json');
+    mkdirSync(journalPath, { recursive: true });
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+
+    writeFileSync(
+      path.join(journalPath, '000001.json'),
+      JSON.stringify({
+        index: 1,
+        timestamp: '2026-01-01T00:00:01.000Z',
+        hash: 'hash-1',
+        data: {
+          type: 'insight_report',
+          schemaVersion: 1,
+          source: 'cli.insights',
+          report: { generatedAt: '2026-01-01T00:00:01.000Z', input: 'insight input' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      path.join(journalPath, '000002.json'),
+      JSON.stringify({
+        index: 2,
+        timestamp: '2026-01-01T00:00:02.000Z',
+        hash: 'hash-2',
+        data: {
+          type: 'categorize_report',
+          schemaVersion: 1,
+          source: 'cli.categorize',
+          report: { generatedAt: '2026-01-01T00:00:02.000Z', input: 'categorize input' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      path.join(journalPath, '000003.json'),
+      JSON.stringify({
+        index: 3,
+        timestamp: '2026-01-01T00:00:03.000Z',
+        hash: 'hash-3',
+        data: {
+          type: 'reflection_report',
+          schemaVersion: 1,
+          source: 'cli.reflect',
+          report: { generatedAt: '2026-01-01T00:00:03.000Z', input: 'reflection input' },
+        },
+      }),
+      'utf8',
+    );
+    writeFileSync(
+      path.join(journalPath, '000004.json'),
+      JSON.stringify({
+        index: 4,
+        data: { type: 'unrelated_block' },
+      }),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter(
+        [
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          outPath,
+          '--include-cognitive-summaries',
+          '--cognitive-report-limit',
+          '2',
+        ],
+        { MEMPHIS_DATA_DIR: dataDir },
+      );
+      expect(result.status).toBe(0);
+      const emitted = JSON.parse(result.stdout) as {
+        ok: boolean;
+        cognitiveReports?: { enabled?: boolean; journalPath?: string; limit?: number; count?: number };
+      };
+      expect(emitted.ok).toBe(true);
+      expect(emitted.cognitiveReports?.enabled).toBe(true);
+      expect(emitted.cognitiveReports?.journalPath).toBe(journalPath);
+      expect(emitted.cognitiveReports?.limit).toBe(2);
+      expect(emitted.cognitiveReports?.count).toBe(2);
+    });
+
+    const bundle = JSON.parse(readFileSync(outPath, 'utf8')) as {
+      cognitiveReports?: {
+        schemaVersion?: number;
+        journalPath?: string;
+        limit?: number;
+        count?: number;
+        reports?: Array<{ reportType?: string; dataType?: string; path?: string }>;
+      };
+    };
+    expect(bundle.cognitiveReports?.schemaVersion).toBe(1);
+    expect(bundle.cognitiveReports?.journalPath).toBe(journalPath);
+    expect(bundle.cognitiveReports?.limit).toBe(2);
+    expect(bundle.cognitiveReports?.count).toBe(2);
+    expect(bundle.cognitiveReports?.reports?.map((report) => report.reportType)).toEqual([
+      'reflection',
+      'categorize',
+    ]);
+    expect(bundle.cognitiveReports?.reports?.map((report) => report.dataType)).toEqual([
+      'reflection_report',
+      'categorize_report',
+    ]);
+    expect(bundle.cognitiveReports?.reports?.[0]?.path).toBe(path.join(journalPath, '000003.json'));
+    expect(bundle.cognitiveReports?.reports?.[1]?.path).toBe(path.join(journalPath, '000002.json'));
   });
 
   it('prunes old timestamped incident bundles and paired manifests using retention policy', async () => {

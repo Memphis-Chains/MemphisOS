@@ -308,6 +308,11 @@ Updated: 2026-03-12
   - `ops:query-cognitive-reports --watch --ndjson` now emits one JSON object per poll iteration.
   - output contract includes watch metadata (`mode`, `iteration`, `watchedAt`, interval/count controls).
   - ops regression coverage now validates stable NDJSON watch keysets and argument guardrails.
+- Extended incident bundle export with optional cognitive report summaries:
+  - `ops:export-incident-bundle --include-cognitive-summaries` now embeds latest `journal` report summaries.
+  - configurable limits/source via `--cognitive-report-limit`, `--cognitive-journal-path`, and matching env vars.
+  - ops regression coverage validates stable embedding order and summary contract fields.
+  - startup guard triage runbook now documents cognitive-summary export controls.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -318,4 +323,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Extend incident export workflow to optionally embed latest cognitive report summaries from `journal`.
+1. Extend incident manifest schema to include a digest/count of embedded cognitive summaries for handoff integrity checks.
