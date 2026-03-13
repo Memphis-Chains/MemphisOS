@@ -723,12 +723,79 @@ describe('incident bundle exporter', () => {
     expect(manifest.cognitiveReports?.digestSha256).toBeNull();
   });
 
+  it('supports strict-handoff export profile with automatic cognitive summaries', async () => {
+    const dir = makeTempDir('memphis-incident-bundle-profile-strict-handoff-');
+    const dataDir = path.join(dir, '.memphis-data');
+    const journalPath = path.join(dataDir, 'chains', 'journal');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const outPath = path.join(dir, 'incident-bundle.json');
+    const inferredManifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    mkdirSync(journalPath, { recursive: true });
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+    writeFileSync(
+      path.join(journalPath, '000001.json'),
+      JSON.stringify({
+        index: 1,
+        timestamp: '2026-01-01T00:00:01.000Z',
+        hash: 'hash-1',
+        data: {
+          type: 'insight_report',
+          schemaVersion: 1,
+          source: 'cli.insights',
+          report: { generatedAt: '2026-01-01T00:00:01.000Z', input: 'strict handoff seed' },
+        },
+      }),
+      'utf8',
+    );
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const result = await runIncidentBundleExporter(
+        [
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          outPath,
+          '--profile',
+          'strict-handoff',
+        ],
+        { MEMPHIS_DATA_DIR: dataDir },
+      );
+      expect(result.status).toBe(0);
+      const emitted = JSON.parse(result.stdout) as {
+        ok: boolean;
+        manifest: string | null;
+        policy?: { profile?: string | null; manifestRequested?: boolean };
+        cognitiveReports?: { enabled?: boolean; count?: number };
+      };
+      expect(emitted.ok).toBe(true);
+      expect(emitted.manifest).toBe(inferredManifestPath);
+      expect(emitted.policy?.profile).toBe('strict-handoff');
+      expect(emitted.policy?.manifestRequested).toBe(true);
+      expect(emitted.cognitiveReports?.enabled).toBe(true);
+      expect(emitted.cognitiveReports?.count).toBeGreaterThanOrEqual(1);
+    });
+
+    const bundle = JSON.parse(readFileSync(outPath, 'utf8')) as {
+      cognitiveReports?: { included?: boolean; count?: number };
+    };
+    expect(bundle.cognitiveReports?.count).toBeGreaterThanOrEqual(1);
+
+    const manifest = JSON.parse(readFileSync(inferredManifestPath, 'utf8')) as {
+      cognitiveReports?: { included?: boolean; count?: number; digestSha256?: string | null };
+    };
+    expect(manifest.cognitiveReports?.included).toBe(true);
+    expect(manifest.cognitiveReports?.count).toBeGreaterThanOrEqual(1);
+    expect(typeof manifest.cognitiveReports?.digestSha256).toBe('string');
+  });
+
   it('prints profile help hints for operators and shell completion tooling', async () => {
     const result = await runIncidentBundleExporter(['--help']);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('Usage: npm run -s ops:export-incident-bundle -- [options]');
     expect(result.stdout).toContain('--profile <name>');
-    expect(result.stdout).toContain('financial-strict|forensics-lite');
+    expect(result.stdout).toContain('financial-strict|forensics-lite|strict-handoff');
     expect(result.stdout).toContain('MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE');
     expect(result.stdout).toContain('MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS');
   });
@@ -748,7 +815,7 @@ describe('incident bundle exporter', () => {
     expect(parsed.command).toBe('ops:export-incident-bundle');
     expect(parsed.profileFlag).toBe('--profile');
     expect(parsed.profileEnv).toBe('MEMPHIS_INCIDENT_BUNDLE_EXPORT_PROFILE');
-    expect(parsed.profiles).toEqual(['financial-strict', 'forensics-lite']);
+    expect(parsed.profiles).toEqual(['financial-strict', 'forensics-lite', 'strict-handoff']);
     expect(parsed.policyEnvVars).toContain('MEMPHIS_INCIDENT_REQUIRE_ENCRYPTED_ARTIFACTS');
   });
 
