@@ -393,6 +393,11 @@ Updated: 2026-03-13
   - incident runbook now includes Ajv CLI and TypeScript Ajv examples for validating fixtures and live command output.
   - schema regression tests now verify example payload key contracts and published fixture paths.
   - README fixture section now points tooling users to schema examples and Ajv validation guidance.
+- Added one-command strict-handoff fixture/schema validator:
+  - new command: `npm run -s ops:validate-strict-handoff-fixtures`.
+  - command validates summary/completion example fixtures plus live strict-handoff command output against JSON Schemas.
+  - new ops regression test asserts validator command pass output contract.
+  - `test:ops-artifacts` now includes validator coverage for CI enforcement.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -403,4 +408,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a dedicated `ops:validate-strict-handoff-fixtures` script that runs schema validation checks in one command.
+1. Add a CI step that runs `ops:validate-strict-handoff-fixtures` directly before `test:ops-artifacts`.
