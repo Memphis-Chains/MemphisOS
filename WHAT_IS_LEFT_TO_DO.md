@@ -571,6 +571,10 @@ Updated: 2026-03-13
   - `.github/workflows/release-draft.yml` now calls `./scripts/ci-release-preflight-gate.sh` with release-specific output mode enabled.
   - shared script now supports release output emission (`preflight_summary_json`, `preflight_gate_ids`) and strict output wiring checks (`check_order_status`, `check_ids`) when requested.
   - workflow/metadata contract coverage updated to enforce shared-helper usage in both CI and release-draft paths.
+- Added release-output strict key contract regression coverage for preflight helper:
+  - new fixture `tests/fixtures/release-draft/ci-release-preflight-gate-output-contract.json` pins required output keys and strict gate/check-order expectations.
+  - `tests/ops/ci-release-preflight-gate.test.ts` now executes shared helper in release-output mode with strict-handoff gate enabled and asserts stable `preflight_gate_ids`, `check_order_status`, and `check_ids`.
+  - `test:ops-artifacts` now enforces this release-output contract via the CI preflight helper regression suite.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -581,4 +585,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add release-draft regression coverage that executes `scripts/ci-release-preflight-gate.sh` in release-output mode and asserts `preflight_gate_ids` plus strict output keys are emitted with stable contracts.
+1. Add workflow-level regression coverage ensuring release-draft metadata artifacts consume and preserve `preflight_summary_json` from shared preflight helper output without key drift.
