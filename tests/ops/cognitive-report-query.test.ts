@@ -21,6 +21,7 @@ const contractFixturePath = path.resolve(
 type OutputContractFixture = {
   schemaVersion: number;
   topLevelKeys: string[];
+  watchNdjsonTopLevelKeys: string[];
   reportKeys: string[];
   validTypeFilters: string[];
   reportTypeToDataType: Record<string, string>;
@@ -134,6 +135,55 @@ describe('cognitive report query script', () => {
     }
   });
 
+  it('supports ndjson watch mode for streaming integrations', async () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'memphis-cognitive-query-watch-ndjson-'));
+    try {
+      await seedCognitiveReports(dataDir);
+      const result = runQuery(
+        ['--watch', '--ndjson', '--type', 'categorize', '--limit', '1', '--interval-ms', '20', '--count', '2'],
+        { ...process.env, MEMPHIS_DATA_DIR: dataDir },
+      );
+
+      expect(result.status).toBe(0);
+      const lines = result.stdout
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      expect(lines).toHaveLength(2);
+
+      const parsedLines = lines.map((line) =>
+        JSON.parse(line) as {
+          schemaVersion: number;
+          ok: boolean;
+          mode: string;
+          typeFilter: string;
+          iteration: number;
+          intervalMs: number;
+          watchCount: number | null;
+          watchedAt: string;
+          reports: Array<{ reportType: string; dataType: string }>;
+        },
+      );
+
+      for (const [index, item] of parsedLines.entries()) {
+        expect(Object.keys(item).sort()).toEqual([...outputContract.watchNdjsonTopLevelKeys].sort());
+        expect(item.schemaVersion).toBe(outputContract.schemaVersion);
+        expect(item.ok).toBe(true);
+        expect(item.mode).toBe('watch');
+        expect(item.typeFilter).toBe('categorize');
+        expect(item.iteration).toBe(index + 1);
+        expect(item.intervalMs).toBe(20);
+        expect(item.watchCount).toBe(2);
+        expect(item.watchedAt).toEqual(expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/));
+        expect(item.reports.length).toBeGreaterThan(0);
+        expect(item.reports.every((report) => report.reportType === 'categorize')).toBe(true);
+        expect(item.reports.every((report) => report.dataType === 'categorize_report')).toBe(true);
+      }
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
   it('uses stable error contract for invalid arguments', () => {
     const result = runQuery(['--unknown-flag'], process.env);
     expect(result.status).toBe(1);
@@ -141,5 +191,21 @@ describe('cognitive report query script', () => {
     expect(Object.keys(parsed).sort()).toEqual([...outputContract.errorTopLevelKeys].sort());
     expect(parsed.ok).toBe(false);
     expect(parsed.error).toContain('unknown argument');
+  });
+
+  it('rejects invalid output mode combinations with stable error contract', () => {
+    const result = runQuery(['--json', '--ndjson'], process.env);
+    expect(result.status).toBe(1);
+    const parsed = JSON.parse(result.stderr) as { ok: boolean; error: string };
+    expect(Object.keys(parsed).sort()).toEqual([...outputContract.errorTopLevelKeys].sort());
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error).toContain('cannot be combined');
+
+    const ndjsonWithoutWatch = runQuery(['--ndjson'], process.env);
+    expect(ndjsonWithoutWatch.status).toBe(1);
+    const parsedNdjson = JSON.parse(ndjsonWithoutWatch.stderr) as { ok: boolean; error: string };
+    expect(Object.keys(parsedNdjson).sort()).toEqual([...outputContract.errorTopLevelKeys].sort());
+    expect(parsedNdjson.ok).toBe(false);
+    expect(parsedNdjson.error).toContain('--ndjson requires --watch');
   });
 });

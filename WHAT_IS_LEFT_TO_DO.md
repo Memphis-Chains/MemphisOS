@@ -304,6 +304,20 @@ Updated: 2026-03-12
 - Added stable schema contracts for cognitive report query output:
   - fixture contract file: `tests/fixtures/cognitive-report-query/output-contract.json`.
   - ops regression coverage now enforces top-level/report keysets and error contract stability.
+- Added NDJSON streaming mode for cognitive report watch integrations:
+  - `ops:query-cognitive-reports --watch --ndjson` now emits one JSON object per poll iteration.
+  - output contract includes watch metadata (`mode`, `iteration`, `watchedAt`, interval/count controls).
+  - ops regression coverage now validates stable NDJSON watch keysets and argument guardrails.
+- Extended incident bundle export with optional cognitive report summaries:
+  - `ops:export-incident-bundle --include-cognitive-summaries` now embeds latest `journal` report summaries.
+  - configurable limits/source via `--cognitive-report-limit`, `--cognitive-journal-path`, and matching env vars.
+  - ops regression coverage validates stable embedding order and summary contract fields.
+  - startup guard triage runbook now documents cognitive-summary export controls.
+- Extended incident manifest schema with cognitive-summary integrity metadata:
+  - manifests now carry `cognitiveReports.included/count/digestSha256` (plus summary context fields).
+  - verifier now validates `checks.cognitiveSummaryCountMatch` + `checks.cognitiveSummaryDigestMatch` against bundle payload.
+  - tamper coverage added for bundle-side summary mutation and manifest-side count/digest mutation.
+  - manifest verification runbook now includes operator command snippets for cognitive integrity checks.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -314,5 +328,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add NDJSON output mode for `ops:query-cognitive-reports --watch` to support streaming integrations.
-2. Extend incident export workflow to optionally embed latest cognitive report summaries from `journal`.
+1. Add a strict verifier toggle to fail when cognitive-summary metadata is missing for incident bundles expected to include cognitive context.

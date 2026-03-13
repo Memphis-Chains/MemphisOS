@@ -1,6 +1,20 @@
 {
   "schemaVersion": 1,
   "topLevelKeys": ["schemaVersion", "ok", "chainPath", "typeFilter", "limit", "count", "reports"],
+  "watchNdjsonTopLevelKeys": [
+    "schemaVersion",
+    "ok",
+    "chainPath",
+    "typeFilter",
+    "limit",
+    "count",
+    "reports",
+    "mode",
+    "watchedAt",
+    "iteration",
+    "intervalMs",
+    "watchCount"
+  ],
   "reportKeys": [
     "index",
     "timestamp",

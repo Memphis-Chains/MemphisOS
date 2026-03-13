@@ -19,6 +19,18 @@ npm run -s ops:export-incident-bundle -- \
   --signing-key-id incident-key-v1
 ```
 
+Optional cognitive-summary integrity metadata in manifest:
+
+```bash
+npm run -s ops:export-incident-bundle -- \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --include-cognitive-summaries \
+  --cognitive-report-limit 10
+```
+
+When enabled, manifest includes `cognitiveReports.included/count/digestSha256` and verifier checks bundle payload integrity against those values.
+
 Alternative key sources:
 
 - `--signing-key-pem`
@@ -68,6 +80,15 @@ npm run -s ops:verify-incident-manifest -- \
   --public-key-path /secure/path/incident-signing-public.pem \
   --expected-key-id incident-key-v1 \
   --require-signature
+```
+
+Focused check for cognitive-summary integrity fields:
+
+```bash
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json \
+  --skip-chain-event \
+  | jq '{ok, cognitive: {countMatch: .checks.cognitiveSummaryCountMatch, digestMatch: .checks.cognitiveSummaryDigestMatch}}'
 ```
 
 Detached key bundle mode:
@@ -166,6 +187,7 @@ Verification must report:
 - `ok=true`
 - `checks.bundleHashMatch=true`
 - `checks.bundleSizeMatch=true`
+- `checks.cognitiveSummaryCountMatch=true` and `checks.cognitiveSummaryDigestMatch=true` when manifest `cognitiveReports.included=true`
 - `checks.signatureVerified=true`
 - `checks.keyFingerprintMatch=true`
 - `checks.keyIdMatch=true` (when expected key id is set)

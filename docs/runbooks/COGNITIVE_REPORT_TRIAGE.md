@@ -20,6 +20,12 @@ Live watch mode (text output):
 npm run -s ops:query-cognitive-reports -- --watch --type categorize --limit 5 --interval-ms 2000
 ```
 
+Live watch mode (NDJSON output for stream consumers):
+
+```bash
+npm run -s ops:query-cognitive-reports -- --watch --ndjson --type categorize --limit 5 --interval-ms 2000
+```
+
 ## 2. Locate Latest `categorize_report` Manually
 
 ```bash

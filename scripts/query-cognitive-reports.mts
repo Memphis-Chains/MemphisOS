@@ -4,7 +4,7 @@ import path from 'node:path';
 import { getChainPath } from '../src/config/paths.js';
 
 type ReportKind = 'insight' | 'categorize' | 'reflection';
-type OutputMode = 'text' | 'json';
+type OutputMode = 'text' | 'json' | 'ndjson';
 
 type ReportSummary = {
   index: number | null;
@@ -36,6 +36,13 @@ type ParsedArgs = {
   watchCount: number | null;
 };
 
+function selectOutputMode(current: OutputMode, next: OutputMode, flag: '--json' | '--ndjson'): OutputMode {
+  if (current !== 'text' && current !== next) {
+    throw new Error(`${flag} cannot be combined with ${current === 'json' ? '--json' : '--ndjson'}`);
+  }
+  return next;
+}
+
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
   let outputMode: OutputMode = 'text';
@@ -48,7 +55,11 @@ function parseArgs(argv: string[]): ParsedArgs {
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
     if (arg === '--json') {
-      outputMode = 'json';
+      outputMode = selectOutputMode(outputMode, 'json', '--json');
+      continue;
+    }
+    if (arg === '--ndjson') {
+      outputMode = selectOutputMode(outputMode, 'ndjson', '--ndjson');
       continue;
     }
     if (arg === '--limit') {
@@ -99,10 +110,13 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 
   if (watch && outputMode === 'json') {
-    throw new Error('--watch currently supports text mode only');
+    throw new Error('--watch currently supports text or ndjson mode');
   }
   if (!watch && watchCount !== null) {
     throw new Error('--count requires --watch');
+  }
+  if (!watch && outputMode === 'ndjson') {
+    throw new Error('--ndjson requires --watch');
   }
 
   return { outputMode, limit, typeFilter, watch, intervalMs, watchCount };
@@ -182,6 +196,14 @@ type QueryResponse = {
   reports: ReportSummary[];
 };
 
+type WatchNdjsonResponse = QueryResponse & {
+  mode: 'watch';
+  watchedAt: string;
+  iteration: number;
+  intervalMs: number;
+  watchCount: number | null;
+};
+
 function buildQueryResponse(
   parsedArgs: ParsedArgs,
   chainPath: string,
@@ -195,6 +217,22 @@ function buildQueryResponse(
     limit: parsedArgs.limit,
     count: reports.length,
     reports,
+  };
+}
+
+function buildWatchNdjsonResponse(
+  parsedArgs: ParsedArgs,
+  chainPath: string,
+  reports: ReportSummary[],
+  iteration: number,
+): WatchNdjsonResponse {
+  return {
+    ...buildQueryResponse(parsedArgs, chainPath, reports),
+    mode: 'watch',
+    watchedAt: new Date().toISOString(),
+    iteration,
+    intervalMs: parsedArgs.intervalMs,
+    watchCount: parsedArgs.watchCount,
   };
 }
 
@@ -220,17 +258,23 @@ async function runWatch(parsedArgs: ParsedArgs, chainPath: string): Promise<void
   while (true) {
     iteration += 1;
     const reports = readFilteredReports(parsedArgs, chainPath);
-    console.log(
-      `[watch] ${new Date().toISOString()} type=${parsedArgs.typeFilter} limit=${parsedArgs.limit}`,
-    );
-    console.log(formatText(reports, chainPath));
+    if (parsedArgs.outputMode === 'ndjson') {
+      console.log(JSON.stringify(buildWatchNdjsonResponse(parsedArgs, chainPath, reports, iteration)));
+    } else {
+      console.log(
+        `[watch] ${new Date().toISOString()} type=${parsedArgs.typeFilter} limit=${parsedArgs.limit}`,
+      );
+      console.log(formatText(reports, chainPath));
+    }
 
     if (parsedArgs.watchCount !== null && iteration >= parsedArgs.watchCount) {
       return;
     }
 
     await sleep(parsedArgs.intervalMs);
-    console.log('');
+    if (parsedArgs.outputMode === 'text') {
+      console.log('');
+    }
   }
 }
 
