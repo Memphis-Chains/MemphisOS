@@ -670,6 +670,10 @@ Updated: 2026-03-13
 - Added CI preflight rerun command alignment contract:
   - runbook `rerun gate:` commands are now parsed and compared against a pinned fixture list.
   - README release guidance must contain the same rerun command set, so drift between runbook mappings and README guidance now fails regression.
+- Added offline package artifact validator coverage:
+  - new command: `npm run -s ops:validate-package-artifact [-- --artifact-path <path>] [--json]`.
+  - validator extracts the packed `.tgz`, asserts required package entries, and executes the packaged `memphis` CLI entrypoint offline via a symlinked `node_modules` probe.
+  - `test:ops-artifacts` now includes dedicated regression coverage for packaged artifact layout + CLI smoke validation.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -680,4 +684,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Identify the next non-doc release/ops gap after docs-contract hardening and promote it to the top of the backlog.
+1. Fail closed when `release-draft` input version/tag disagrees with `package.json` and the produced tarball version.
