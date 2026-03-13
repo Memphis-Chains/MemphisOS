@@ -344,6 +344,10 @@ Updated: 2026-03-12
   - documents `ops:strict-incident-handoff` one-command workflow and `--completion-hints` usage.
   - syncs export profile docs to include `strict-handoff` defaults.
   - adds concise strict-handoff behavior checklist for operators.
+- Added strict-handoff troubleshooting matrix to incident verification runbook:
+  - preflight/export/verify failure classes now map to concrete operator remediation actions.
+  - matrix covers signature/key-bundle/trust-root, cognitive evidence, and chain-link append failure paths.
+  - escalation guidance now points to strict-handoff JSON evidence package fields.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -354,4 +358,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a dedicated strict-handoff troubleshooting matrix (preflight/export/verify failure classes) to the incident verification runbook.
+1. Add a lightweight strict-handoff preflight-only command mode for operator readiness checks without running export/verify.
