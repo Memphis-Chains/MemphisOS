@@ -419,6 +419,10 @@ Updated: 2026-03-13
   - `release-draft` workflow now prints validator `--json` payload and enforces `.ok == true` before artifact regression tests.
   - release notes quality-gate list now explicitly includes json-summary validator step.
   - release runbook automated/manual gate lists now include json-summary validator command.
+- Added validator JSON contract versioning policy note:
+  - incident runbook now documents additive-vs-breaking evolution rules for `validator-output-contract.json`.
+  - policy now explicitly anchors `schemaVersion` bump semantics and stable key/check-id expectations.
+  - contract-breaking updates now require synchronized fixture/script/test/runbook edits in one PR.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -429,4 +433,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a short schema/version evolution policy note for strict-handoff validator JSON output contract in incident runbook.
+1. Add a brief release checklist note to call out validator contract changes (`schemaVersion` bumps) in release notes.
