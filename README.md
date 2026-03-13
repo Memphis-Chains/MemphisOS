@@ -230,6 +230,7 @@ Preflight gate (single workflow step):
 
 - `npm run -s ops:release-preflight -- --json`
 - emits a machine-readable summary and fails fast on the first failing gate
+- CI/release preflight failures map by gate id to runbook anchors: `docs/runbooks/RELEASE.md#ci-preflight-gate-<gate-id>`
 - fallback: run the manual gate list below when you need per-step diagnostics
 
 Manual fallback:

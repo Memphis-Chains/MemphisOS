@@ -71,6 +71,58 @@ git push origin main
 git push origin vX.Y.Z
 ```
 
+## CI Preflight Failure Triage Map
+
+`ops:release-preflight -- --json` fails fast and reports the first failing gate id. Use the matching section below.
+
+### CI Preflight Gate lint
+
+- rerun gate: `npm run -s lint`
+- fix lint violations, then rerun: `npm run -s lint`
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+### CI Preflight Gate typecheck
+
+- rerun gate: `npm run -s typecheck`
+- fix TypeScript type errors, then rerun: `npm run -s typecheck`
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+### CI Preflight Gate strictHandoffFixtureValidator
+
+- rerun gate: `npm run -s ops:validate-strict-handoff-fixtures -- --json`
+- fix reported fixture/schema drift, then rerun the validator command
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+### CI Preflight Gate strictHandoffJsonGate
+
+- rerun gate: `./scripts/strict-handoff-validator-json-gate.sh`
+- if check-order fails, align `checks[].id` ordering with `tests/fixtures/strict-handoff/validator-output-contract.json`
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+### CI Preflight Gate opsArtifacts
+
+- rerun gate: `npm run -s test:ops-artifacts`
+- fix the failing ops regression or fixture contract, then rerun the gate command
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+### CI Preflight Gate testTs
+
+- rerun gate: `npm run -s test:ts`
+- fix the failing unit/integration tests, then rerun: `npm run -s test:ts`
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+### CI Preflight Gate testChaos
+
+- rerun gate: `npm run -s test:chaos`
+- fix deterministic chaos test failures, then rerun: `npm run -s test:chaos`
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
+### CI Preflight Gate testRust
+
+- rerun gate: `npm run -s test:rust`
+- fix the failing Rust tests/crates, then rerun: `npm run -s test:rust`
+- verify full preflight: `npm run -s ops:release-preflight -- --json`
+
 ## 5. Post-Release Verification
 
 - confirm CI `quality-gate` on pushed tag/commit

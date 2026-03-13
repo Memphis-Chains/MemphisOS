@@ -556,6 +556,9 @@ Updated: 2026-03-13
 - Closed CI preflight parity for `quality-gate`:
   - `.github/workflows/ci.yml` now runs `npm run -s ops:release-preflight -- --json`.
   - retained `npm run -s ops:drill-guards` in CI before the preflight gate.
+- Added CI preflight gate-id triage mapping in operator docs:
+  - `docs/runbooks/RELEASE.md` now includes `## CI Preflight Failure Triage Map` with per-gate remediation anchors.
+  - `README.md` release guidance now points gate-id failures to runbook anchors.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -566,4 +569,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add CI failure triage mapping for `ops:release-preflight -- --json` check IDs so `quality-gate` failures link directly to runbook remediation steps.
+1. Add docs contract regression coverage that fails CI when a release-preflight gate id is missing its `docs/runbooks/RELEASE.md#ci-preflight-gate-<gate-id>` anchor or README release reference.
