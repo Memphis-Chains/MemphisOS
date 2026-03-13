@@ -35,5 +35,8 @@
   ],
   "requiredReleaseCommands": [
     "npm run -s ops:release-preflight -- --json"
+  ],
+  "requiredTriageAnchors": [
+    "ci-preflight-failure-triage-map"
   ]
 }
