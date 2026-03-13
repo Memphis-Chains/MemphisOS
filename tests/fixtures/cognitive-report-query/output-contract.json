@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "topLevelKeys": ["schemaVersion", "ok", "chainPath", "typeFilter", "limit", "count", "reports"],
+  "reportKeys": [
+    "index",
+    "timestamp",
+    "hash",
+    "reportType",
+    "dataType",
+    "schemaVersion",
+    "source",
+    "generatedAt",
+    "input",
+    "path"
+  ],
+  "validTypeFilters": ["all", "insight", "categorize", "reflection"],
+  "reportTypeToDataType": {
+    "insight": "insight_report",
+    "categorize": "categorize_report",
+    "reflection": "reflection_report"
+  },
+  "errorTopLevelKeys": ["ok", "error"]
+}

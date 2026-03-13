@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +10,36 @@ import { runCli } from '../helpers/cli.js';
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..', '..');
+const contractFixturePath = path.resolve(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'cognitive-report-query',
+  'output-contract.json',
+);
+
+type OutputContractFixture = {
+  schemaVersion: number;
+  topLevelKeys: string[];
+  reportKeys: string[];
+  validTypeFilters: string[];
+  reportTypeToDataType: Record<string, string>;
+  errorTopLevelKeys: string[];
+};
+
+const outputContract = JSON.parse(readFileSync(contractFixturePath, 'utf8')) as OutputContractFixture;
+
+function runQuery(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): { status: number | null; stdout: string; stderr: string } {
+  return spawnSync('npm', ['run', '-s', 'ops:query-cognitive-reports', '--', ...args], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    env,
+    timeout: 15_000,
+  });
+}
 
 async function seedCognitiveReports(dataDir: string): Promise<void> {
   const env = { MEMPHIS_DATA_DIR: dataDir, RUST_CHAIN_ENABLED: 'false' };
@@ -24,15 +54,10 @@ describe('cognitive report query script', () => {
     try {
       await seedCognitiveReports(dataDir);
 
-      const result = spawnSync(
-        'npm',
-        ['run', '-s', 'ops:query-cognitive-reports', '--', '--json', '--limit', '5'],
-        {
-          cwd: repoRoot,
-          encoding: 'utf8',
-          env: { ...process.env, MEMPHIS_DATA_DIR: dataDir },
-        },
-      );
+      const result = runQuery(['--json', '--limit', '5'], {
+        ...process.env,
+        MEMPHIS_DATA_DIR: dataDir,
+      });
 
       expect(result.status).toBe(0);
       const parsed = JSON.parse(result.stdout) as {
@@ -40,16 +65,25 @@ describe('cognitive report query script', () => {
         ok: boolean;
         typeFilter: string;
         count: number;
-        reports: Array<{ reportType: string; schemaVersion: number | null }>;
+        reports: Array<{
+          reportType: string;
+          dataType: string;
+          schemaVersion: number | null;
+        }>;
       };
-      expect(parsed.schemaVersion).toBe(1);
+      expect(Object.keys(parsed).sort()).toEqual([...outputContract.topLevelKeys].sort());
+      expect(parsed.schemaVersion).toBe(outputContract.schemaVersion);
       expect(parsed.ok).toBe(true);
-      expect(parsed.typeFilter).toBe('all');
+      expect(outputContract.validTypeFilters.includes(parsed.typeFilter)).toBe(true);
       expect(parsed.count).toBeGreaterThanOrEqual(3);
       expect(new Set(parsed.reports.map((item) => item.reportType))).toEqual(
         new Set(['insight', 'categorize', 'reflection']),
       );
-      expect(parsed.reports.every((item) => item.schemaVersion === 1)).toBe(true);
+      for (const report of parsed.reports) {
+        expect(Object.keys(report).sort()).toEqual([...outputContract.reportKeys].sort());
+        expect(report.schemaVersion).toBe(outputContract.schemaVersion);
+        expect(report.dataType).toBe(outputContract.reportTypeToDataType[report.reportType] ?? '');
+      }
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
@@ -60,15 +94,10 @@ describe('cognitive report query script', () => {
     try {
       await seedCognitiveReports(dataDir);
 
-      const result = spawnSync(
-        'npm',
-        ['run', '-s', 'ops:query-cognitive-reports', '--', '--json', '--type', 'categorize'],
-        {
-          cwd: repoRoot,
-          encoding: 'utf8',
-          env: { ...process.env, MEMPHIS_DATA_DIR: dataDir },
-        },
-      );
+      const result = runQuery(['--json', '--type', 'categorize'], {
+        ...process.env,
+        MEMPHIS_DATA_DIR: dataDir,
+      });
 
       expect(result.status).toBe(0);
       const parsed = JSON.parse(result.stdout) as {
@@ -86,5 +115,31 @@ describe('cognitive report query script', () => {
     } finally {
       rmSync(dataDir, { recursive: true, force: true });
     }
+  });
+
+  it('supports watch mode for live triage output', async () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'memphis-cognitive-query-watch-'));
+    try {
+      await seedCognitiveReports(dataDir);
+      const result = runQuery(
+        ['--watch', '--type', 'categorize', '--limit', '1', '--interval-ms', '20', '--count', '2'],
+        { ...process.env, MEMPHIS_DATA_DIR: dataDir },
+      );
+
+      expect(result.status).toBe(0);
+      expect((result.stdout.match(/\[watch\]/g) ?? []).length).toBe(2);
+      expect(result.stdout).toContain('[categorize]');
+    } finally {
+      rmSync(dataDir, { recursive: true, force: true });
+    }
+  });
+
+  it('uses stable error contract for invalid arguments', () => {
+    const result = runQuery(['--unknown-flag'], process.env);
+    expect(result.status).toBe(1);
+    const parsed = JSON.parse(result.stderr) as { ok: boolean; error: string };
+    expect(Object.keys(parsed).sort()).toEqual([...outputContract.errorTopLevelKeys].sort());
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error).toContain('unknown argument');
   });
 });

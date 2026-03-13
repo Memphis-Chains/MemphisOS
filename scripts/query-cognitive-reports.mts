@@ -31,6 +31,9 @@ type ParsedArgs = {
   outputMode: OutputMode;
   limit: number;
   typeFilter: (typeof VALID_REPORT_TYPES)[number];
+  watch: boolean;
+  intervalMs: number;
+  watchCount: number | null;
 };
 
 function parseArgs(argv: string[]): ParsedArgs {
@@ -38,6 +41,9 @@ function parseArgs(argv: string[]): ParsedArgs {
   let outputMode: OutputMode = 'text';
   let limit = 10;
   let typeFilter: (typeof VALID_REPORT_TYPES)[number] = 'all';
+  let watch = false;
+  let intervalMs = 2000;
+  let watchCount: number | null = null;
 
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
@@ -65,10 +71,41 @@ function parseArgs(argv: string[]): ParsedArgs {
       i += 1;
       continue;
     }
+    if (arg === '--watch') {
+      watch = true;
+      continue;
+    }
+    if (arg === '--interval-ms') {
+      const raw = args[i + 1];
+      if (!raw) throw new Error('--interval-ms requires a numeric value');
+      const parsed = Number.parseInt(raw, 10);
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        throw new Error('--interval-ms must be a positive integer');
+      intervalMs = parsed;
+      i += 1;
+      continue;
+    }
+    if (arg === '--count') {
+      const raw = args[i + 1];
+      if (!raw) throw new Error('--count requires a numeric value');
+      const parsed = Number.parseInt(raw, 10);
+      if (!Number.isFinite(parsed) || parsed <= 0)
+        throw new Error('--count must be a positive integer');
+      watchCount = parsed;
+      i += 1;
+      continue;
+    }
     throw new Error(`unknown argument: ${arg}`);
   }
 
-  return { outputMode, limit, typeFilter };
+  if (watch && outputMode === 'json') {
+    throw new Error('--watch currently supports text mode only');
+  }
+  if (!watch && watchCount !== null) {
+    throw new Error('--count requires --watch');
+  }
+
+  return { outputMode, limit, typeFilter, watch, intervalMs, watchCount };
 }
 
 function readJournalReports(chainPath: string): ReportSummary[] {
@@ -126,6 +163,41 @@ function readJournalReports(chainPath: string): ReportSummary[] {
   return reports;
 }
 
+function readFilteredReports(parsedArgs: ParsedArgs, chainPath: string): ReportSummary[] {
+  return readJournalReports(chainPath)
+    .filter(
+      (report) => parsedArgs.typeFilter === 'all' || report.reportType === parsedArgs.typeFilter,
+    )
+    .slice(-parsedArgs.limit)
+    .reverse();
+}
+
+type QueryResponse = {
+  schemaVersion: number;
+  ok: boolean;
+  chainPath: string;
+  typeFilter: (typeof VALID_REPORT_TYPES)[number];
+  limit: number;
+  count: number;
+  reports: ReportSummary[];
+};
+
+function buildQueryResponse(
+  parsedArgs: ParsedArgs,
+  chainPath: string,
+  reports: ReportSummary[],
+): QueryResponse {
+  return {
+    schemaVersion: SCRIPT_SCHEMA_VERSION,
+    ok: true,
+    chainPath,
+    typeFilter: parsedArgs.typeFilter,
+    limit: parsedArgs.limit,
+    count: reports.length,
+    reports,
+  };
+}
+
 function formatText(reports: ReportSummary[], chainPath: string): string {
   if (reports.length === 0) {
     return `No cognitive reports found in ${chainPath}`;
@@ -139,7 +211,30 @@ function formatText(reports: ReportSummary[], chainPath: string): string {
     .join('\n');
 }
 
-function main(): void {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runWatch(parsedArgs: ParsedArgs, chainPath: string): Promise<void> {
+  let iteration = 0;
+  while (true) {
+    iteration += 1;
+    const reports = readFilteredReports(parsedArgs, chainPath);
+    console.log(
+      `[watch] ${new Date().toISOString()} type=${parsedArgs.typeFilter} limit=${parsedArgs.limit}`,
+    );
+    console.log(formatText(reports, chainPath));
+
+    if (parsedArgs.watchCount !== null && iteration >= parsedArgs.watchCount) {
+      return;
+    }
+
+    await sleep(parsedArgs.intervalMs);
+    console.log('');
+  }
+}
+
+async function main(): Promise<void> {
   let parsedArgs: ParsedArgs;
   try {
     parsedArgs = parseArgs(process.argv);
@@ -155,31 +250,30 @@ function main(): void {
   }
 
   const chainPath = getChainPath('journal', process.env);
-  const reports = readJournalReports(chainPath)
-    .filter((report) => parsedArgs.typeFilter === 'all' || report.reportType === parsedArgs.typeFilter)
-    .slice(-parsedArgs.limit)
-    .reverse();
+  if (parsedArgs.watch) {
+    await runWatch(parsedArgs, chainPath);
+    return;
+  }
 
+  const reports = readFilteredReports(parsedArgs, chainPath);
   if (parsedArgs.outputMode === 'json') {
-    console.log(
-      JSON.stringify(
-        {
-          schemaVersion: SCRIPT_SCHEMA_VERSION,
-          ok: true,
-          chainPath,
-          typeFilter: parsedArgs.typeFilter,
-          limit: parsedArgs.limit,
-          count: reports.length,
-          reports,
-        },
-        null,
-        2,
-      ),
-    );
+    console.log(JSON.stringify(buildQueryResponse(parsedArgs, chainPath, reports), null, 2));
     return;
   }
 
   console.log(formatText(reports, chainPath));
 }
 
-main();
+main().catch((error) => {
+  console.error(
+    JSON.stringify(
+      {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error),
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(1);
+});

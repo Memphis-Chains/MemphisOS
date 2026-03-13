@@ -14,6 +14,12 @@ Optional targeted query:
 npm run -s ops:query-cognitive-reports -- --json --type categorize
 ```
 
+Live watch mode (text output):
+
+```bash
+npm run -s ops:query-cognitive-reports -- --watch --type categorize --limit 5 --interval-ms 2000
+```
+
 ## 2. Locate Latest `categorize_report` Manually
 
 ```bash
@@ -60,4 +66,5 @@ Expected:
 3. Confirm `report.suggestion.tags` is an array (possibly empty, but present).
 4. Confirm `data.schemaVersion` is present and currently equals `1`.
 5. Confirm `savedBlock.chain=journal` in CLI JSON response when `--save` is used.
-6. If payload shape is invalid, treat as regression and run CLI save regression tests.
+6. Validate query output contract against fixture: `tests/fixtures/cognitive-report-query/output-contract.json`.
+7. If payload shape is invalid, treat as regression and run CLI save regression tests.
