@@ -27,6 +27,7 @@ type ReleaseDraftDocsContract = {
   requiredOpsArtifactsCommands?: string[];
   requiredChaosCommands?: string[];
   requiredRustCommands?: string[];
+  requiredCiRerunGateCommands?: string[];
   requiredTsCommands?: string[];
   requiredLintCommands?: string[];
   requiredTypecheckCommands?: string[];
@@ -49,6 +50,10 @@ const fixturePath = path.join(
 
 function extractReleaseDraftFixtureReferences(markdown: string): Set<string> {
   return new Set(markdown.match(/tests\/fixtures\/release-draft\/[a-z0-9.-]+\.json/g) ?? []);
+}
+
+function extractRunbookRerunGateCommands(markdown: string): string[] {
+  return [...markdown.matchAll(/- rerun gate: `([^`]+)`/g)].map((match) => match[1]);
 }
 
 function extractManualFallbackSection(docRelativePath: string, markdown: string): string {
@@ -75,6 +80,8 @@ function extractManualFallbackSection(docRelativePath: string, markdown: string)
 
 describe('release-draft docs fixture references', () => {
   const contract = JSON.parse(readFileSync(fixturePath, 'utf8')) as ReleaseDraftDocsContract;
+  const readmePath = path.join(repoRoot, 'README.md');
+  const runbookPath = path.join(repoRoot, 'docs', 'runbooks', 'RELEASE.md');
 
   for (const docRelativePath of contract.docs) {
     it(`${docRelativePath} references release-draft schema/example fixtures`, () => {
@@ -267,4 +274,16 @@ describe('release-draft docs fixture references', () => {
       }
     });
   }
+
+  it('keeps CI preflight rerun command mappings aligned between runbook and README guidance', () => {
+    const readme = readFileSync(readmePath, 'utf8');
+    const runbook = readFileSync(runbookPath, 'utf8');
+    const rerunGateCommands = extractRunbookRerunGateCommands(runbook);
+
+    expect(rerunGateCommands).toEqual(contract.requiredCiRerunGateCommands);
+
+    for (const command of contract.requiredCiRerunGateCommands ?? []) {
+      expect(readme.includes(command)).toBe(true);
+    }
+  });
 });
