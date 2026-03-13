@@ -1,6 +1,6 @@
 # MemphisOS Backlog
 
-Updated: 2026-03-12
+Updated: 2026-03-13
 
 ## Completed Now (Clean-Slate Pass)
 
@@ -371,6 +371,10 @@ Updated: 2026-03-12
 - Added README pointers to strict-handoff fixture contracts:
   - quick-reference section now links summary/completion and failure fixture paths for integrators.
   - README now serves as a single operator + tooling handoff entrypoint for strict incident workflows.
+- Added explicit strict-handoff parser snippets for automation consumers:
+  - incident verification runbook now includes a `jq` command pipeline that validates schema/stage and extracts triage fields.
+  - runbook now includes a TypeScript parser/type-guard snippet aligned with `tests/fixtures/strict-handoff/output-contract.json`.
+  - docs now provide copy-ready parsing examples for shell and service integrations.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -381,4 +385,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add explicit example parser snippets (`jq`/TypeScript) for strict-handoff JSON contract consumption in docs.
+1. Add a docs smoke test that validates strict-handoff fixture paths referenced in README/runbook exist.
