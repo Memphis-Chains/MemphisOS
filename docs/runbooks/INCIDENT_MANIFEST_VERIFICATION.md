@@ -259,7 +259,30 @@ Verification must report:
 - `checks.manifestEncrypted=true` and `checks.bundleEncrypted=true` when encrypted companions are used
 - `chainEvent.written=true` (immutable `incident_manifest.verification` linkage)
 
-## 4. Handoff Package
+## 4. Strict-Handoff JSON Contract
+
+Operator tooling should consume strict-handoff JSON outputs using the stable contract fixtures:
+
+- summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
+- failure stage contracts:
+  - `tests/fixtures/strict-handoff/failure-preflight.json`
+  - `tests/fixtures/strict-handoff/failure-export.json`
+  - `tests/fixtures/strict-handoff/failure-verify.json`
+
+Stable summary top-level keys:
+
+- `schemaVersion`
+- `ok`
+- `stage` (`preflight|export|verify`)
+- `profiles`
+- `artifacts`
+- `checks`
+- `error`
+- `errors`
+
+Use `ops:strict-incident-handoff --json` for machine ingestion and treat unknown keys as additive, not breaking.
+
+## 5. Handoff Package
 
 Attach these artifacts to incident records:
 
@@ -272,7 +295,7 @@ Attach these artifacts to incident records:
 
 Do not attach private signing keys.
 
-## 5. Failure Handling
+## 6. Failure Handling
 
 Use this strict-handoff triage matrix when `ops:strict-incident-handoff` reports `[FAIL]`.
 
@@ -289,7 +312,7 @@ Use this strict-handoff triage matrix when `ops:strict-incident-handoff` reports
 
 If strict-handoff still fails after remediation, escalate with attached artifacts (`bundle`, `manifest`, strict-handoff JSON output, and chain event status fields).
 
-## 6. Closure Criteria
+## 7. Closure Criteria
 
 Incident evidence is ready for closure only when:
 
