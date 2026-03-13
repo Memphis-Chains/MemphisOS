@@ -667,6 +667,9 @@ Updated: 2026-03-13
   - release docs contract now enforces fallback `npm run -s test:ts`, `npm run -s lint`, and `npm run -s typecheck` command tokens.
   - fallback command completeness/order/scope is now enforced against manual fallback sections in both README and runbook.
   - release docs contract now enforces workflow path (`.github/workflows/release-draft.yml`), checksum pattern (`*.sha256`), tag guidance (`vX.Y.Z`), and publish-step markers across both docs.
+- Added CI preflight rerun command alignment contract:
+  - runbook `rerun gate:` commands are now parsed and compared against a pinned fixture list.
+  - README release guidance must contain the same rerun command set, so drift between runbook mappings and README guidance now fails regression.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -677,4 +680,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage that CI preflight gate rerun command mappings in `docs/runbooks/RELEASE.md` stay aligned with release guidance in `README.md`.
+1. Identify the next non-doc release/ops gap after docs-contract hardening and promote it to the top of the backlog.
