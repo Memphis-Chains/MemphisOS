@@ -19,5 +19,11 @@
   "requiredArtifactNames": [
     "validator-metadata.json",
     "validator-metadata.json.sha256"
+  ],
+  "requiredPreflightOutputKeys": [
+    "preflight_summary_json",
+    "preflight_gate_ids",
+    "check_order_status",
+    "check_ids"
   ]
 }

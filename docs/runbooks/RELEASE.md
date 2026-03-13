@@ -23,6 +23,7 @@ Inputs:
 Preflight flow:
 
 - primary: `npm run -s ops:release-preflight -- --json` (single preflight gate step in workflow)
+- shared preflight helper output keys: `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`
 - fallback: run the per-step gate list below when command-level diagnostics are needed
 
 The workflow then performs release packaging automatically:
