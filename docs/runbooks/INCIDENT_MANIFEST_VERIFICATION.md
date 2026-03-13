@@ -282,6 +282,82 @@ Stable summary top-level keys:
 
 Use `ops:strict-incident-handoff --json` for machine ingestion and treat unknown keys as additive, not breaking.
 
+Example `jq` parser (strict contract + minimal triage payload):
+
+```bash
+npm run -s ops:strict-incident-handoff -- \
+  --out data/incident-bundle.json \
+  --signing-key-path /secure/path/incident-signing-private.pem \
+  --signing-key-id incident-key-v1 \
+  --public-key-bundle-path /secure/path/public-key-bundle.json \
+  --trust-root-path /secure/path/trust_root.json \
+  --json \
+| jq -e '
+  .schemaVersion == 1 and
+  (.stage as $stage | ["preflight", "export", "verify"] | index($stage) != null) and
+  (.ok | type == "boolean")
+' \
+| jq '{
+  ok,
+  stage,
+  bundlePath: .artifacts.bundlePath,
+  manifestPath: .artifacts.manifestPath,
+  chainEventWritten: .checks.chainEventWritten,
+  chainEventIndex: .checks.chainEventIndex,
+  chainEventHash: .checks.chainEventHash,
+  error,
+  errors
+}'
+```
+
+Example TypeScript parser (fixture-aligned key guards):
+
+```ts
+type StrictHandoffStage = 'preflight' | 'export' | 'verify';
+
+type StrictHandoffSummary = {
+  schemaVersion: number;
+  ok: boolean;
+  stage: StrictHandoffStage;
+  profiles: { export: string; verify: string };
+  artifacts: { bundlePath: string | null; manifestPath: string | null };
+  checks: {
+    signatureVerified: boolean | null;
+    keyBundleSignatureValid: boolean | null;
+    keyBundleTrustRootMatch: boolean | null;
+    cognitiveSummaryRequirementSatisfied: boolean | null;
+    chainEventWritten: boolean | null;
+    chainEventIndex: number | null;
+    chainEventHash: string | null;
+  };
+  error: string | null;
+  errors: string[];
+};
+
+const REQUIRED_TOP_LEVEL_KEYS = [
+  'schemaVersion',
+  'ok',
+  'stage',
+  'profiles',
+  'artifacts',
+  'checks',
+  'error',
+  'errors',
+] as const;
+
+export function parseStrictHandoffSummary(rawJson: string): StrictHandoffSummary {
+  const parsed = JSON.parse(rawJson) as Record<string, unknown>;
+  for (const key of REQUIRED_TOP_LEVEL_KEYS) {
+    if (!(key in parsed)) throw new Error(`strict-handoff summary missing key: ${key}`);
+  }
+  if (parsed.schemaVersion !== 1) throw new Error('unsupported strict-handoff schemaVersion');
+  if (parsed.stage !== 'preflight' && parsed.stage !== 'export' && parsed.stage !== 'verify') {
+    throw new Error('invalid strict-handoff stage');
+  }
+  return parsed as StrictHandoffSummary;
+}
+```
+
 ## 5. Handoff Package
 
 Attach these artifacts to incident records:
