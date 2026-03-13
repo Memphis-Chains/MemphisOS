@@ -72,5 +72,8 @@
   ],
   "requiredOpsArtifactsCommands": [
     "npm run -s test:ops-artifacts"
+  ],
+  "requiredChaosCommands": [
+    "npm run -s test:chaos"
   ]
 }
