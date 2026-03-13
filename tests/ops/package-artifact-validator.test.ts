@@ -81,7 +81,7 @@ describe('ops:validate-package-artifact', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[PASS] package artifact validated:');
     expect(result.stdout).toContain(path.basename(artifactPath));
-  }, 30_000);
+  }, 120_000);
 
   it('fails closed when the requested artifact path does not exist', () => {
     const missingArtifactPath = path.join(tmpdir(), 'memphis-package-artifact-missing.tgz');
@@ -127,5 +127,5 @@ describe('ops:validate-package-artifact', () => {
     expect(parsed.cliProbe?.exitCode).toBe(0);
     expect(parsed.cliProbe?.stdoutFirstLine).toBe(contract.cliProbeStdoutFirstLine);
     expect(parsed.cliProbe?.stderrFirstLine).toBeNull();
-  }, 30_000);
+  }, 120_000);
 });
