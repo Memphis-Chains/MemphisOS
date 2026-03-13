@@ -3,12 +3,12 @@ import { createInterface } from 'node:readline/promises';
 
 import chalk from 'chalk';
 
-import type { AskSessionConfig } from '../core/types/ask-session.js';
-import { AskOrchestrator } from '../providers/ask-orchestrator.js';
-import { ContextWindowManager } from '../providers/context-window.js';
-import { ConversationHistory } from '../providers/conversation-history.js';
+import type { AskSessionConfig } from '../../../core/types/ask-session.js';
+import { AskOrchestrator } from '../../../providers/ask-orchestrator.js';
+import { ContextWindowManager } from '../../../providers/context-window.js';
+import { ConversationHistory } from '../../../providers/conversation-history.js';
 
-export class AskSession {
+export class InteractiveAskSession {
   private orchestrator: AskOrchestrator;
   private readonly contextManager: ContextWindowManager;
   private readonly history: ConversationHistory;
