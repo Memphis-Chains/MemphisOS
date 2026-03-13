@@ -63,11 +63,13 @@ describe('CLI categorize', () => {
     ) as {
       data?: {
         type?: string;
+        schemaVersion?: number;
         source?: string;
         report?: { input?: string };
       };
     };
     expect(latest.data?.type).toBe('categorize_report');
+    expect(latest.data?.schemaVersion).toBe(1);
     expect(latest.data?.source).toBe('cli.categorize');
     expect(latest.data?.report?.input).toBe('Deploy hotfix for API');
   });

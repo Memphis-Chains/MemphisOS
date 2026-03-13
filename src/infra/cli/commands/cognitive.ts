@@ -13,6 +13,7 @@ import { print } from '../utils/render.js';
 
 type CognitiveHandler = (context: CliContext) => Promise<boolean>;
 type InsightWindow = 'daily' | 'weekly' | 'topic';
+const COGNITIVE_REPORT_SCHEMA_VERSION = 1;
 
 function summarizeInsights(
   insights: Awaited<ReturnType<InsightGenerator['generateDailyInsights']>>,
@@ -42,6 +43,7 @@ function buildInsightSavePayload(
   const summary = `${insights.length} insight(s) generated for ${window}${topic ? `:${topic}` : ''}`;
   return {
     type: 'insight_report',
+    schemaVersion: COGNITIVE_REPORT_SCHEMA_VERSION,
     source: 'cli.insights',
     content: `Insight Report: ${summary}`,
     tags: ['insight', 'report', window, ...(topic ? [topic] : [])],
@@ -74,6 +76,7 @@ function serializeReflection(reflection: Reflection): Record<string, unknown> {
 function buildReflectionSavePayload(reflections: Reflection[]): Record<string, unknown> {
   return {
     type: 'reflection_report',
+    schemaVersion: COGNITIVE_REPORT_SCHEMA_VERSION,
     source: 'cli.reflect',
     content: `Reflection Report: ${reflections.length} reflection(s) generated`,
     tags: ['reflection', 'report', 'daily'],
@@ -95,6 +98,7 @@ function buildCategorizeSavePayload(
 ): Record<string, unknown> {
   return {
     type: 'categorize_report',
+    schemaVersion: COGNITIVE_REPORT_SCHEMA_VERSION,
     source: 'cli.categorize',
     content: `Categorize Report: ${suggestion.tags.length} tag(s) suggested for input`,
     tags: ['categorize', 'report'],

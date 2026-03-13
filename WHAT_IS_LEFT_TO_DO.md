@@ -294,6 +294,12 @@ Updated: 2026-03-12
   - assertions validate save metadata ordering and all three block types in journal (`insight_report`, `categorize_report`, `reflection_report`).
 - Extended operator docs for cognitive report triage:
   - `docs/runbooks/COGNITIVE_REPORT_TRIAGE.md` documents expected `categorize_report` payload shape and validation checks for incident/debug workflows.
+- Added report schema-versioning for cognitive save blocks:
+  - `insight_report`, `categorize_report`, and `reflection_report` now emit `schemaVersion: 1`.
+  - unit coverage validates schema-version presence in saved journal blocks.
+- Added operator helper command for cognitive report lookup:
+  - `npm run -s ops:query-cognitive-reports -- [--json] [--type all|insight|categorize|reflection] [--limit <n>]`
+  - script surfaces latest journal report summaries for incident response workflows.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -304,5 +310,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add schema version fields for saved cognitive reports (`insight_report`, `categorize_report`, `reflection_report`) to harden parser compatibility.
-2. Add an operator helper command/script to query latest cognitive report blocks from `journal` during incident response.
+1. Add stable JSON schema contracts (with fixtures) for `ops:query-cognitive-reports` output to prevent parser drift in external automation.
+2. Add a lightweight `ops:query-cognitive-reports --watch` mode for live triage during active incidents.
