@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getAppsPath,
   getBackupPath,
   getCachePath,
   getChainPath,
@@ -24,5 +25,6 @@ describe('config paths', () => {
     expect(getVaultPath(rawEnv)).toBe('/tmp/memphis-custom/vault');
     expect(getCachePath(rawEnv)).toBe('/tmp/memphis-custom/cache');
     expect(getBackupPath(rawEnv)).toBe('/tmp/memphis-custom/backups');
+    expect(getAppsPath(rawEnv)).toBe('/tmp/memphis-custom/apps');
   });
 });

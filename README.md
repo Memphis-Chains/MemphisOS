@@ -71,7 +71,7 @@ npm run -s cli -- doctor --json
 node bin/memphis.js health --json
 ```
 
-More detailed setup is in [docs/GETTING_STARTED.md](/home/memphis_ai_brain_on_chain/MemphisOS/docs/GETTING_STARTED.md).
+More detailed setup is in [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
 
 ## Quick Start
 
@@ -84,6 +84,20 @@ npm run test:ts
 npm run test:chaos
 npm run test:rust
 ```
+
+## Managed Apps Preview
+
+The new `apps` surface lets MemphisOS describe and plan managed third-party app lifecycles.
+
+```bash
+npm run -s cli -- apps list --json
+npm run -s cli -- apps show demo-shell --file docs/templates/MANAGED_APP_MANIFEST.example.json --json
+npm run -s cli -- apps plan demo-shell --file docs/templates/MANAGED_APP_MANIFEST.example.json --action doctor --json
+npm run -s cli -- apps run demo-shell --file docs/templates/MANAGED_APP_MANIFEST.example.json --action doctor --apply --json
+```
+
+Planning is the default. Add `--apply` to execute a lifecycle action.
+Concrete vendor integrations should live downstream from `main`; the core branch keeps only the generic app-management layer.
 
 ## Setup For Anyone (Guided)
 

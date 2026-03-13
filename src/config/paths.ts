@@ -38,6 +38,10 @@ export function getBackupPath(rawEnv: NodeJS.ProcessEnv = process.env): string {
   return path.join(getDataDir(rawEnv), 'backups');
 }
 
+export function getAppsPath(rawEnv: NodeJS.ProcessEnv = process.env): string {
+  return path.join(getDataDir(rawEnv), 'apps');
+}
+
 export function getLogsPath(rawEnv: NodeJS.ProcessEnv = process.env): string {
   return path.join(getDataDir(rawEnv), 'logs');
 }

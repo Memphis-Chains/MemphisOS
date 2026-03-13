@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-shell",
+  "name": "Demo Shell App",
+  "description": "Safe example manifest for MemphisOS managed-app workflows.",
+  "platforms": ["linux", "darwin"],
+  "runtime": {
+    "commands": [
+      {
+        "name": "bash",
+        "required": true,
+        "detail": "used to execute the demo shell-backed lifecycle actions"
+      }
+    ]
+  },
+  "actions": {
+    "doctor": {
+      "summary": "Print a demo health message.",
+      "steps": [
+        "printf 'demo-shell ok\\n'"
+      ]
+    },
+    "status": {
+      "summary": "Print a demo JSON status payload.",
+      "steps": [
+        "printf '{\"ok\":true,\"service\":\"demo-shell\"}\\n'"
+      ]
+    },
+    "start": {
+      "summary": "Print a demo start message.",
+      "steps": [
+        "printf 'demo-shell started\\n'"
+      ]
+    },
+    "stop": {
+      "summary": "Print a demo stop message.",
+      "steps": [
+        "printf 'demo-shell stopped\\n'"
+      ]
+    }
+  },
+  "notes": [
+    "This manifest is intentionally generic and safe for local testing.",
+    "Replace the demo actions with real lifecycle commands in downstream integrations."
+  ]
+}

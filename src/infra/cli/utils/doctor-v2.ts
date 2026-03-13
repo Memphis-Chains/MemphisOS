@@ -589,9 +589,9 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
   });
 
   // Tier 6
-  const openclawPlugin =
-    existsSync(resolve(process.cwd(), 'openclaw-plugin')) ||
-    Boolean(process.env.OPENCLAW_PLUGIN_ENABLED);
+  const externalPlugin =
+    existsSync(resolve(process.cwd(), 'external-plugin')) ||
+    Boolean(process.env.MEMPHIS_EXTERNAL_PLUGIN_ENABLED);
   const mcpPort = Number(process.env.MCP_PORT ?? process.env.PORT ?? 3000);
   const mcp = await ping(`http://127.0.0.1:${mcpPort}/health`);
   const multiAgentSync = Boolean(
@@ -599,13 +599,13 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
   );
 
   checks.push({
-    id: 't6-openclaw-plugin',
+    id: 't6-external-plugin',
     tier: 6,
-    title: 'OpenClaw plugin',
-    level: levelFrom(openclawPlugin, true),
-    ok: openclawPlugin,
+    title: 'External plugin',
+    level: levelFrom(externalPlugin, true),
+    ok: externalPlugin,
     required: false,
-    detail: openclawPlugin ? 'installed/configured' : 'not installed',
+    detail: externalPlugin ? 'installed/configured' : 'not installed',
   });
   checks.push({
     id: 't6-mcp-server',
