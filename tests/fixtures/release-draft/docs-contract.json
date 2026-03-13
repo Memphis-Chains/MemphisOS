@@ -51,5 +51,9 @@
   "requiredTagPushCommands": [
     "git tag -a vX.Y.Z -m \"MemphisOS vX.Y.Z\"",
     "git push origin main"
+  ],
+  "requiredPackCommands": [
+    "npm pack --dry-run",
+    "npm pack --pack-destination release-dist"
   ]
 }

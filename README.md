@@ -250,6 +250,7 @@ npm run -s test:ts
 npm run -s test:chaos
 npm run -s test:rust
 ```
+- fallback pack commands: `npm pack --dry-run`, `npm pack --pack-destination release-dist`
 - fallback artifact checksum command: `sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`
 - fallback tag command: `git tag -a vX.Y.Z -m "MemphisOS vX.Y.Z"`
 - fallback push command: `git push origin main`
