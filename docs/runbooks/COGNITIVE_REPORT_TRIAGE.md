@@ -2,7 +2,19 @@
 
 Use this runbook during incident/debug triage when validating journal blocks emitted by cognitive CLI save flows.
 
-## 1. Locate Latest `categorize_report`
+## 1. Query Latest Reports (Recommended)
+
+```bash
+npm run -s ops:query-cognitive-reports -- --json --limit 20
+```
+
+Optional targeted query:
+
+```bash
+npm run -s ops:query-cognitive-reports -- --json --type categorize
+```
+
+## 2. Locate Latest `categorize_report` Manually
 
 ```bash
 jq -c 'select(.data.type=="categorize_report") | {index, timestamp, source:.data.source, input:.data.report.input}' \
@@ -12,16 +24,18 @@ jq -c 'select(.data.type=="categorize_report") | {index, timestamp, source:.data
 Expected:
 
 - `data.type` = `categorize_report`
+- `data.schemaVersion` = `1`
 - `data.source` = `cli.categorize`
 - `data.report.input` present
 - `data.report.suggestion` present
 
-## 2. Expected Payload Shape
+## 3. Expected Payload Shape
 
 ```json
 {
   "data": {
     "type": "categorize_report",
+    "schemaVersion": 1,
     "source": "cli.categorize",
     "content": "Categorize Report: <n> tag(s) suggested for input",
     "tags": ["categorize", "report"],
@@ -39,10 +53,11 @@ Expected:
 }
 ```
 
-## 3. Triage Checks
+## 4. Triage Checks
 
 1. Confirm `report.generatedAt` is valid ISO timestamp.
 2. Confirm `report.input` matches operator command input.
 3. Confirm `report.suggestion.tags` is an array (possibly empty, but present).
-4. Confirm `savedBlock.chain=journal` in CLI JSON response when `--save` is used.
-5. If payload shape is invalid, treat as regression and run CLI save regression tests.
+4. Confirm `data.schemaVersion` is present and currently equals `1`.
+5. Confirm `savedBlock.chain=journal` in CLI JSON response when `--save` is used.
+6. If payload shape is invalid, treat as regression and run CLI save regression tests.

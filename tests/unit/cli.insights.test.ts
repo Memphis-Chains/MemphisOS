@@ -55,11 +55,13 @@ describe('CLI insights', () => {
     ) as {
       data?: {
         type?: string;
+        schemaVersion?: number;
         source?: string;
         report?: { window?: string };
       };
     };
     expect(latest.data?.type).toBe('insight_report');
+    expect(latest.data?.schemaVersion).toBe(1);
     expect(latest.data?.source).toBe('cli.insights');
     expect(latest.data?.report?.window).toBe('daily');
   });

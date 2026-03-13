@@ -37,6 +37,7 @@
     "ops:verify-main-protection": "./scripts/verify-branch-protection.sh",
     "ops:drill-guards": "tsx scripts/drill-guard-failures.mts",
     "ops:export-incident-bundle": "tsx scripts/export-incident-bundle.mts",
+    "ops:query-cognitive-reports": "tsx scripts/query-cognitive-reports.mts",
     "ops:verify-incident-manifest": "tsx scripts/verify-incident-manifest.mts",
     "ops:rotate-key-bundle": "tsx scripts/rotate-key-bundle.mts"
   },
