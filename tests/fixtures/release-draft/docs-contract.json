@@ -69,5 +69,8 @@
   "requiredStrictJsonGateScriptMarkers": [
     "preflight strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`",
     "fallback strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`"
+  ],
+  "requiredOpsArtifactsCommands": [
+    "npm run -s test:ops-artifacts"
   ]
 }
