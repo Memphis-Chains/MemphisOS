@@ -201,6 +201,7 @@ npm run -s ops:rotate-key-bundle -- \
 - supports `--preflight-only` readiness checks without running export/verify
 - fails preflight when signer key input, public key bundle path, trust root path, or signer key id are missing
 - `--completion-hints` prints machine-readable flag/env contracts for shell tooling
+- `ops:validate-strict-handoff-fixtures` validates strict-handoff fixture payloads + live command output against JSON Schemas
 - integration contract fixtures for tooling:
   - summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
   - JSON Schemas: `tests/fixtures/strict-handoff/summary.schema.json`, `tests/fixtures/strict-handoff/completion-hints.schema.json`
