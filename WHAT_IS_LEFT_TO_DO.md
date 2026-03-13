@@ -318,6 +318,12 @@ Updated: 2026-03-12
   - verifier now validates `checks.cognitiveSummaryCountMatch` + `checks.cognitiveSummaryDigestMatch` against bundle payload.
   - tamper coverage added for bundle-side summary mutation and manifest-side count/digest mutation.
   - manifest verification runbook now includes operator command snippets for cognitive integrity checks.
+- Added strict verifier controls for cognitive-summary evidence requirements:
+  - verifier now supports `--require-cognitive-summaries` and `MEMPHIS_INCIDENT_REQUIRE_COGNITIVE_SUMMARIES=true|false`.
+  - strict mode fails when cognitive metadata is absent or bundle cognitive payload is missing.
+  - `trust-root-strict` profile now enables cognitive-summary requirement enforcement by default.
+  - verifier output now reports `checks.cognitiveSummaryMetadataPresent` and `checks.cognitiveSummaryRequirementSatisfied`.
+  - ops regression coverage added for strict pass/fail flows and profile behavior assertions.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -328,4 +334,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a strict verifier toggle to fail when cognitive-summary metadata is missing for incident bundles expected to include cognitive context.
+1. Add an export profile that auto-enables cognitive summaries for incident bundles intended for strict verifier handoff workflows.

@@ -91,6 +91,22 @@ npm run -s ops:verify-incident-manifest -- \
   | jq '{ok, cognitive: {countMatch: .checks.cognitiveSummaryCountMatch, digestMatch: .checks.cognitiveSummaryDigestMatch}}'
 ```
 
+Strict cognitive-summary requirement mode:
+
+```bash
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json \
+  --require-cognitive-summaries
+```
+
+Env toggle equivalent:
+
+```bash
+MEMPHIS_INCIDENT_REQUIRE_COGNITIVE_SUMMARIES=true \
+npm run -s ops:verify-incident-manifest -- \
+  --manifest-path data/incident-bundle.manifest.json
+```
+
 Detached key bundle mode:
 
 ```bash
@@ -142,6 +158,8 @@ npm run -s ops:verify-incident-manifest -- \
   --manifest-path data/incident-bundle.manifest.json
 ```
 
+`trust-root-strict` now also enforces cognitive-summary requirement checks (`requireCognitiveSummaries=true`).
+
 Strict chain-link mode with retry/backoff:
 
 ```bash
@@ -188,6 +206,7 @@ Verification must report:
 - `checks.bundleHashMatch=true`
 - `checks.bundleSizeMatch=true`
 - `checks.cognitiveSummaryCountMatch=true` and `checks.cognitiveSummaryDigestMatch=true` when manifest `cognitiveReports.included=true`
+- `checks.cognitiveSummaryMetadataPresent=true` and `checks.cognitiveSummaryRequirementSatisfied=true` when strict cognitive mode is enabled
 - `checks.signatureVerified=true`
 - `checks.keyFingerprintMatch=true`
 - `checks.keyIdMatch=true` (when expected key id is set)

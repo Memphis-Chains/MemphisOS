@@ -90,6 +90,7 @@ Exporter behavior:
 - optionally embed latest cognitive journal summaries with `--include-cognitive-summaries` (tune via `--cognitive-report-limit` / `MEMPHIS_INCIDENT_COGNITIVE_REPORT_LIMIT`)
 - override the journal source for incident handoff with `--cognitive-journal-path` / `MEMPHIS_INCIDENT_COGNITIVE_JOURNAL_PATH`
 - manifest now carries cognitive-summary integrity metadata (`cognitiveReports.count` + `cognitiveReports.digestSha256`) and verifier enforces it via `checks.cognitiveSummary*`
+- enable strict cognitive evidence enforcement with `--require-cognitive-summaries` (or `MEMPHIS_INCIDENT_REQUIRE_COGNITIVE_SUMMARIES=true`)
 - keep chain linkage enabled (default) and confirm `chainEvent.written=true` in verifier output
 - tune chain append resilience with `--chain-event-retry-count` + `--chain-event-retry-backoff-ms` (or matching env vars)
 - when using detached key bundles, enforce provenance with `--require-key-bundle-signature --trust-root-path <path>`
