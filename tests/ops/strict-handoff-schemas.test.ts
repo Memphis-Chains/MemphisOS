@@ -27,6 +27,7 @@ type OutputContractFixture = {
   completionHintProfileKeys: string[];
   completionHintsJsonSchemaPath: string;
   completionHintsExamplePath: string;
+  validatorOutputContractPath: string;
 };
 
 const outputContract = JSON.parse(readFileSync(outputContractPath, 'utf8')) as OutputContractFixture;
@@ -123,8 +124,10 @@ describe('strict-handoff json schemas', () => {
   it('example payload fixtures are present and aligned with output-contract key contracts', () => {
     const summaryExamplePath = path.resolve(repoRoot, outputContract.summaryExamplePath);
     const completionExamplePath = path.resolve(repoRoot, outputContract.completionHintsExamplePath);
+    const validatorOutputContractPath = path.resolve(repoRoot, outputContract.validatorOutputContractPath);
     expect(existsSync(summaryExamplePath)).toBe(true);
     expect(existsSync(completionExamplePath)).toBe(true);
+    expect(existsSync(validatorOutputContractPath)).toBe(true);
 
     const summaryExample = asRecord(JSON.parse(readFileSync(summaryExamplePath, 'utf8')));
     expect(Object.keys(summaryExample).sort()).toEqual([...outputContract.summaryTopLevelKeys].sort());

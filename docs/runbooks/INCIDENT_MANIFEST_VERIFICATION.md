@@ -267,6 +267,7 @@ Operator tooling should consume strict-handoff JSON outputs using the stable con
 - formal JSON Schemas:
   - summary output: `tests/fixtures/strict-handoff/summary.schema.json`
   - completion hints output: `tests/fixtures/strict-handoff/completion-hints.schema.json`
+- validator summary contract: `tests/fixtures/strict-handoff/validator-output-contract.json`
 - failure stage contracts:
   - `tests/fixtures/strict-handoff/failure-preflight.json`
   - `tests/fixtures/strict-handoff/failure-export.json`
@@ -425,6 +426,10 @@ Ajv CLI validation examples (end-to-end schema checks):
 ```bash
 # One-command validator (fixtures + live command output).
 npm run -s ops:validate-strict-handoff-fixtures
+
+# Machine-readable validator summary.
+npm run -s ops:validate-strict-handoff-fixtures -- --json \
+  | jq '{ok, checks, error, errors}'
 
 # Validate example fixture payloads against schema contracts.
 npx -y ajv-cli validate \

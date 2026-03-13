@@ -406,6 +406,11 @@ Updated: 2026-03-13
   - runbook now includes failure-class matrix for fixture-schema drift vs runtime-output/schema drift.
   - troubleshooting now maps concrete `[FAIL]` signals from `ops:validate-strict-handoff-fixtures` to operator remediation steps.
   - guidance now calls out stdout contamination (`invalid JSON output`) as a contract-break root cause.
+- Added machine-readable output mode for strict-handoff fixture validator:
+  - `ops:validate-strict-handoff-fixtures --json` now emits stable summary/check/error contract for automation.
+  - new fixture contract: `tests/fixtures/strict-handoff/validator-output-contract.json`.
+  - ops regression coverage now validates json-mode top-level/check keysets and check-id stability.
+  - README/runbook now include json-mode command usage for CI/automation ingestion.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -416,4 +421,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add `--json` output mode to `ops:validate-strict-handoff-fixtures` for CI/automation ingestion.
+1. Add a tiny CI summary step that captures and prints `ops:validate-strict-handoff-fixtures --json` output in `quality-gate` logs.
