@@ -636,6 +636,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for manual fallback tag/push commands:
   - README now includes explicit fallback `git tag -a vX.Y.Z -m \"MemphisOS vX.Y.Z\"` and `git push origin main` command references.
   - release docs contract now enforces tag/push command references in README + runbook guidance.
+- Added docs-contract coverage for manual fallback pack commands:
+  - README now includes explicit fallback pack commands `npm pack --dry-run` and `npm pack --pack-destination release-dist`.
+  - release docs contract now enforces pack command references in README + runbook guidance.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -646,4 +649,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for manual fallback pack commands (`npm pack --dry-run`, `npm pack --pack-destination release-dist`) in README/runbook release guidance.
+1. Add docs-contract coverage for manual fallback release-dir preparation command (`mkdir -p release-dist`) in README/runbook release guidance.
