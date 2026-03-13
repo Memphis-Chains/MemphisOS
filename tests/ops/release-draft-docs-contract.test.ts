@@ -14,6 +14,7 @@ type ReleaseDraftDocsContract = {
   requiredOutputEnvControls?: string[];
   requiredHelperScriptPaths?: string[];
   requiredReleaseCommands?: string[];
+  requiredTriageAnchors?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -73,6 +74,12 @@ describe('release-draft docs fixture references', () => {
       if (Array.isArray(contract.requiredReleaseCommands)) {
         for (const command of contract.requiredReleaseCommands) {
           expect(markdown.includes(command)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredTriageAnchors)) {
+        for (const anchor of contract.requiredTriageAnchors) {
+          expect(markdown.includes(anchor)).toBe(true);
         }
       }
 

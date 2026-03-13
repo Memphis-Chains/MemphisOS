@@ -621,6 +621,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for explicit release preflight command reference:
   - release docs contract now requires `npm run -s ops:release-preflight -- --json` in both README + release runbook.
   - regression now fails if command text drifts in either operator-facing doc.
+- Added docs-contract coverage for CI triage map anchor reference:
+  - README now includes explicit `docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map` guidance.
+  - release docs contract now enforces `ci-preflight-failure-triage-map` token presence in both README + runbook.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -631,4 +634,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for CI preflight triage anchor reference (`#ci-preflight-failure-triage-map`) in README/runbook release guidance.
+1. Add docs-contract coverage for gate-specific triage anchor token pattern (`ci-preflight-gate-`) in README/runbook release guidance.
