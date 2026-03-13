@@ -313,6 +313,11 @@ Updated: 2026-03-12
   - configurable limits/source via `--cognitive-report-limit`, `--cognitive-journal-path`, and matching env vars.
   - ops regression coverage validates stable embedding order and summary contract fields.
   - startup guard triage runbook now documents cognitive-summary export controls.
+- Extended incident manifest schema with cognitive-summary integrity metadata:
+  - manifests now carry `cognitiveReports.included/count/digestSha256` (plus summary context fields).
+  - verifier now validates `checks.cognitiveSummaryCountMatch` + `checks.cognitiveSummaryDigestMatch` against bundle payload.
+  - tamper coverage added for bundle-side summary mutation and manifest-side count/digest mutation.
+  - manifest verification runbook now includes operator command snippets for cognitive integrity checks.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -323,4 +328,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Extend incident manifest schema to include a digest/count of embedded cognitive summaries for handoff integrity checks.
+1. Add a strict verifier toggle to fail when cognitive-summary metadata is missing for incident bundles expected to include cognitive context.

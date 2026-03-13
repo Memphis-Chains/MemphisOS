@@ -24,10 +24,20 @@ interface SignatureDescriptor {
   keyId?: string;
 }
 
+interface CognitiveReportManifestIntegrity {
+  included: boolean;
+  count: number;
+  digestSha256: string | null;
+  schemaVersion: number | null;
+  limit: number | null;
+  journalPath: string | null;
+}
+
 interface IncidentBundleManifest {
   schemaVersion: number;
   generatedAt: string;
   bundle: BundleDescriptor;
+  cognitiveReports?: CognitiveReportManifestIntegrity;
   encryptedArtifacts?: {
     schemaVersion: number;
     format: string;
@@ -86,6 +96,8 @@ interface VerifyOutput {
     bundleEncrypted: boolean;
     bundleHashMatch: boolean;
     bundleSizeMatch: boolean;
+    cognitiveSummaryCountMatch: boolean;
+    cognitiveSummaryDigestMatch: boolean;
     signaturePresent: boolean;
     signatureVerified: boolean;
     payloadHashMatch: boolean;
@@ -295,6 +307,76 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
     throw new Error('manifest bundle.bytes must be a non-negative number');
   }
 
+  let cognitiveReports: CognitiveReportManifestIntegrity | undefined = undefined;
+  if (value.cognitiveReports !== undefined) {
+    if (!value.cognitiveReports || typeof value.cognitiveReports !== 'object' || Array.isArray(value.cognitiveReports)) {
+      throw new Error('manifest cognitiveReports must be an object when present');
+    }
+    const row = value.cognitiveReports as { [k: string]: unknown };
+    if (typeof row.included !== 'boolean') {
+      throw new Error('manifest cognitiveReports.included must be a boolean');
+    }
+    if (
+      typeof row.count !== 'number' ||
+      !Number.isFinite(row.count) ||
+      row.count < 0 ||
+      !Number.isInteger(row.count)
+    ) {
+      throw new Error('manifest cognitiveReports.count must be a non-negative integer');
+    }
+    if (
+      row.digestSha256 !== null &&
+      (typeof row.digestSha256 !== 'string' || row.digestSha256.length === 0)
+    ) {
+      throw new Error('manifest cognitiveReports.digestSha256 must be a non-empty string or null');
+    }
+    if (
+      row.schemaVersion !== null &&
+      row.schemaVersion !== undefined &&
+      (typeof row.schemaVersion !== 'number' || !Number.isFinite(row.schemaVersion))
+    ) {
+      throw new Error('manifest cognitiveReports.schemaVersion must be a finite number or null');
+    }
+    if (
+      row.limit !== null &&
+      row.limit !== undefined &&
+      (typeof row.limit !== 'number' ||
+        !Number.isFinite(row.limit) ||
+        row.limit < 0 ||
+        !Number.isInteger(row.limit))
+    ) {
+      throw new Error(
+        'manifest cognitiveReports.limit must be a non-negative integer or null',
+      );
+    }
+    if (
+      row.journalPath !== null &&
+      row.journalPath !== undefined &&
+      (typeof row.journalPath !== 'string' || row.journalPath.length === 0)
+    ) {
+      throw new Error('manifest cognitiveReports.journalPath must be a non-empty string or null');
+    }
+    if (!row.included && row.count !== 0) {
+      throw new Error('manifest cognitiveReports.count must be 0 when included=false');
+    }
+    if (!row.included && row.digestSha256 !== null) {
+      throw new Error('manifest cognitiveReports.digestSha256 must be null when included=false');
+    }
+    if (row.included && typeof row.digestSha256 !== 'string') {
+      throw new Error('manifest cognitiveReports.digestSha256 must be present when included=true');
+    }
+
+    cognitiveReports = {
+      included: row.included,
+      count: row.count,
+      digestSha256: (row.digestSha256 ?? null) as string | null,
+      schemaVersion:
+        row.schemaVersion === undefined ? null : (row.schemaVersion as number | null),
+      limit: row.limit === undefined ? null : (row.limit as number | null),
+      journalPath: row.journalPath === undefined ? null : (row.journalPath as string | null),
+    };
+  }
+
   let encryptedArtifacts: IncidentBundleManifest['encryptedArtifacts'] | undefined = undefined;
   if (value.encryptedArtifacts !== undefined) {
     if (
@@ -376,6 +458,7 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
         sha256: bundleObj.sha256,
         bytes: bundleObj.bytes,
       },
+      cognitiveReports,
       encryptedArtifacts,
     };
   }
@@ -410,6 +493,7 @@ function parseManifestObject(parsed: unknown): IncidentBundleManifest {
       sha256: bundleObj.sha256,
       bytes: bundleObj.bytes,
     },
+    cognitiveReports,
     encryptedArtifacts,
     signature: {
       algorithm: 'ed25519',
@@ -524,6 +608,98 @@ function resolveBundleBytes(options: {
 
   options.errors.push(`bundle file not found: ${plainPath}`);
   return { bundlePath: plainPath, bytes: null };
+}
+
+function normalizeStringOrNull(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function normalizeNumberOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function canonicalizeCognitiveReportsForDigest(reports: unknown[]): string {
+  const normalized = reports.map((report) => {
+    const row =
+      report && typeof report === 'object' && !Array.isArray(report)
+        ? (report as { [k: string]: unknown })
+        : {};
+    return {
+      index: normalizeNumberOrNull(row.index),
+      timestamp: normalizeStringOrNull(row.timestamp),
+      hash: normalizeStringOrNull(row.hash),
+      reportType: normalizeStringOrNull(row.reportType),
+      dataType: normalizeStringOrNull(row.dataType),
+      schemaVersion: normalizeNumberOrNull(row.schemaVersion),
+      source: normalizeStringOrNull(row.source),
+      generatedAt: normalizeStringOrNull(row.generatedAt),
+      input: normalizeStringOrNull(row.input),
+      path: normalizeStringOrNull(row.path),
+    };
+  });
+  return JSON.stringify(normalized);
+}
+
+function verifyCognitiveSummaryIntegrity(options: {
+  manifest: IncidentBundleManifest;
+  bundleBytes: Buffer;
+  checks: VerifyOutput['checks'];
+  errors: string[];
+}): void {
+  const cognitive = options.manifest.cognitiveReports;
+  if (!cognitive) return;
+
+  let bundle: unknown;
+  try {
+    bundle = JSON.parse(options.bundleBytes.toString('utf8'));
+  } catch (error) {
+    options.checks.cognitiveSummaryCountMatch = false;
+    options.checks.cognitiveSummaryDigestMatch = false;
+    options.errors.push(
+      `failed to parse bundle JSON for cognitive summary integrity checks: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return;
+  }
+
+  const bundleObject =
+    bundle && typeof bundle === 'object' && !Array.isArray(bundle)
+      ? (bundle as { [k: string]: unknown })
+      : {};
+  const bundleCognitive =
+    bundleObject.cognitiveReports &&
+    typeof bundleObject.cognitiveReports === 'object' &&
+    !Array.isArray(bundleObject.cognitiveReports)
+      ? (bundleObject.cognitiveReports as { [k: string]: unknown })
+      : null;
+  const reports = Array.isArray(bundleCognitive?.reports) ? bundleCognitive.reports : [];
+  if (cognitive.included && !Array.isArray(bundleCognitive?.reports)) {
+    options.checks.cognitiveSummaryCountMatch = false;
+    options.checks.cognitiveSummaryDigestMatch = false;
+    options.errors.push(
+      'manifest requires embedded cognitive summaries but bundle payload is missing cognitiveReports.reports',
+    );
+    return;
+  }
+
+  const actualCount = reports.length;
+  options.checks.cognitiveSummaryCountMatch = actualCount === cognitive.count;
+  if (!options.checks.cognitiveSummaryCountMatch) {
+    options.errors.push(
+      `cognitive summary count mismatch (expected=${cognitive.count}, actual=${actualCount})`,
+    );
+  }
+
+  const actualDigest = cognitive.included
+    ? sha256Hex(canonicalizeCognitiveReportsForDigest(reports))
+    : reports.length > 0
+      ? sha256Hex(canonicalizeCognitiveReportsForDigest(reports))
+      : null;
+  options.checks.cognitiveSummaryDigestMatch = actualDigest === cognitive.digestSha256;
+  if (!options.checks.cognitiveSummaryDigestMatch) {
+    options.errors.push(
+      `cognitive summary digest mismatch (expected=${cognitive.digestSha256 ?? 'null'}, actual=${actualDigest ?? 'null'})`,
+    );
+  }
 }
 
 function parsePublicKeyBundle(raw: string): PublicKeyBundle {
@@ -950,6 +1126,8 @@ async function main(): Promise<void> {
     bundleEncrypted: false,
     bundleHashMatch: false,
     bundleSizeMatch: false,
+    cognitiveSummaryCountMatch: true,
+    cognitiveSummaryDigestMatch: true,
     signaturePresent: false,
     signatureVerified: false,
     payloadHashMatch: false,
@@ -986,6 +1164,12 @@ async function main(): Promise<void> {
       checks.bundleSizeMatch = bundleResolution.bytes.byteLength === manifest.bundle.bytes;
       if (!checks.bundleHashMatch) errors.push('bundle sha256 mismatch');
       if (!checks.bundleSizeMatch) errors.push('bundle byte size mismatch');
+      verifyCognitiveSummaryIntegrity({
+        manifest,
+        bundleBytes: bundleResolution.bytes,
+        checks,
+        errors,
+      });
     }
 
     const keyResolution = resolvePublicKeyPem({

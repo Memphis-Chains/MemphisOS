@@ -1,6 +1,14 @@
 import { spawn } from 'node:child_process';
 import { createHash, generateKeyPairSync, sign as signDetached } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -81,6 +89,41 @@ async function runCommand(
 
 function sha256Hex(data: string): string {
   return createHash('sha256').update(data).digest('hex');
+}
+
+function seedCognitiveReports(dataDir: string): void {
+  const journalPath = path.join(dataDir, 'chains', 'journal');
+  mkdirSync(journalPath, { recursive: true });
+  writeFileSync(
+    path.join(journalPath, '000001.json'),
+    JSON.stringify({
+      index: 1,
+      timestamp: '2026-01-01T00:00:01.000Z',
+      hash: 'hash-1',
+      data: {
+        type: 'insight_report',
+        schemaVersion: 1,
+        source: 'cli.insights',
+        report: { generatedAt: '2026-01-01T00:00:01.000Z', input: 'insight input' },
+      },
+    }),
+    'utf8',
+  );
+  writeFileSync(
+    path.join(journalPath, '000002.json'),
+    JSON.stringify({
+      index: 2,
+      timestamp: '2026-01-01T00:00:02.000Z',
+      hash: 'hash-2',
+      data: {
+        type: 'categorize_report',
+        schemaVersion: 1,
+        source: 'cli.categorize',
+        report: { generatedAt: '2026-01-01T00:00:02.000Z', input: 'categorize input' },
+      },
+    }),
+    'utf8',
+  );
 }
 
 describe('incident manifest verifier', () => {
@@ -170,6 +213,205 @@ describe('incident manifest verifier', () => {
     expect(parsed.checks.keyFingerprintMatch).toBe(true);
     expect(parsed.checks.keyIdMatch).toBe(true);
     expect(parsed.errors).toEqual([]);
+  });
+
+  it('verifies cognitive summary digest/count integrity when metadata is present', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-cognitive-happy-');
+    const dataDir = path.join(dir, '.memphis-data');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const commandEnv = { MEMPHIS_DATA_DIR: dataDir };
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+    seedCognitiveReports(dataDir);
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--include-cognitive-summaries',
+          '--cognitive-report-limit',
+          '10',
+        ],
+        commandEnv,
+      );
+      expect(exportResult.status).toBe(0);
+    });
+
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--skip-chain-event',
+      ],
+      commandEnv,
+    );
+    expect(verifyResult.status).toBe(0);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: { cognitiveSummaryCountMatch: boolean; cognitiveSummaryDigestMatch: boolean };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(true);
+    expect(parsed.checks.cognitiveSummaryCountMatch).toBe(true);
+    expect(parsed.checks.cognitiveSummaryDigestMatch).toBe(true);
+    expect(parsed.errors).toEqual([]);
+  });
+
+  it('fails when bundle cognitive summaries are tampered after export', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-cognitive-bundle-tamper-');
+    const dataDir = path.join(dir, '.memphis-data');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const commandEnv = { MEMPHIS_DATA_DIR: dataDir };
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+    seedCognitiveReports(dataDir);
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--include-cognitive-summaries',
+          '--cognitive-report-limit',
+          '10',
+        ],
+        commandEnv,
+      );
+      expect(exportResult.status).toBe(0);
+    });
+
+    const bundle = JSON.parse(readFileSync(bundlePath, 'utf8')) as {
+      cognitiveReports?: { reports?: Array<{ input?: string | null }> };
+    };
+    if (bundle.cognitiveReports?.reports?.[0]) {
+      bundle.cognitiveReports.reports[0].input = 'tampered-input';
+    }
+    const tamperedBundle = JSON.stringify(bundle, null, 2);
+    writeFileSync(bundlePath, tamperedBundle, 'utf8');
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      bundle: { sha256: string; bytes: number };
+    };
+    manifest.bundle.sha256 = sha256Hex(tamperedBundle);
+    manifest.bundle.bytes = Buffer.byteLength(tamperedBundle, 'utf8');
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--skip-chain-event',
+      ],
+      commandEnv,
+    );
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: {
+        bundleHashMatch: boolean;
+        bundleSizeMatch: boolean;
+        cognitiveSummaryDigestMatch: boolean;
+      };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.checks.bundleHashMatch).toBe(true);
+    expect(parsed.checks.bundleSizeMatch).toBe(true);
+    expect(parsed.checks.cognitiveSummaryDigestMatch).toBe(false);
+    expect(parsed.errors.some((item) => item.includes('cognitive summary digest mismatch'))).toBe(
+      true,
+    );
+  });
+
+  it('fails when manifest cognitive summary count/digest metadata is tampered', async () => {
+    const dir = makeTempDir('memphis-incident-manifest-cognitive-manifest-tamper-');
+    const dataDir = path.join(dir, '.memphis-data');
+    const auditPath = path.join(dir, 'security-audit.jsonl');
+    const bundlePath = path.join(dir, 'incident-bundle.json');
+    const manifestPath = path.join(dir, 'incident-bundle.manifest.json');
+    const commandEnv = { MEMPHIS_DATA_DIR: dataDir };
+    writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
+    seedCognitiveReports(dataDir);
+
+    await withStatusServer({ startup: { trustRoot: { valid: true } } }, async (statusUrl) => {
+      const exportResult = await runCommand(
+        [
+          'ops:export-incident-bundle',
+          '--',
+          '--status-url',
+          statusUrl,
+          '--audit-path',
+          auditPath,
+          '--out',
+          bundlePath,
+          '--manifest-out',
+          manifestPath,
+          '--include-cognitive-summaries',
+          '--cognitive-report-limit',
+          '10',
+        ],
+        commandEnv,
+      );
+      expect(exportResult.status).toBe(0);
+    });
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      cognitiveReports?: { count?: number; digestSha256?: string | null };
+    };
+    if (manifest.cognitiveReports) {
+      manifest.cognitiveReports.count = (manifest.cognitiveReports.count ?? 0) + 1;
+      manifest.cognitiveReports.digestSha256 = '0'.repeat(64);
+    }
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+
+    const verifyResult = await runCommand(
+      [
+        'ops:verify-incident-manifest',
+        '--',
+        '--manifest-path',
+        manifestPath,
+        '--skip-chain-event',
+      ],
+      commandEnv,
+    );
+    expect(verifyResult.status).toBe(1);
+    const parsed = JSON.parse(verifyResult.stdout) as {
+      ok: boolean;
+      checks: { cognitiveSummaryCountMatch: boolean; cognitiveSummaryDigestMatch: boolean };
+      errors: string[];
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.checks.cognitiveSummaryCountMatch).toBe(false);
+    expect(parsed.checks.cognitiveSummaryDigestMatch).toBe(false);
+    expect(parsed.errors.some((item) => item.includes('cognitive summary count mismatch'))).toBe(
+      true,
+    );
+    expect(parsed.errors.some((item) => item.includes('cognitive summary digest mismatch'))).toBe(
+      true,
+    );
   });
 
   it('writes immutable system chain event for manifest verification results', async () => {

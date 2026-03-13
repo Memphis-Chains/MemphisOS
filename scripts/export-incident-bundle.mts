@@ -62,6 +62,15 @@ interface CognitiveReportSnapshot {
   reports: CognitiveReportSummary[];
 }
 
+interface CognitiveReportManifestIntegrity {
+  included: boolean;
+  count: number;
+  digestSha256: string | null;
+  schemaVersion: number | null;
+  limit: number | null;
+  journalPath: string | null;
+}
+
 interface IncidentBundleManifest {
   schemaVersion: number;
   generatedAt: string;
@@ -83,6 +92,7 @@ interface IncidentBundleManifest {
     ok: boolean;
     schemaVersion: number | null;
   };
+  cognitiveReports: CognitiveReportManifestIntegrity;
   encryptedArtifacts?: {
     schemaVersion: 1;
     format: 'memphis.encrypted-blob.v1';
@@ -497,6 +507,46 @@ function readDrillSchemaVersion(drill: IncidentBundle['drill']): number | null {
   return value;
 }
 
+function canonicalizeCognitiveReportsForDigest(reports: CognitiveReportSummary[]): string {
+  return JSON.stringify(
+    reports.map((report) => ({
+      index: report.index,
+      timestamp: report.timestamp,
+      hash: report.hash,
+      reportType: report.reportType,
+      dataType: report.dataType,
+      schemaVersion: report.schemaVersion,
+      source: report.source,
+      generatedAt: report.generatedAt,
+      input: report.input,
+      path: report.path,
+    })),
+  );
+}
+
+function buildCognitiveReportManifestIntegrity(
+  snapshot: CognitiveReportSnapshot | undefined,
+): CognitiveReportManifestIntegrity {
+  if (!snapshot) {
+    return {
+      included: false,
+      count: 0,
+      digestSha256: null,
+      schemaVersion: null,
+      limit: null,
+      journalPath: null,
+    };
+  }
+  return {
+    included: true,
+    count: snapshot.reports.length,
+    digestSha256: sha256Hex(canonicalizeCognitiveReportsForDigest(snapshot.reports)),
+    schemaVersion: snapshot.schemaVersion,
+    limit: snapshot.limit,
+    journalPath: snapshot.journalPath,
+  };
+}
+
 function writeManifest(options: {
   bundlePath: string;
   generatedAt: string;
@@ -509,6 +559,7 @@ function writeManifest(options: {
   signingKey: SigningKeySpec | null;
   encryptedBundle: EncryptedArtifactManifestDescriptor | null;
   encryptedManifestPath: string | null;
+  cognitiveReports: CognitiveReportManifestIntegrity;
 }): string {
   const bundleBytes = readFileSync(options.bundlePath);
   const manifestBase: IncidentBundleManifest = {
@@ -532,6 +583,7 @@ function writeManifest(options: {
       ok: options.drill.ok,
       schemaVersion: readDrillSchemaVersion(options.drill),
     },
+    cognitiveReports: options.cognitiveReports,
   };
 
   if (options.encryptedBundle) {
@@ -829,6 +881,7 @@ async function main(): Promise<void> {
       redactSensitive,
     );
   }
+  const cognitiveManifestIntegrity = buildCognitiveReportManifestIntegrity(bundle.cognitiveReports);
 
   mkdirSync(dirname(outPath), { recursive: true });
   writeFileSync(outPath, JSON.stringify(bundle, null, 2), 'utf8');
@@ -865,6 +918,7 @@ async function main(): Promise<void> {
         signingKey,
         encryptedBundle: encryptedBundleDescriptor,
         encryptedManifestPath,
+        cognitiveReports: cognitiveManifestIntegrity,
       })
     : null;
   const encryptedManifestDescriptor =
@@ -899,8 +953,9 @@ async function main(): Promise<void> {
               journalPath: cognitiveJournalPath,
               limit: cognitiveReportLimit,
               count: bundle.cognitiveReports?.count ?? 0,
+              digestSha256: cognitiveManifestIntegrity.digestSha256,
             }
-          : { enabled: false },
+          : { enabled: false, digestSha256: null },
         encryption: encryptionPassphrase
           ? {
               enabled: true,

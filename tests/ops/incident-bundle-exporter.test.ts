@@ -189,6 +189,7 @@ describe('incident bundle exporter', () => {
     const journalPath = path.join(dataDir, 'chains', 'journal');
     const auditPath = path.join(dir, 'security-audit.jsonl');
     const outPath = path.join(dir, 'bundle-with-cognitive.json');
+    const manifestPath = path.join(dir, 'bundle-with-cognitive.manifest.json');
     mkdirSync(journalPath, { recursive: true });
     writeFileSync(auditPath, `${JSON.stringify({ action: 'boot' })}\n`, 'utf8');
 
@@ -255,6 +256,8 @@ describe('incident bundle exporter', () => {
           auditPath,
           '--out',
           outPath,
+          '--manifest-out',
+          manifestPath,
           '--include-cognitive-summaries',
           '--cognitive-report-limit',
           '2',
@@ -264,13 +267,22 @@ describe('incident bundle exporter', () => {
       expect(result.status).toBe(0);
       const emitted = JSON.parse(result.stdout) as {
         ok: boolean;
-        cognitiveReports?: { enabled?: boolean; journalPath?: string; limit?: number; count?: number };
+        manifest?: string | null;
+        cognitiveReports?: {
+          enabled?: boolean;
+          journalPath?: string;
+          limit?: number;
+          count?: number;
+          digestSha256?: string | null;
+        };
       };
       expect(emitted.ok).toBe(true);
+      expect(emitted.manifest).toBe(manifestPath);
       expect(emitted.cognitiveReports?.enabled).toBe(true);
       expect(emitted.cognitiveReports?.journalPath).toBe(journalPath);
       expect(emitted.cognitiveReports?.limit).toBe(2);
       expect(emitted.cognitiveReports?.count).toBe(2);
+      expect(typeof emitted.cognitiveReports?.digestSha256).toBe('string');
     });
 
     const bundle = JSON.parse(readFileSync(outPath, 'utf8')) as {
@@ -279,7 +291,18 @@ describe('incident bundle exporter', () => {
         journalPath?: string;
         limit?: number;
         count?: number;
-        reports?: Array<{ reportType?: string; dataType?: string; path?: string }>;
+        reports?: Array<{
+          index?: number | null;
+          timestamp?: string | null;
+          hash?: string | null;
+          reportType?: string;
+          dataType?: string;
+          schemaVersion?: number | null;
+          source?: string | null;
+          generatedAt?: string | null;
+          input?: string | null;
+          path?: string;
+        }>;
       };
     };
     expect(bundle.cognitiveReports?.schemaVersion).toBe(1);
@@ -296,6 +319,39 @@ describe('incident bundle exporter', () => {
     ]);
     expect(bundle.cognitiveReports?.reports?.[0]?.path).toBe(path.join(journalPath, '000003.json'));
     expect(bundle.cognitiveReports?.reports?.[1]?.path).toBe(path.join(journalPath, '000002.json'));
+
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      cognitiveReports?: {
+        included?: boolean;
+        count?: number;
+        digestSha256?: string | null;
+        schemaVersion?: number | null;
+        limit?: number | null;
+        journalPath?: string | null;
+      };
+    };
+    expect(manifest.cognitiveReports?.included).toBe(true);
+    expect(manifest.cognitiveReports?.count).toBe(2);
+    expect(manifest.cognitiveReports?.schemaVersion).toBe(1);
+    expect(manifest.cognitiveReports?.limit).toBe(2);
+    expect(manifest.cognitiveReports?.journalPath).toBe(journalPath);
+    const canonicalReports = JSON.stringify(
+      (bundle.cognitiveReports?.reports ?? []).map((report) => ({
+        index: report.index ?? null,
+        timestamp: report.timestamp ?? null,
+        hash: report.hash ?? null,
+        reportType: report.reportType ?? null,
+        dataType: report.dataType ?? null,
+        schemaVersion: report.schemaVersion ?? null,
+        source: report.source ?? null,
+        generatedAt: report.generatedAt ?? null,
+        input: report.input ?? null,
+        path: report.path ?? null,
+      })),
+    );
+    expect(manifest.cognitiveReports?.digestSha256).toBe(
+      createHash('sha256').update(canonicalReports).digest('hex'),
+    );
   });
 
   it('prunes old timestamped incident bundles and paired manifests using retention policy', async () => {
@@ -659,6 +715,12 @@ describe('incident bundle exporter', () => {
 
     expect(existsSync(outPath)).toBe(true);
     expect(existsSync(inferredManifestPath)).toBe(true);
+    const manifest = JSON.parse(readFileSync(inferredManifestPath, 'utf8')) as {
+      cognitiveReports?: { included?: boolean; count?: number; digestSha256?: string | null };
+    };
+    expect(manifest.cognitiveReports?.included).toBe(false);
+    expect(manifest.cognitiveReports?.count).toBe(0);
+    expect(manifest.cognitiveReports?.digestSha256).toBeNull();
   });
 
   it('prints profile help hints for operators and shell completion tooling', async () => {
