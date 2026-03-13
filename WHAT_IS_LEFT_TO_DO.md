@@ -609,6 +609,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for release metadata artifact names:
   - release docs contract now requires `validator-metadata.json` and `validator-metadata.json.sha256` references in README + runbook.
   - regression now fails on artifact-name drift in release documentation.
+- Added docs-contract coverage for preflight helper output keys:
+  - README + release runbook now explicitly document `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, and `check_ids`.
+  - release docs contract now enforces those key names across both operator docs.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -619,4 +622,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add release docs contract coverage for explicit preflight helper output keys (`preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`) in operator-facing docs.
+1. Add docs-contract coverage for strict output-mode env controls (`MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT`) in README/runbook operator guidance.
