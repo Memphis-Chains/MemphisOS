@@ -31,6 +31,12 @@ type ReleaseGateOutputContract = {
   strictCheckOrderStatus: string;
 };
 
+const testOverrideEnv = {
+  MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE: '1',
+} as const;
+const overrideAllowError =
+  'MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON requires MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1';
+
 function runCiPreflightGateWithOverride(
   overrideGatesRaw: string,
   sha: string,
@@ -92,6 +98,31 @@ function parseGithubOutput(content: string): Record<string, string> {
 }
 
 describe('ci release-preflight gate helper script', () => {
+  it('fails closed when override env is set without explicit test-only mode', () => {
+    const override: GateOverride[] = [
+      { id: 'typecheck', command: 'node', args: ['-e', 'process.exit(0)'] },
+    ];
+    const { result, stepSummaryPath, githubOutputPath } = runCiPreflightGateWithOverride(
+      JSON.stringify(override),
+      'forced-sha-0',
+    );
+
+    expect(result.status).toBe(2);
+    const expectedUrl =
+      'https://github.com/Memphis-Chains/MemphisOS/blob/forced-sha-0/docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map';
+    const combinedOutput = `${result.stdout}${result.stderr}`;
+    const stepSummary = readFileSync(stepSummaryPath, 'utf8');
+    const githubOutput = readFileSync(githubOutputPath, 'utf8');
+
+    expect(combinedOutput).toContain(overrideAllowError);
+    expect(combinedOutput).toContain('::error::release preflight emitted empty gates list');
+    expect(combinedOutput).toContain(`::error::Release preflight failed. Remediation: ${expectedUrl}`);
+    expect(stepSummary).toContain(overrideAllowError);
+    expect(stepSummary).toContain('- `(none)`');
+    expect(stepSummary).toContain(`- [${expectedUrl}](${expectedUrl})`);
+    expect(githubOutput).toBe('');
+  });
+
   it('emits failing-gate remediation URL for forced gate failures', () => {
     const override: GateOverride[] = [
       { id: 'lint', command: 'node', args: ['-e', 'process.exit(0)'] },
@@ -100,6 +131,7 @@ describe('ci release-preflight gate helper script', () => {
     const { result, stepSummaryPath } = runCiPreflightGateWithOverride(
       JSON.stringify(override),
       'forced-sha-1',
+      testOverrideEnv,
     );
 
     expect(result.status).not.toBe(0);
@@ -112,8 +144,51 @@ describe('ci release-preflight gate helper script', () => {
     expect(stepSummary).toContain(`- [${expectedUrl}](${expectedUrl})`);
   });
 
+  it('fails closed when override env is inherited without explicit test-only mode', () => {
+    const outDir = mkdtempSync(path.join(tmpdir(), 'memphis-ci-preflight-gate-no-override-flag-'));
+    const stepSummaryPath = path.join(outDir, 'step-summary.md');
+    const githubOutputPath = path.join(outDir, 'github-output.txt');
+    writeFileSync(stepSummaryPath, '', 'utf8');
+    writeFileSync(githubOutputPath, '', 'utf8');
+
+    const result = spawnSync('bash', ['./scripts/ci-release-preflight-gate.sh'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      timeout: 120_000,
+      env: {
+        ...process.env,
+        MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON: JSON.stringify([
+          { id: 'lint', command: 'node', args: ['-e', 'process.exit(0)'] },
+        ]),
+        RUNNER_TEMP: outDir,
+        GITHUB_STEP_SUMMARY: stepSummaryPath,
+        GITHUB_OUTPUT: githubOutputPath,
+        GITHUB_SERVER_URL: 'https://github.com',
+        GITHUB_REPOSITORY: 'Memphis-Chains/MemphisOS',
+        GITHUB_SHA: 'forced-sha-override-blocked',
+      },
+    });
+
+    expect(result.status).toBe(2);
+    const combinedOutput = `${result.stdout}${result.stderr}`;
+    const stepSummary = readFileSync(stepSummaryPath, 'utf8');
+    const expectedUrl =
+      'https://github.com/Memphis-Chains/MemphisOS/blob/forced-sha-override-blocked/docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map';
+
+    expect(combinedOutput).toContain(
+      'MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON requires MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1',
+    );
+    expect(combinedOutput).toContain('::error::release preflight emitted empty gates list');
+    expect(combinedOutput).toContain(`::error::Release preflight failed. Remediation: ${expectedUrl}`);
+    expect(stepSummary).toContain(`- [${expectedUrl}](${expectedUrl})`);
+  });
+
   it('falls back to triage-map remediation URL when failed gate id is unavailable', () => {
-    const { result, stepSummaryPath } = runCiPreflightGateWithOverride('[]', 'forced-sha-2');
+    const { result, stepSummaryPath } = runCiPreflightGateWithOverride(
+      '[]',
+      'forced-sha-2',
+      testOverrideEnv,
+    );
 
     expect(result.status).not.toBe(0);
     const expectedUrl =
@@ -134,7 +209,10 @@ describe('ci release-preflight gate helper script', () => {
     const { result, githubOutputPath } = runCiPreflightGateWithOverride(
       JSON.stringify(override),
       'forced-sha-3',
-      { MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: '1' },
+      {
+        ...testOverrideEnv,
+        MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: '1',
+      },
     );
 
     expect(result.status).toBe(0);
@@ -151,6 +229,7 @@ describe('ci release-preflight gate helper script', () => {
       { id: 'typecheck', command: 'node', args: ['-e', 'process.exit(0)'] },
     ];
     const { result } = runCiPreflightGateWithOverride(JSON.stringify(override), 'forced-sha-4', {
+      ...testOverrideEnv,
       MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: '1',
       MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: '1',
     });
@@ -173,6 +252,7 @@ describe('ci release-preflight gate helper script', () => {
       JSON.stringify(override),
       'forced-sha-5',
       {
+        ...testOverrideEnv,
         MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: '1',
         MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: '1',
       },

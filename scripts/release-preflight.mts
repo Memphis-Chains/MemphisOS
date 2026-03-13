@@ -62,13 +62,19 @@ function usage(): string {
     '',
     'Test override:',
     '  MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON can provide an array of',
-    '  { id, command, args } objects to override default gate commands.',
+    '  { id, command, args } objects to override default gate commands',
+    '  only when MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1 is set.',
   ].join('\n');
 }
 
 function parseOverrideGates(): PreflightGate[] | null {
   const raw = process.env.MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON;
   if (!raw) return null;
+  if (process.env.MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE !== '1') {
+    throw new Error(
+      'MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON requires MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE=1',
+    );
+  }
 
   const parsed = JSON.parse(raw) as Array<{ id?: string; command?: string; args?: unknown }>;
   if (!Array.isArray(parsed) || parsed.length === 0) {
