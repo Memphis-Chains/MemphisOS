@@ -663,6 +663,10 @@ Updated: 2026-03-13
 - Added docs-contract coverage for fallback rust command:
   - release docs contract now requires `npm run -s test:rust` in README + runbook fallback command guidance.
   - regression now fails if rust fallback command references drift.
+- Added comprehensive fallback command + release guidance parity contracts:
+  - release docs contract now enforces fallback `npm run -s test:ts`, `npm run -s lint`, and `npm run -s typecheck` command tokens.
+  - fallback command completeness/order/scope is now enforced against manual fallback sections in both README and runbook.
+  - release docs contract now enforces workflow path (`.github/workflows/release-draft.yml`), checksum pattern (`*.sha256`), tag guidance (`vX.Y.Z`), and publish-step markers across both docs.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -673,4 +677,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for fallback command token `npm run -s test:ts` in README/runbook release guidance.
+1. Add docs-contract coverage that CI preflight gate rerun command mappings in `docs/runbooks/RELEASE.md` stay aligned with release guidance in `README.md`.

@@ -27,6 +27,14 @@ type ReleaseDraftDocsContract = {
   requiredOpsArtifactsCommands?: string[];
   requiredChaosCommands?: string[];
   requiredRustCommands?: string[];
+  requiredTsCommands?: string[];
+  requiredLintCommands?: string[];
+  requiredTypecheckCommands?: string[];
+  requiredWorkflowPaths?: string[];
+  requiredChecksumPatterns?: string[];
+  requiredTagGuidanceTokens?: string[];
+  requiredPublishGuidanceMarkers?: string[];
+  requiredFallbackSectionCommands?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -41,6 +49,28 @@ const fixturePath = path.join(
 
 function extractReleaseDraftFixtureReferences(markdown: string): Set<string> {
   return new Set(markdown.match(/tests\/fixtures\/release-draft\/[a-z0-9.-]+\.json/g) ?? []);
+}
+
+function extractManualFallbackSection(docRelativePath: string, markdown: string): string {
+  if (docRelativePath === 'README.md') {
+    const start = markdown.indexOf('Manual fallback:');
+    const end = markdown.indexOf('Draft release workflow artifacts also include:', start);
+    if (start < 0 || end < 0 || end <= start) {
+      throw new Error('README manual fallback section markers are missing or malformed');
+    }
+    return markdown.slice(start, end);
+  }
+
+  if (docRelativePath === 'docs/runbooks/RELEASE.md') {
+    const start = markdown.indexOf('## 4. Manual Fallback (If Workflow Is Unavailable)');
+    const end = markdown.indexOf('<a id="ci-preflight-failure-triage-map"></a>', start);
+    if (start < 0 || end < 0 || end <= start) {
+      throw new Error('RELEASE.md manual fallback section markers are missing or malformed');
+    }
+    return markdown.slice(start, end);
+  }
+
+  return markdown;
 }
 
 describe('release-draft docs fixture references', () => {
@@ -164,6 +194,60 @@ describe('release-draft docs fixture references', () => {
       if (Array.isArray(contract.requiredRustCommands)) {
         for (const rustCommand of contract.requiredRustCommands) {
           expect(markdown.includes(rustCommand)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredTsCommands)) {
+        for (const tsCommand of contract.requiredTsCommands) {
+          expect(markdown.includes(tsCommand)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredLintCommands)) {
+        for (const lintCommand of contract.requiredLintCommands) {
+          expect(markdown.includes(lintCommand)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredTypecheckCommands)) {
+        for (const typecheckCommand of contract.requiredTypecheckCommands) {
+          expect(markdown.includes(typecheckCommand)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredWorkflowPaths)) {
+        for (const workflowPath of contract.requiredWorkflowPaths) {
+          expect(markdown.includes(workflowPath)).toBe(true);
+          expect(existsSync(path.join(repoRoot, workflowPath))).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredChecksumPatterns)) {
+        for (const checksumPattern of contract.requiredChecksumPatterns) {
+          expect(markdown.includes(checksumPattern)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredTagGuidanceTokens)) {
+        for (const tagToken of contract.requiredTagGuidanceTokens) {
+          expect(markdown.includes(tagToken)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredPublishGuidanceMarkers)) {
+        for (const marker of contract.requiredPublishGuidanceMarkers) {
+          expect(markdown.includes(marker)).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredFallbackSectionCommands)) {
+        const fallbackSection = extractManualFallbackSection(docRelativePath, markdown);
+        let previousIndex = -1;
+        for (const command of contract.requiredFallbackSectionCommands) {
+          const commandIndex = fallbackSection.indexOf(command);
+          expect(commandIndex).toBeGreaterThan(-1);
+          expect(commandIndex).toBeGreaterThan(previousIndex);
+          previousIndex = commandIndex;
         }
       }
 

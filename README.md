@@ -226,6 +226,7 @@ npm run -s ops:rotate-key-bundle -- \
 ## Package And Release
 
 Preferred: run the guarded draft-release workflow in GitHub Actions (`release-draft`), then review and publish the generated draft release.
+- workflow file: `.github/workflows/release-draft.yml`
 
 Preflight gate (single workflow step):
 
@@ -253,8 +254,9 @@ npm run -s test:rust
 ```
 - strict fixture gate rerun command: `npm run -s ops:validate-strict-handoff-fixtures -- --json`
 - fallback strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
-- fallback pack commands: `npm pack --dry-run`, `npm pack --pack-destination release-dist`
+- fallback pack dry-run command: `npm pack --dry-run`
 - fallback release-dir prep command: `mkdir -p release-dist`
+- fallback pack destination command: `npm pack --pack-destination release-dist`
 - fallback artifact checksum command: `sha256sum release-dist/memphis-chains-memphisos-<version>.tgz`
 - fallback tag command: `git tag -a vX.Y.Z -m "MemphisOS vX.Y.Z"`
 - fallback push command: `git push origin main`
@@ -264,6 +266,7 @@ Draft release workflow artifacts also include:
 
 - `validator-metadata.json` (validator schema/check-order status contract for automation consumers)
 - `validator-metadata.json.sha256` (validator metadata checksum contract)
+- checksum asset pattern: `*.sha256`
 
 Local metadata validator quick checks:
 
@@ -278,6 +281,12 @@ npm run -s ops:validate-release-draft-validator-metadata -- \
 ```
 
 Release details and workflow inputs are documented in `docs/runbooks/RELEASE.md`.
+
+Draft publish checks:
+
+- verify draft release body and links
+- confirm checksum in draft notes matches uploaded `.sha256` file
+- publish draft release when approved
 
 ## Security Notes
 
