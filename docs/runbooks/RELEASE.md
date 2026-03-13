@@ -24,6 +24,7 @@ Preflight flow:
 
 - primary: `npm run -s ops:release-preflight -- --json` (single preflight gate step in workflow)
 - shared preflight helper output keys: `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`
+- strict output-mode env controls: `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT=1`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`
 - fallback: run the per-step gate list below when command-level diagnostics are needed
 
 The workflow then performs release packaging automatically:
