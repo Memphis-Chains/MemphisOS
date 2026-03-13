@@ -1,0 +1,22 @@
+{
+  "packageOutputKeys": [
+    "validator_schema_status",
+    "validator_schema_version",
+    "validator_schema_previous_version",
+    "validator_schema_reference_tag",
+    "validator_check_order_status",
+    "validator_check_ids"
+  ],
+  "summaryOutputKeys": [
+    "validator_schema_status",
+    "validator_schema_version",
+    "validator_schema_reference_tag",
+    "validator_schema_previous_version",
+    "validator_check_order_status",
+    "validator_check_ids"
+  ],
+  "releaseNotesMarkers": [
+    "Validator contract status:",
+    "Validator check-id order contract:"
+  ]
+}

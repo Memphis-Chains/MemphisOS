@@ -78,11 +78,10 @@ jobs:
         run: npm run -s ops:validate-strict-handoff-fixtures
 
       - name: Strict-handoff validator JSON summary
-        run: |
-          set -euo pipefail
-          OUT="$(npm run -s ops:validate-strict-handoff-fixtures -- --json)"
-          printf '%s\n' "$OUT"
-          jq -e '.ok == true' <<<"$OUT" >/dev/null
+        id: validator_json
+        env:
+          MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: "1"
+        run: ./scripts/strict-handoff-validator-json-gate.sh
 
       - name: Ops artifact regression
         run: npm run -s test:ops-artifacts
@@ -98,6 +97,9 @@ jobs:
 
       - name: Build package artifact
         id: package
+        env:
+          VALIDATOR_CHECK_ORDER_STATUS: ${{ steps.validator_json.outputs.check_order_status }}
+          VALIDATOR_CHECK_IDS: ${{ steps.validator_json.outputs.check_ids }}
         run: |
           set -euo pipefail
           VALIDATOR_CONTRACT_PATH="tests/fixtures/strict-handoff/validator-output-contract.json"
@@ -147,6 +149,10 @@ jobs:
           - \`$VALIDATOR_SCHEMA_NOTE\`
           - if schemaVersion changed, include JSON contract change + migration guidance in final published release notes
 
+          Validator check-id order contract:
+          - status: \`$VALIDATOR_CHECK_ORDER_STATUS\`
+          - checkIds: \`$VALIDATOR_CHECK_IDS\`
+
           Artifact:
           - \`$ASSET_NAME\`
           - sha256: \`$SHA256\`
@@ -161,6 +167,8 @@ jobs:
             echo "validator_schema_version=$CURRENT_VALIDATOR_SCHEMA_VERSION"
             echo "validator_schema_previous_version=$PREV_VALIDATOR_SCHEMA_VERSION"
             echo "validator_schema_reference_tag=$PREV_TAG"
+            echo "validator_check_order_status=$VALIDATOR_CHECK_ORDER_STATUS"
+            echo "validator_check_ids=$VALIDATOR_CHECK_IDS"
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload draft artifacts
@@ -209,5 +217,7 @@ jobs:
             echo "- validator schema version: \`${{ steps.package.outputs.validator_schema_version }}\`"
             echo "- validator baseline tag: \`${{ steps.package.outputs.validator_schema_reference_tag }}\`"
             echo "- validator previous schema version: \`${{ steps.package.outputs.validator_schema_previous_version }}\`"
+            echo "- validator check-id order status: \`${{ steps.package.outputs.validator_check_order_status }}\`"
+            echo "- validator checkIds: \`${{ steps.package.outputs.validator_check_ids }}\`"
             echo "- release: ${{ steps.release.outputs.release_url }}"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -439,6 +439,50 @@ Updated: 2026-03-13
   - `quality-gate` now compares live `checks[].id` order from validator `--json` output against `validator-output-contract.json`.
   - CI now fails fast with explicit expected/actual check-id ordering diagnostics on drift.
   - strict-handoff contract enforcement now covers both pass/fail status and deterministic ordering in pipeline logs.
+- Mirrored strict-handoff check-order assertion in release-draft validator JSON gate:
+  - `release-draft` now compares live `checks[].id` order against `validator-output-contract.json`.
+  - release workflow now fails fast with explicit expected/actual check-id ordering diagnostics on drift.
+  - release and CI pipelines now enforce the same deterministic check ordering contract.
+- Added workflow contract regression coverage for strict-handoff validator gates:
+  - new ops regression test validates both `.github/workflows/ci.yml` and `.github/workflows/release-draft.yml` include `.ok` and check-id ordering assertions.
+  - `test:ops-artifacts` now includes strict-handoff workflow contract coverage.
+  - gate drift between CI and release workflows now fails regression tests before merge.
+- Updated release runbook with validator check-order gate guidance:
+  - automated draft-release gate list now calls out check-id ordering enforcement contract.
+  - manual fallback commands now include explicit expected-vs-actual check-id order assertion.
+  - operators now have deterministic manual parity with workflow guardrails.
+- Added release-draft machine-readable check-order signal outputs:
+  - validator JSON gate step now emits `check_order_status` and `check_ids` via workflow outputs.
+  - package step propagates `validator_check_order_status` + `validator_check_ids` for downstream automation parsing.
+  - draft release notes and workflow summary now include validator check-id order metadata alongside schema-version status fields.
+- Deduplicated strict-handoff validator JSON gate logic across CI and release workflows:
+  - new shared helper script: `scripts/strict-handoff-validator-json-gate.sh`.
+  - both `.github/workflows/ci.yml` and `.github/workflows/release-draft.yml` now call the shared helper.
+  - release-draft keeps machine-readable output emission via `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`.
+- Extended ops regression coverage for shared workflow gate helper:
+  - strict-handoff workflow contract test now asserts both workflows call the shared helper.
+  - coverage now also validates helper script contract snippets (`.ok` enforcement, check-id order assertion, optional outputs).
+  - `test:ops-artifacts` gate now catches helper-script contract drift.
+- Updated release runbook to use shared validator JSON gate helper:
+  - automated release gate list now references `./scripts/strict-handoff-validator-json-gate.sh`.
+  - manual fallback now reuses the same helper for CI/release parity.
+  - check-order enforcement docs now track the deduplicated implementation path.
+- Added dedicated regression coverage for shared validator JSON gate output contract:
+  - new ops regression test executes `scripts/strict-handoff-validator-json-gate.sh` with `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`.
+  - test asserts stable `GITHUB_OUTPUT` keys/values (`check_order_status`, `check_ids`) against fixture contract order.
+  - negative-path coverage verifies fail-closed behavior when output emission is requested without `GITHUB_OUTPUT`.
+- Added fixture-backed release-draft validator metadata contract coverage:
+  - new fixture: `tests/fixtures/release-draft/validator-metadata-contract.json`.
+  - new ops regression test validates release-draft workflow output keys and summary references for `validator_schema_*` and `validator_check_*` fields.
+  - `test:ops-artifacts` now includes release-draft metadata contract drift detection.
+- Synced README release/operator guidance with shared validator JSON gate helper:
+  - strict-handoff operator section now documents `scripts/strict-handoff-validator-json-gate.sh`.
+  - release checklist manual fallback now uses shared helper for CI/release parity.
+  - README fixture references now include release-draft validator metadata contract path.
+- Added local-shell smoke coverage for shared validator JSON gate helper:
+  - ops regression now executes helper in default mode (no `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT`) and asserts successful pass path.
+  - contract now explicitly covers operator/local usage and CI usage with output emission enabled.
+  - fail-closed path coverage for missing `GITHUB_OUTPUT` remains enforced alongside default pass mode.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -449,4 +493,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Mirror strict-handoff validator check-id order assertion in `release-draft` workflow JSON summary step.
+1. Emit a dedicated release-draft validator metadata JSON artifact (schema + check-order fields) and add fixture-backed regression coverage for its stable key contract.

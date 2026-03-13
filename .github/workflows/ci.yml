@@ -49,18 +49,7 @@ jobs:
 
       - name: Strict-handoff validator JSON summary
         run: |
-          set -euo pipefail
-          OUT="$(npm run -s ops:validate-strict-handoff-fixtures -- --json)"
-          printf '%s\n' "$OUT"
-          jq -e '.ok == true' <<<"$OUT" >/dev/null
-          EXPECTED_IDS="$(jq -c '.checkIds' tests/fixtures/strict-handoff/validator-output-contract.json)"
-          ACTUAL_IDS="$(jq -c '.checks | map(.id)' <<<"$OUT")"
-          if [[ "$ACTUAL_IDS" != "$EXPECTED_IDS" ]]; then
-            echo "::error::strict-handoff validator check-id ordering mismatch"
-            echo "::error::expected=$EXPECTED_IDS"
-            echo "::error::actual=$ACTUAL_IDS"
-            exit 1
-          fi
+          ./scripts/strict-handoff-validator-json-gate.sh
 
       - name: Ops artifacts regression (bundle + manifest + strict handoff)
         run: npm run test:ops-artifacts
