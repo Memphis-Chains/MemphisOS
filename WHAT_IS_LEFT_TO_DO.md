@@ -283,6 +283,12 @@ Updated: 2026-03-12
   - moved interactive ask-session runner into `src/infra/cli/utils/interactive-ask-session.ts`.
   - updated interaction command wiring to use infra-local implementation.
   - removed dead legacy shim files `src/cli/ask-session.ts` and `src/cli/index.ts`.
+- Implemented `categorize --save` journal persistence in active CLI path:
+  - `memphis categorize "<text>" --save` now appends `categorize_report` blocks to `journal`.
+  - JSON output now reports `saved` and `savedBlock` metadata.
+- Added focused `categorize --save` coverage:
+  - unit coverage for JSON + save flows in `tests/unit/cli.categorize.test.ts`.
+  - e2e persistence coverage on fresh data dir in `tests/integration/cli-categorize-save.e2e.test.ts`.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -293,5 +299,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Implement `categorize --save` journal persistence (parity with `insights --save` / `reflect --save`).
-2. Add focused e2e coverage for `categorize --save` on fresh data directories once persistence is implemented.
+1. Add a combined cognitive-save regression test that exercises `insights --save`, `categorize --save`, and `reflect --save` in one flow.
+2. Extend operator docs with expected `categorize_report` payload shape for incident/debug triage workflows.

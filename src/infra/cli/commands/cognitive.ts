@@ -89,6 +89,30 @@ async function saveReflectionReport(reflections: Reflection[]): Promise<AppendBl
   return appendBlock('journal', buildReflectionSavePayload(reflections), process.env);
 }
 
+function buildCategorizeSavePayload(
+  input: string,
+  suggestion: Awaited<ReturnType<typeof categorizeWithV5Context>>,
+): Record<string, unknown> {
+  return {
+    type: 'categorize_report',
+    source: 'cli.categorize',
+    content: `Categorize Report: ${suggestion.tags.length} tag(s) suggested for input`,
+    tags: ['categorize', 'report'],
+    report: {
+      generatedAt: new Date().toISOString(),
+      input,
+      suggestion,
+    },
+  };
+}
+
+async function saveCategorizeReport(
+  input: string,
+  suggestion: Awaited<ReturnType<typeof categorizeWithV5Context>>,
+): Promise<AppendBlockResult> {
+  return appendBlock('journal', buildCategorizeSavePayload(input, suggestion), process.env);
+}
+
 export async function handleCognitiveCommand(context: CliContext): Promise<boolean> {
   const command = context.args.command;
   const handlers: Partial<Record<string, CognitiveHandler>> = {
@@ -206,14 +230,16 @@ async function handleCategorizeCommand(context: CliContext): Promise<boolean> {
   const { json, save, subcommand } = context.args;
   if (!subcommand)
     throw new Error('categorize requires text argument: memphis categorize "your text"');
+  const suggestion = await categorizeWithV5Context(subcommand);
+  const savedBlock = save ? await saveCategorizeReport(subcommand, suggestion) : null;
   print(
     {
       ok: true,
       mode: 'categorize',
       input: subcommand,
-      suggestion: await categorizeWithV5Context(subcommand),
-      saved: save,
-      message: save ? 'save requested; journal persistence is not implemented yet' : undefined,
+      suggestion,
+      saved: Boolean(savedBlock),
+      savedBlock,
     },
     json,
   );
