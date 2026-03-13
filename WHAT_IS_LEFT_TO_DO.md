@@ -559,6 +559,10 @@ Updated: 2026-03-13
 - Added CI preflight gate-id triage mapping in operator docs:
   - `docs/runbooks/RELEASE.md` now includes `## CI Preflight Failure Triage Map` with per-gate remediation anchors.
   - `README.md` release guidance now points gate-id failures to runbook anchors.
+- Added docs contract regression coverage for CI preflight gate-id triage anchors:
+  - new fixture `tests/fixtures/release-draft/ci-preflight-triage-docs-contract.json` pins gate ids + README/runbook expectations.
+  - new ops test `tests/ops/release-preflight-ci-triage-docs-contract.test.ts` enforces explicit runbook anchors and README release reference parity.
+  - `test:ops-artifacts` now includes the triage docs contract gate.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -569,4 +573,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs contract regression coverage that fails CI when a release-preflight gate id is missing its `docs/runbooks/RELEASE.md#ci-preflight-gate-<gate-id>` anchor or README release reference.
+1. Add CI regression coverage that exercises a forced preflight gate failure and asserts `quality-gate` emits the expected runbook remediation URL for the failing gate id.

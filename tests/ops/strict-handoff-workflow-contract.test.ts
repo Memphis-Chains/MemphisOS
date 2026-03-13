@@ -10,7 +10,12 @@ const repoRoot = path.resolve(thisDir, '..', '..');
 const workflowContracts = [
   {
     workflowRelativePath: path.join('.github', 'workflows', 'ci.yml'),
-    requiredSnippets: ['npm run -s ops:release-preflight -- --json'],
+    requiredSnippets: [
+      'npm run -s ops:release-preflight -- --json',
+      "TRIAGE_ANCHOR='ci-preflight-failure-triage-map'",
+      'TRIAGE_ANCHOR="ci-preflight-gate-${FAILED_GATE_ID}"',
+      'TRIAGE_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/docs/runbooks/RELEASE.md#${TRIAGE_ANCHOR}"',
+    ],
     forbiddenSnippets: [
       'npm run -s lint',
       'npm run -s typecheck',
