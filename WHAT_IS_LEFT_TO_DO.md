@@ -585,6 +585,9 @@ Updated: 2026-03-13
 - Added negative-fixture validator regression for preflight summary gate shape:
   - new invalid fixture omits `preflightSummary.gates[0].exitCode` and is validated through `ops:validate-release-draft-validator-metadata --json`.
   - ops test now asserts stable error markers (`preflightSummary/gates/0`, `required property 'exitCode'`) to catch schema drift in failure contracts.
+- Added failure-path preflight summary acceptance regression:
+  - new fixture `validator-metadata-preflight-failure-example.json` captures a valid `preflightSummary.ok=false` payload with failed gate details.
+  - validator ops test now asserts this failure-path payload still passes schema validation when shape contracts are intact.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -595,4 +598,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add regression coverage for non-success preflight metadata (`preflightSummary.ok=false`) to ensure schema + validator contracts stay stable for failure-path handoff artifacts.
+1. Add contract-fixture parity checks for the preflight failure example so top-level and nested gate keys are pinned exactly like the success-path example.
