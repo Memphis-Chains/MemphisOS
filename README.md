@@ -204,6 +204,7 @@ npm run -s ops:rotate-key-bundle -- \
 - integration contract fixtures for tooling:
   - summary/completion contract: `tests/fixtures/strict-handoff/output-contract.json`
   - failure contracts: `tests/fixtures/strict-handoff/failure-preflight.json`, `tests/fixtures/strict-handoff/failure-export.json`, `tests/fixtures/strict-handoff/failure-verify.json`
+  - parser examples (`jq` + TypeScript summary + completion hints): `docs/runbooks/INCIDENT_MANIFEST_VERIFICATION.md`
 
 `ops:rotate-key-bundle` does:
 

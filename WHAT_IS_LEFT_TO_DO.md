@@ -379,6 +379,10 @@ Updated: 2026-03-13
   - new ops regression test validates strict-handoff fixture paths referenced in `README.md` and incident runbook.
   - `test:ops-artifacts` now includes docs contract coverage so CI catches stale fixture links early.
   - README failure fixture references were normalized to full strict-handoff fixture paths.
+- Added completion-hints parser snippets for strict-handoff automation:
+  - incident verification runbook now includes a `jq` completion-hints pipeline with required flag/env guard checks.
+  - runbook now includes a TypeScript completion-hints parser snippet aligned with stable key contracts.
+  - docs now cover machine ingestion patterns for both strict summary output and completion hints.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -389,4 +393,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add parser snippets for `--completion-hints` JSON consumption (`jq` + TypeScript) in docs.
+1. Add formal JSON Schema files for strict-handoff summary + completion-hints outputs to support external validator/codegen tooling.
