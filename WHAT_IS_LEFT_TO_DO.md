@@ -375,6 +375,10 @@ Updated: 2026-03-13
   - incident verification runbook now includes a `jq` command pipeline that validates schema/stage and extracts triage fields.
   - runbook now includes a TypeScript parser/type-guard snippet aligned with `tests/fixtures/strict-handoff/output-contract.json`.
   - docs now provide copy-ready parsing examples for shell and service integrations.
+- Added docs smoke test coverage for strict-handoff fixture references:
+  - new ops regression test validates strict-handoff fixture paths referenced in `README.md` and incident runbook.
+  - `test:ops-artifacts` now includes docs contract coverage so CI catches stale fixture links early.
+  - README failure fixture references were normalized to full strict-handoff fixture paths.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -385,4 +389,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a docs smoke test that validates strict-handoff fixture paths referenced in README/runbook exist.
+1. Add parser snippets for `--completion-hints` JSON consumption (`jq` + TypeScript) in docs.
