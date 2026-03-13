@@ -26,6 +26,7 @@ Preflight flow:
 - shared preflight helper output keys: `preflight_summary_json`, `preflight_gate_ids`, `check_order_status`, `check_ids`
 - strict output-mode env controls: `MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT=1`, `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`
 - CI/release wrapper script: `scripts/ci-release-preflight-gate.sh`
+- preflight strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 - fallback: run the per-step gate list below when command-level diagnostics are needed
 
 The workflow then performs release packaging automatically:
@@ -87,6 +88,8 @@ git tag -a vX.Y.Z -m "MemphisOS vX.Y.Z"
 git push origin main
 git push origin vX.Y.Z
 ```
+
+- fallback strict JSON gate script: `./scripts/strict-handoff-validator-json-gate.sh`
 
 <a id="ci-preflight-failure-triage-map"></a>
 ## CI Preflight Failure Triage Map

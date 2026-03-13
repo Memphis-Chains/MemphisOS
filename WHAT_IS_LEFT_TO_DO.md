@@ -648,6 +648,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for strict fixture rerun JSON command:
   - README now includes explicit rerun command `npm run -s ops:validate-strict-handoff-fixtures -- --json`.
   - release docs contract now enforces strict fixture rerun JSON command references in README + runbook guidance.
+- Added docs-contract coverage for strict JSON gate script in preflight + fallback guidance:
+  - README and release runbook now include explicit preflight and fallback markers for `./scripts/strict-handoff-validator-json-gate.sh`.
+  - release docs contract now enforces both markers in both operator-facing docs.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -658,4 +661,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for strict JSON gate script command reference (`./scripts/strict-handoff-validator-json-gate.sh`) in both preflight and fallback release guidance sections.
+1. Add docs-contract coverage for manual fallback release tag push command `git push origin vX.Y.Z` in runbook/README release guidance.
