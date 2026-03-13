@@ -10,6 +10,9 @@ type ValidatorOutputContract = {
   schemaVersion: number;
   summaryTopLevelKeys: string[];
 };
+type InvalidPreflightGateContract = {
+  errorContains: string[];
+};
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..', '..');
@@ -19,6 +22,20 @@ const outputContractPath = path.join(
   'fixtures',
   'release-draft',
   'validator-metadata-validator-output-contract.json',
+);
+const invalidPreflightGateFixturePath = path.join(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'release-draft',
+  'validator-metadata-invalid-preflight-gate.json',
+);
+const invalidPreflightGateContractPath = path.join(
+  repoRoot,
+  'tests',
+  'fixtures',
+  'release-draft',
+  'validator-metadata-invalid-preflight-gate-contract.json',
 );
 
 describe('release-draft validator metadata schema validator command', () => {
@@ -70,6 +87,47 @@ describe('release-draft validator metadata schema validator command', () => {
 
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('validator metadata schema validation failed');
+  });
+
+  it('fails for invalid preflightSummary gate shape with stable error contract markers', () => {
+    const result = spawnSync(
+      'npm',
+      [
+        'run',
+        '-s',
+        'ops:validate-release-draft-validator-metadata',
+        '--',
+        '--metadata-path',
+        'tests/fixtures/release-draft/validator-metadata-invalid-preflight-gate.json',
+        '--json',
+      ],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        timeout: 60_000,
+        env: process.env,
+      },
+    );
+    const contract = JSON.parse(
+      readFileSync(invalidPreflightGateContractPath, 'utf8'),
+    ) as InvalidPreflightGateContract;
+
+    expect(result.status).not.toBe(0);
+    const parsed = JSON.parse(result.stdout) as {
+      schemaVersion: number;
+      ok: boolean;
+      metadataPath: string;
+      schemaPath: string;
+      error: string | null;
+    };
+    expect(parsed.ok).toBe(false);
+    expect(parsed.metadataPath).toBe(
+      path.relative(repoRoot, invalidPreflightGateFixturePath),
+    );
+    expect(parsed.error).not.toBeNull();
+    for (const marker of contract.errorContains) {
+      expect(parsed.error).toContain(marker);
+    }
   });
 
   it('emits stable machine-readable output keys in --json mode', () => {

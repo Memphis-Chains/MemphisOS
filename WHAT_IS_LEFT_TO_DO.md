@@ -582,6 +582,9 @@ Updated: 2026-03-13
 - Added fail-closed workflow marker contract coverage for preflight summary guardrails:
   - release metadata contract fixture now pins both missing/invalid `preflight_summary_json` error markers from `.github/workflows/release-draft.yml`.
   - contract regression now fails if workflow guardrails are removed or renamed.
+- Added negative-fixture validator regression for preflight summary gate shape:
+  - new invalid fixture omits `preflightSummary.gates[0].exitCode` and is validated through `ops:validate-release-draft-validator-metadata --json`.
+  - ops test now asserts stable error markers (`preflightSummary/gates/0`, `required property 'exitCode'`) to catch schema drift in failure contracts.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -592,4 +595,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add negative-fixture regression coverage for validator metadata schema by asserting invalid `preflightSummary.gates[*]` key-shape failures with stable error contracts.
+1. Add regression coverage for non-success preflight metadata (`preflightSummary.ok=false`) to ensure schema + validator contracts stay stable for failure-path handoff artifacts.
