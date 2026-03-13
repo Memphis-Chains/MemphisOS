@@ -594,6 +594,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for success/failure release metadata fixture references:
   - README and release runbook now reference both success + failure preflight metadata examples.
   - `tests/fixtures/release-draft/docs-contract.json` now requires both fixture links so docs drift fails regression.
+- Added docs/reference coverage for invalid preflight metadata troubleshooting fixture:
+  - README + release runbook now reference `validator-metadata-invalid-preflight-gate.json` for operator troubleshooting paths.
+  - release docs contract now requires the invalid fixture reference in both docs files.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -604,4 +607,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs/reference coverage for invalid preflight metadata fixture usage (`validator-metadata-invalid-preflight-gate.json`) in operator troubleshooting guidance.
+1. Add release runbook troubleshooting snippet showing exact `ops:validate-release-draft-validator-metadata` command invocation against the invalid fixture for local contract debugging.
