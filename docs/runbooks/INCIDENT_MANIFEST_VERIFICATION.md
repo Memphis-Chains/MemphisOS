@@ -77,6 +77,22 @@ npm run -s ops:export-incident-bundle -- \
   --out data/incident-bundle.json
 ```
 
+One-command strict handoff (export + strict verify + pass/fail summary):
+
+```bash
+npm run -s ops:strict-incident-handoff -- \
+  --status-url http://127.0.0.1:8080/v1/ops/status \
+  --audit-path data/security-audit.jsonl \
+  --out data/incident-bundle.json \
+  --manifest-out data/incident-bundle.manifest.json \
+  --signing-key-path /secure/path/incident-signing-key.pem \
+  --signing-key-id incident-key-v2 \
+  --public-key-bundle-path data/public-key-bundle.json \
+  --trust-root-path config/trust_root.json
+```
+
+Use `--json` for automation-friendly stage/check output.
+
 ## 3. Verify Evidence Integrity
 
 ```bash
