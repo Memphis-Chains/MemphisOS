@@ -11,8 +11,9 @@
   ],
   "ciRequiredSnippets": [
     "npm run -s ops:release-preflight -- --json",
-    "docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map",
-    "docs/runbooks/RELEASE.md#ci-preflight-gate-"
+    "TRIAGE_ANCHOR='ci-preflight-failure-triage-map'",
+    "TRIAGE_ANCHOR=\"ci-preflight-gate-${FAILED_GATE_ID}\"",
+    "TRIAGE_URL=\"${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/docs/runbooks/RELEASE.md#${TRIAGE_ANCHOR}\""
   ],
   "runbookSectionHeading": "## CI Preflight Failure Triage Map"
 }
