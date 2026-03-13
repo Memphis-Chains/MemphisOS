@@ -47,6 +47,13 @@ jobs:
       - name: Strict-handoff fixture/schema validator
         run: npm run -s ops:validate-strict-handoff-fixtures
 
+      - name: Strict-handoff validator JSON summary
+        run: |
+          set -euo pipefail
+          OUT="$(npm run -s ops:validate-strict-handoff-fixtures -- --json)"
+          printf '%s\n' "$OUT"
+          jq -e '.ok == true' <<<"$OUT" >/dev/null
+
       - name: Ops artifacts regression (bundle + manifest + strict handoff)
         run: npm run test:ops-artifacts
 
