@@ -74,6 +74,9 @@ jobs:
       - name: Typecheck
         run: npm run -s typecheck
 
+      - name: Strict-handoff fixture/schema validator
+        run: npm run -s ops:validate-strict-handoff-fixtures
+
       - name: Ops artifact regression
         run: npm run -s test:ops-artifacts
 
@@ -109,6 +112,7 @@ jobs:
           Quality gates run in this workflow:
           - npm run -s lint
           - npm run -s typecheck
+          - npm run -s ops:validate-strict-handoff-fixtures
           - npm run -s test:ops-artifacts
           - npm run -s test:ts
           - npm run -s test:chaos

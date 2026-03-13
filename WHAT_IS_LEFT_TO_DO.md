@@ -398,6 +398,10 @@ Updated: 2026-03-13
   - command validates summary/completion example fixtures plus live strict-handoff command output against JSON Schemas.
   - new ops regression test asserts validator command pass output contract.
   - `test:ops-artifacts` now includes validator coverage for CI enforcement.
+- Added dedicated CI/release gates for strict-handoff fixture validation:
+  - `quality-gate` workflow now runs `ops:validate-strict-handoff-fixtures` before `test:ops-artifacts`.
+  - `release-draft` workflow now enforces the same validator gate before artifact regression tests.
+  - release runbook + README manual release checklist now include validator command in required gates.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -408,4 +412,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a CI step that runs `ops:validate-strict-handoff-fixtures` directly before `test:ops-artifacts`.
+1. Add a troubleshooting section for `ops:validate-strict-handoff-fixtures` failures (schema mismatch vs command-output mismatch) in the incident runbook.

@@ -225,6 +225,7 @@ Manual fallback:
 ```bash
 npm run -s lint
 npm run -s typecheck
+npm run -s ops:validate-strict-handoff-fixtures
 npm run -s test:ops-artifacts
 npm run -s test:ts
 npm run -s test:chaos
