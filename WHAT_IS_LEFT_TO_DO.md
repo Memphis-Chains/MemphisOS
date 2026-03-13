@@ -624,6 +624,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for CI triage map anchor reference:
   - README now includes explicit `docs/runbooks/RELEASE.md#ci-preflight-failure-triage-map` guidance.
   - release docs contract now enforces `ci-preflight-failure-triage-map` token presence in both README + runbook.
+- Added docs-contract coverage for gate-specific triage anchor token pattern:
+  - release docs contract now requires `ci-preflight-gate-` token in README + runbook release guidance.
+  - regression now fails if gate-anchor token references are removed from operator docs.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -634,4 +637,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for gate-specific triage anchor token pattern (`ci-preflight-gate-`) in README/runbook release guidance.
+1. Add docs-contract coverage for manual fallback gate command reference (`./scripts/strict-handoff-validator-json-gate.sh`) in README/runbook release guidance.
