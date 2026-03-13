@@ -30,12 +30,6 @@ jobs:
       - name: Install
         run: npm ci
 
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
       - name: Ops drill (startup guards)
         run: |
           set -euo pipefail
@@ -44,21 +38,63 @@ jobs:
           grep -q 'trust-root-invalid-strict' <<<"$OUT"
           grep -q 'revocation-stale' <<<"$OUT"
 
-      - name: Strict-handoff fixture/schema validator
-        run: npm run -s ops:validate-strict-handoff-fixtures
-
-      - name: Strict-handoff validator JSON summary
+      - name: Release preflight gate
         run: |
-          ./scripts/strict-handoff-validator-json-gate.sh
+          set -euo pipefail
 
-      - name: Ops artifacts regression (bundle + manifest + strict handoff)
-        run: npm run test:ops-artifacts
+          SUMMARY_JSON="$RUNNER_TEMP/release-preflight-summary.json"
+          set +e
+          npm run -s ops:release-preflight -- --json >"$SUMMARY_JSON"
+          PREFLIGHT_EXIT=$?
+          set -e
 
-      - name: Test (TS)
-        run: npm run test:ts
+          if [[ ! -s "$SUMMARY_JSON" ]]; then
+            echo "release preflight did not emit JSON summary"
+            exit 1
+          fi
 
-      - name: Chaos gate (WAL fault injection)
-        run: npm run test:chaos
+          GATE_IDS="$(
+            node - "$SUMMARY_JSON" <<'NODE'
+            const fs = require('node:fs');
 
-      - name: Test (Rust)
-        run: npm run test:rust
+            const summaryPath = process.argv[2];
+            const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+            if (!Array.isArray(summary.gates) || summary.gates.length === 0) {
+              console.error('release preflight produced an empty gates list');
+              process.exit(1);
+            }
+
+            const gateIds = summary.gates
+              .map((gate) => (typeof gate?.id === 'string' ? gate.id.trim() : ''))
+              .filter(Boolean)
+              .sort((left, right) => left.localeCompare(right));
+            if (gateIds.length === 0) {
+              console.error('release preflight produced gates without IDs');
+              process.exit(1);
+            }
+
+            process.stdout.write(gateIds.join('\n'));
+            NODE
+          )"
+
+          echo 'Release preflight JSON summary:'
+          cat "$SUMMARY_JSON"
+
+          echo 'Release preflight gate IDs:'
+          printf '%s\n' "$GATE_IDS"
+
+          {
+            echo '### Release preflight JSON summary'
+            echo '```json'
+            cat "$SUMMARY_JSON"
+            echo '```'
+            echo
+            echo '### Release preflight gate IDs'
+            while IFS= read -r gate_id; do
+              printf -- '- `%s`\n' "$gate_id"
+            done <<< "$GATE_IDS"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$PREFLIGHT_EXIT" -ne 0 ]]; then
+            exit "$PREFLIGHT_EXIT"
+          fi
