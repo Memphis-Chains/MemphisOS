@@ -87,6 +87,8 @@
     "MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: \"1\"",
     "MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: \"1\"",
     "PREFLIGHT_SUMMARY_JSON: ${{ steps.validator_json.outputs.preflight_summary_json }}",
+    "::error::release preflight output preflight_summary_json is required",
+    "::error::release preflight output preflight_summary_json must be valid JSON",
     "--argjson preflight_summary \"$PREFLIGHT_SUMMARY_JSON\"",
     "preflightSummary: $preflight_summary,",
     "VALIDATOR_CHECK_ORDER_STATUS: ${{ steps.",

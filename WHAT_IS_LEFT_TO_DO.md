@@ -579,6 +579,9 @@ Updated: 2026-03-13
   - release workflow now requires valid `preflight_summary_json` from shared preflight helper and embeds it into `validator-metadata.json`.
   - validator metadata schema/example fixtures now include strict `preflightSummary` and nested gate key contracts.
   - release metadata contract tests now fail on drift in workflow wiring or preflight summary key shape.
+- Added fail-closed workflow marker contract coverage for preflight summary guardrails:
+  - release metadata contract fixture now pins both missing/invalid `preflight_summary_json` error markers from `.github/workflows/release-draft.yml`.
+  - contract regression now fails if workflow guardrails are removed or renamed.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -589,4 +592,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add release-draft workflow contract checks that assert fail-closed markers for missing/invalid `preflight_summary_json` guardrails in the package step.
+1. Add negative-fixture regression coverage for validator metadata schema by asserting invalid `preflightSummary.gates[*]` key-shape failures with stable error contracts.
