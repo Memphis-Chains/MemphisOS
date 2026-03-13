@@ -13,6 +13,7 @@ type ReleaseDraftDocsContract = {
   requiredPreflightOutputKeys?: string[];
   requiredOutputEnvControls?: string[];
   requiredHelperScriptPaths?: string[];
+  requiredReleaseCommands?: string[];
 };
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
@@ -66,6 +67,12 @@ describe('release-draft docs fixture references', () => {
         for (const helperScriptPath of contract.requiredHelperScriptPaths) {
           expect(markdown.includes(helperScriptPath)).toBe(true);
           expect(existsSync(path.join(repoRoot, helperScriptPath))).toBe(true);
+        }
+      }
+
+      if (Array.isArray(contract.requiredReleaseCommands)) {
+        for (const command of contract.requiredReleaseCommands) {
+          expect(markdown.includes(command)).toBe(true);
         }
       }
 

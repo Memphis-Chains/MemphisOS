@@ -32,5 +32,8 @@
   ],
   "requiredHelperScriptPaths": [
     "scripts/ci-release-preflight-gate.sh"
+  ],
+  "requiredReleaseCommands": [
+    "npm run -s ops:release-preflight -- --json"
   ]
 }

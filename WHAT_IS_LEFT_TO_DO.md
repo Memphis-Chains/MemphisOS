@@ -618,6 +618,9 @@ Updated: 2026-03-13
 - Added docs-contract coverage for shared preflight helper script path:
   - README + release runbook now explicitly reference `scripts/ci-release-preflight-gate.sh` as CI/release wrapper script.
   - release docs contract now enforces helper-script path presence and path existence.
+- Added docs-contract coverage for explicit release preflight command reference:
+  - release docs contract now requires `npm run -s ops:release-preflight -- --json` in both README + release runbook.
+  - regression now fails if command text drifts in either operator-facing doc.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -628,4 +631,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add docs-contract coverage for explicit `ops:release-preflight -- --json` command reference in both README and release runbook.
+1. Add docs-contract coverage for CI preflight triage anchor reference (`#ci-preflight-failure-triage-map`) in README/runbook release guidance.
