@@ -32,7 +32,8 @@ The workflow then performs release packaging automatically:
 - `npm pack --pack-destination release-dist`
 - generates `release-dist/validator-metadata.json` (schema + check-order status contract)
   - schema fixture: `tests/fixtures/release-draft/validator-metadata.schema.json`
-  - example payload: `tests/fixtures/release-draft/validator-metadata-example.json`
+  - success example payload: `tests/fixtures/release-draft/validator-metadata-example.json`
+  - failure example payload: `tests/fixtures/release-draft/validator-metadata-preflight-failure-example.json`
 - `npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json`
   - validates release metadata against `tests/fixtures/release-draft/validator-metadata.schema.json`
 - creates draft GitHub release `v<version>` with:
