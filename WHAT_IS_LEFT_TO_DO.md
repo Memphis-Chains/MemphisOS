@@ -289,6 +289,11 @@ Updated: 2026-03-12
 - Added focused `categorize --save` coverage:
   - unit coverage for JSON + save flows in `tests/unit/cli.categorize.test.ts`.
   - e2e persistence coverage on fresh data dir in `tests/integration/cli-categorize-save.e2e.test.ts`.
+- Added combined cognitive-save regression coverage:
+  - integration flow now exercises `insights --save`, `categorize --save`, and `reflect --save` in one fresh data directory.
+  - assertions validate save metadata ordering and all three block types in journal (`insight_report`, `categorize_report`, `reflection_report`).
+- Extended operator docs for cognitive report triage:
+  - `docs/runbooks/COGNITIVE_REPORT_TRIAGE.md` documents expected `categorize_report` payload shape and validation checks for incident/debug workflows.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -299,5 +304,5 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add a combined cognitive-save regression test that exercises `insights --save`, `categorize --save`, and `reflect --save` in one flow.
-2. Extend operator docs with expected `categorize_report` payload shape for incident/debug triage workflows.
+1. Add schema version fields for saved cognitive reports (`insight_report`, `categorize_report`, `reflection_report`) to harden parser compatibility.
+2. Add an operator helper command/script to query latest cognitive report blocks from `journal` during incident response.
