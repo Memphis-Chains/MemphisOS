@@ -388,6 +388,11 @@ Updated: 2026-03-13
   - strict-handoff output contract fixture now publishes schema paths for external validator/codegen consumers.
   - new ops regression coverage ensures schema key requirements stay aligned with output-contract fixtures.
   - README/runbook fixture sections now reference schema paths alongside existing contract fixtures.
+- Added end-to-end schema validation examples for strict-handoff outputs:
+  - new example payload fixtures: `summary-example-preflight.json`, `completion-hints-example.json`.
+  - incident runbook now includes Ajv CLI and TypeScript Ajv examples for validating fixtures and live command output.
+  - schema regression tests now verify example payload key contracts and published fixture paths.
+  - README fixture section now points tooling users to schema examples and Ajv validation guidance.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -398,4 +403,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add end-to-end fixture validation examples (Ajv CLI + TypeScript) that consume the new strict-handoff JSON Schema files.
+1. Add a dedicated `ops:validate-strict-handoff-fixtures` script that runs schema validation checks in one command.

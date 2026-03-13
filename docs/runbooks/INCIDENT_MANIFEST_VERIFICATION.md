@@ -420,6 +420,73 @@ export function parseStrictHandoffCompletionHints(rawJson: string): StrictHandof
 }
 ```
 
+Ajv CLI validation examples (end-to-end schema checks):
+
+```bash
+# Validate example fixture payloads against schema contracts.
+npx -y ajv-cli validate \
+  -s tests/fixtures/strict-handoff/summary.schema.json \
+  -d tests/fixtures/strict-handoff/summary-example-preflight.json
+
+npx -y ajv-cli validate \
+  -s tests/fixtures/strict-handoff/completion-hints.schema.json \
+  -d tests/fixtures/strict-handoff/completion-hints-example.json
+
+# Validate live command outputs.
+npm run -s ops:strict-incident-handoff -- --json > /tmp/strict-handoff-summary.json || true
+npx -y ajv-cli validate \
+  -s tests/fixtures/strict-handoff/summary.schema.json \
+  -d /tmp/strict-handoff-summary.json
+
+npm run -s ops:strict-incident-handoff -- --completion-hints > /tmp/strict-handoff-completion-hints.json
+npx -y ajv-cli validate \
+  -s tests/fixtures/strict-handoff/completion-hints.schema.json \
+  -d /tmp/strict-handoff-completion-hints.json
+```
+
+TypeScript Ajv example (schema validation in service code):
+
+```ts
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+
+import Ajv from 'ajv';
+
+const repoRoot = process.cwd();
+const summarySchema = JSON.parse(
+  readFileSync(path.join(repoRoot, 'tests/fixtures/strict-handoff/summary.schema.json'), 'utf8'),
+);
+const completionSchema = JSON.parse(
+  readFileSync(
+    path.join(repoRoot, 'tests/fixtures/strict-handoff/completion-hints.schema.json'),
+    'utf8',
+  ),
+);
+const summaryPayload = JSON.parse(
+  readFileSync(
+    path.join(repoRoot, 'tests/fixtures/strict-handoff/summary-example-preflight.json'),
+    'utf8',
+  ),
+);
+const completionPayload = JSON.parse(
+  readFileSync(
+    path.join(repoRoot, 'tests/fixtures/strict-handoff/completion-hints-example.json'),
+    'utf8',
+  ),
+);
+
+const ajv = new Ajv({ allErrors: true, strict: true });
+const validateSummary = ajv.compile(summarySchema);
+const validateCompletion = ajv.compile(completionSchema);
+
+if (!validateSummary(summaryPayload)) {
+  throw new Error(`summary validation failed: ${ajv.errorsText(validateSummary.errors)}`);
+}
+if (!validateCompletion(completionPayload)) {
+  throw new Error(`completion-hints validation failed: ${ajv.errorsText(validateCompletion.errors)}`);
+}
+```
+
 ## 5. Handoff Package
 
 Attach these artifacts to incident records:

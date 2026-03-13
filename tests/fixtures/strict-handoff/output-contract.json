@@ -22,6 +22,7 @@
     "chainEventHash"
   ],
   "summaryJsonSchemaPath": "tests/fixtures/strict-handoff/summary.schema.json",
+  "summaryExamplePath": "tests/fixtures/strict-handoff/summary-example-preflight.json",
   "validStages": ["preflight", "export", "verify"],
   "completionHintTopLevelKeys": [
     "schemaVersion",
@@ -34,5 +35,6 @@
     "policyEnvVars"
   ],
   "completionHintsJsonSchemaPath": "tests/fixtures/strict-handoff/completion-hints.schema.json",
+  "completionHintsExamplePath": "tests/fixtures/strict-handoff/completion-hints-example.json",
   "completionHintProfileKeys": ["export", "verify"]
 }
