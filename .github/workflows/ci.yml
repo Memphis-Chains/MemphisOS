@@ -44,7 +44,7 @@ jobs:
           grep -q 'trust-root-invalid-strict' <<<"$OUT"
           grep -q 'revocation-stale' <<<"$OUT"
 
-      - name: Ops artifacts regression (bundle + manifest)
+      - name: Ops artifacts regression (bundle + manifest + strict handoff)
         run: npm run test:ops-artifacts
 
       - name: Test (TS)

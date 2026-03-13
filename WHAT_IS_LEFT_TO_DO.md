@@ -337,6 +337,9 @@ Updated: 2026-03-12
   - `ops:strict-incident-handoff --completion-hints` now emits machine-readable flag/env metadata.
   - `--help` now includes env default references for signer key, key bundle, and trust root inputs.
   - ops regression coverage added for help/completion hint contracts.
+- Added CI smoke coverage for strict-handoff command contract stability:
+  - `test:ops-artifacts` now includes `tests/ops/strict-incident-handoff.test.ts`.
+  - `quality-gate` ops artifact regression step now explicitly covers strict-handoff flows.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -347,4 +350,4 @@ Updated: 2026-03-12
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add CI smoke coverage for `ops:strict-incident-handoff --completion-hints` contract stability in `quality-gate`.
+1. Add README operator quick-reference section for strict incident handoff (`ops:strict-incident-handoff`) and completion hint usage.
