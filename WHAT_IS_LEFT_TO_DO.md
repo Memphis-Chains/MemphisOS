@@ -575,6 +575,10 @@ Updated: 2026-03-13
   - new fixture `tests/fixtures/release-draft/ci-release-preflight-gate-output-contract.json` pins required output keys and strict gate/check-order expectations.
   - `tests/ops/ci-release-preflight-gate.test.ts` now executes shared helper in release-output mode with strict-handoff gate enabled and asserts stable `preflight_gate_ids`, `check_order_status`, and `check_ids`.
   - `test:ops-artifacts` now enforces this release-output contract via the CI preflight helper regression suite.
+- Added release-draft metadata contract coverage for preserved preflight summary payload:
+  - release workflow now requires valid `preflight_summary_json` from shared preflight helper and embeds it into `validator-metadata.json`.
+  - validator metadata schema/example fixtures now include strict `preflightSummary` and nested gate key contracts.
+  - release metadata contract tests now fail on drift in workflow wiring or preflight summary key shape.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -585,4 +589,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add workflow-level regression coverage ensuring release-draft metadata artifacts consume and preserve `preflight_summary_json` from shared preflight helper output without key drift.
+1. Add release-draft workflow contract checks that assert fail-closed markers for missing/invalid `preflight_summary_json` guardrails in the package step.

@@ -48,8 +48,25 @@
   ],
   "metadataTopLevelKeys": [
     "schemaVersion",
+    "preflightSummary",
     "validatorSchema",
     "validatorCheckOrder"
+  ],
+  "metadataPreflightSummaryKeys": [
+    "schemaVersion",
+    "ok",
+    "startedAt",
+    "completedAt",
+    "gates",
+    "error"
+  ],
+  "metadataPreflightGateKeys": [
+    "id",
+    "command",
+    "ok",
+    "exitCode",
+    "durationMs",
+    "error"
   ],
   "metadataValidatorSchemaKeys": [
     "status",
@@ -69,6 +86,9 @@
   "preflightMarkers": [
     "MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT: \"1\"",
     "MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT: \"1\"",
+    "PREFLIGHT_SUMMARY_JSON: ${{ steps.validator_json.outputs.preflight_summary_json }}",
+    "--argjson preflight_summary \"$PREFLIGHT_SUMMARY_JSON\"",
+    "preflightSummary: $preflight_summary,",
     "VALIDATOR_CHECK_ORDER_STATUS: ${{ steps.",
     "VALIDATOR_CHECK_IDS: ${{ steps.",
     ".outputs.check_order_status",

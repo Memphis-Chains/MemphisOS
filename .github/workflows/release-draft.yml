@@ -78,6 +78,7 @@ jobs:
       - name: Build package artifact
         id: package
         env:
+          PREFLIGHT_SUMMARY_JSON: ${{ steps.validator_json.outputs.preflight_summary_json }}
           PREFLIGHT_GATE_IDS: ${{ steps.validator_json.outputs.preflight_gate_ids }}
           VALIDATOR_CHECK_ORDER_STATUS: ${{ steps.validator_json.outputs.check_order_status }}
           VALIDATOR_CHECK_IDS: ${{ steps.validator_json.outputs.check_ids }}
@@ -111,16 +112,26 @@ jobs:
           VALIDATOR_METADATA_PATH="release-dist/validator-metadata.json"
           VALIDATOR_METADATA_SHA_FILE="release-dist/validator-metadata.json.sha256"
           VALIDATOR_METADATA_SCHEMA_PATH="tests/fixtures/release-draft/validator-metadata.schema.json"
+          if [[ -z "${PREFLIGHT_SUMMARY_JSON:-}" ]]; then
+            echo "::error::release preflight output preflight_summary_json is required"
+            exit 1
+          fi
+          if ! jq -e '.' >/dev/null <<<"$PREFLIGHT_SUMMARY_JSON"; then
+            echo "::error::release preflight output preflight_summary_json must be valid JSON"
+            exit 1
+          fi
           printf '%s  %s\n' "$SHA256" "$ASSET_NAME" > "$SHA_FILE"
           jq -n \
             --arg schema_status "$VALIDATOR_SCHEMA_STATUS" \
             --arg schema_version "$CURRENT_VALIDATOR_SCHEMA_VERSION" \
             --arg schema_previous_version "$PREV_VALIDATOR_SCHEMA_VERSION" \
             --arg schema_reference_tag "$PREV_TAG" \
+            --argjson preflight_summary "$PREFLIGHT_SUMMARY_JSON" \
             --arg check_order_status "$VALIDATOR_CHECK_ORDER_STATUS" \
             --argjson check_ids "$VALIDATOR_CHECK_IDS" \
             '{
               schemaVersion: 1,
+              preflightSummary: $preflight_summary,
               validatorSchema: {
                 status: $schema_status,
                 version: $schema_version,
