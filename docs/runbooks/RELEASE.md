@@ -37,6 +37,12 @@ The workflow then performs release packaging automatically:
 - `npm run -s ops:validate-release-draft-validator-metadata -- --metadata-path release-dist/validator-metadata.json`
   - validates release metadata against `tests/fixtures/release-draft/validator-metadata.schema.json`
   - troubleshooting invalid-shape contracts: `tests/fixtures/release-draft/validator-metadata-invalid-preflight-gate.json`
+  - local debug command:
+
+```bash
+npm run -s ops:validate-release-draft-validator-metadata -- \
+  --metadata-path tests/fixtures/release-draft/validator-metadata-invalid-preflight-gate.json
+```
 - creates draft GitHub release `v<version>` with:
   - package tarball asset
   - `.sha256` checksum asset

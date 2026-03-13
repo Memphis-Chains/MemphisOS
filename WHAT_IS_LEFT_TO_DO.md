@@ -597,6 +597,9 @@ Updated: 2026-03-13
 - Added docs/reference coverage for invalid preflight metadata troubleshooting fixture:
   - README + release runbook now reference `validator-metadata-invalid-preflight-gate.json` for operator troubleshooting paths.
   - release docs contract now requires the invalid fixture reference in both docs files.
+- Added runbook troubleshooting command contract for invalid preflight metadata fixture:
+  - release runbook now includes exact local debug command for `ops:validate-release-draft-validator-metadata` against invalid fixture payload.
+  - docs contract now enforces runbook command snippet markers to catch troubleshooting-doc drift.
 
 ## In Progress Architecture (Already Implemented)
 
@@ -607,4 +610,4 @@ Updated: 2026-03-13
 
 ## Next Priority Tasks (Post v0.1.0)
 
-1. Add release runbook troubleshooting snippet showing exact `ops:validate-release-draft-validator-metadata` command invocation against the invalid fixture for local contract debugging.
+1. Add release metadata validator docs coverage for the failure-path fixture command invocation (`validator-metadata-preflight-failure-example.json`) to mirror invalid-fixture troubleshooting parity.
