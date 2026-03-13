@@ -10,11 +10,13 @@ const repoRoot = path.resolve(thisDir, '..', '..');
 const workflowContracts = [
   {
     workflowRelativePath: path.join('.github', 'workflows', 'ci.yml'),
-    requiredSnippets: ['./scripts/strict-handoff-validator-json-gate.sh'],
+    requiredSnippets: ['npm run -s ops:release-preflight -- --json'],
+    forbiddenSnippets: ['./scripts/strict-handoff-validator-json-gate.sh'],
   },
   {
     workflowRelativePath: path.join('.github', 'workflows', 'release-draft.yml'),
     requiredSnippets: ['npm run -s ops:release-preflight -- --json'],
+    forbiddenSnippets: [],
   },
 ] as const;
 
@@ -37,12 +39,15 @@ const gateScriptRequiredSnippets = [
 ] as const;
 
 describe('strict-handoff workflow contracts', () => {
-  for (const { workflowRelativePath, requiredSnippets } of workflowContracts) {
+  for (const { workflowRelativePath, requiredSnippets, forbiddenSnippets } of workflowContracts) {
     it(`${workflowRelativePath} keeps strict-handoff gate contract wiring`, () => {
       const workflow = readFileSync(path.join(repoRoot, workflowRelativePath), 'utf8');
 
       for (const snippet of requiredSnippets) {
         expect(workflow).toContain(snippet);
+      }
+      for (const snippet of forbiddenSnippets) {
+        expect(workflow).not.toContain(snippet);
       }
     });
   }
