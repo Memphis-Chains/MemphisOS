@@ -194,6 +194,26 @@ function manifestIdsForCapability(
     .sort((left, right) => left.localeCompare(right));
 }
 
+function manifestIdsForCapabilityPattern(
+  manifests: Array<{ manifest: { id: string; capabilities: string[] } }>,
+  capability: string,
+  requiredCapabilities: string[],
+): { aligned: string[]; missing: string[] } {
+  const aligned: string[] = [];
+  const missing: string[] = [];
+
+  for (const ref of manifests) {
+    if (!ref.manifest.capabilities.includes(capability)) continue;
+    const hasRequired = requiredCapabilities.some((item) => ref.manifest.capabilities.includes(item));
+    if (hasRequired) aligned.push(ref.manifest.id);
+    else missing.push(ref.manifest.id);
+  }
+
+  aligned.sort((left, right) => left.localeCompare(right));
+  missing.sort((left, right) => left.localeCompare(right));
+  return { aligned, missing };
+}
+
 async function autoRepair(opts: Required<Pick<DoctorOptions, 'fix' | 'force'>>): Promise<string[]> {
   const actions: string[] = [];
   const memphisDir = getDataDir();
@@ -619,6 +639,8 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
   const capabilitySummary = formatCapabilityCounts(appCatalog.capabilityCounts);
   const mcpManagedApps = manifestIdsForCapability(appCatalog.manifests, 'mcp');
   const secretManagedApps = manifestIdsForCapability(appCatalog.manifests, 'secrets');
+  const memoryPattern = manifestIdsForCapabilityPattern(appCatalog.manifests, 'memory', ['workspace', 'service']);
+  const browserPattern = manifestIdsForCapabilityPattern(appCatalog.manifests, 'browser', ['mcp', 'service']);
 
   checks.push({
     id: 't6-external-plugin',
@@ -698,6 +720,46 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
       meta: {
         appIds: secretManagedApps,
         vaultCycleOk,
+      },
+    });
+  }
+  if (memoryPattern.aligned.length > 0 || memoryPattern.missing.length > 0) {
+    checks.push({
+      id: 't6-managed-app-memory-pattern',
+      tier: 6,
+      title: 'Managed app memory pattern',
+      level: memoryPattern.missing.length === 0 ? 'pass' : 'warn',
+      ok: memoryPattern.missing.length === 0,
+      required: false,
+      detail:
+        memoryPattern.missing.length === 0
+          ? `apps=${memoryPattern.aligned.join(', ')}; all memory-tagged apps are scoped by workspace/service`
+          : `aligned=${memoryPattern.aligned.join(', ') || 'none'}; missing workspace/service=${memoryPattern.missing.join(', ')}`,
+      fix: 'Tag memory integrations with workspace and/or service so operators know whether the state is workspace-bound or service-backed',
+      meta: {
+        alignedAppIds: memoryPattern.aligned,
+        missingPatternAppIds: memoryPattern.missing,
+        expectedCapabilities: ['workspace', 'service'],
+      },
+    });
+  }
+  if (browserPattern.aligned.length > 0 || browserPattern.missing.length > 0) {
+    checks.push({
+      id: 't6-managed-app-browser-pattern',
+      tier: 6,
+      title: 'Managed app browser pattern',
+      level: browserPattern.missing.length === 0 ? 'pass' : 'warn',
+      ok: browserPattern.missing.length === 0,
+      required: false,
+      detail:
+        browserPattern.missing.length === 0
+          ? `apps=${browserPattern.aligned.join(', ')}; all browser-tagged apps expose MCP/service transport hints`
+          : `aligned=${browserPattern.aligned.join(', ') || 'none'}; missing mcp/service=${browserPattern.missing.join(', ')}`,
+      fix: 'Tag browser integrations with mcp and/or service so the transport model is explicit and stays downstream from MemphisOS core',
+      meta: {
+        alignedAppIds: browserPattern.aligned,
+        missingPatternAppIds: browserPattern.missing,
+        expectedCapabilities: ['mcp', 'service'],
       },
     });
   }
