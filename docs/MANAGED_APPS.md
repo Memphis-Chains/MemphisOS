@@ -45,6 +45,7 @@ These tags are descriptive. They help operators and future automation understand
 MemphisOS uses them in two places today:
 
 - `memphis apps show ...` and `memphis apps plan ...` print capability-aware operator guidance
+- `memphis apps list` prints concise risk hints for obvious pattern gaps
 - `memphis doctor` summarizes the managed app catalog and the capability mix discovered under `~/.memphis/apps/manifests`
 
 Pattern hints enforced by `memphis doctor`:
