@@ -4,7 +4,7 @@ import {
   describeManagedAppManifest,
   executeManagedAppAction,
   getManagedAppManifest,
-  listManagedAppManifestRefs,
+  inspectManagedAppCatalog,
   planManagedAppAction,
 } from '../../../modules/apps/manifest.js';
 import {
@@ -42,6 +42,14 @@ function actionNameFromContext(context: CliContext): string {
   return subcommand;
 }
 
+function printCapabilityGuidanceHuman(guidance: string[], indent = ''): void {
+  if (guidance.length === 0) return;
+  console.log(`${indent}guidance:`);
+  for (const item of guidance) {
+    console.log(`${indent}  - ${item}`);
+  }
+}
+
 function printManifestHuman(ref: ReturnType<typeof manifestRefFromContext>): void {
   const summary = describeManagedAppManifest(ref);
   const record = getManagedAppRegistryRecord(summary.id, process.env);
@@ -59,6 +67,7 @@ function printManifestHuman(ref: ReturnType<typeof manifestRefFromContext>): voi
     console.log(`state: ${record.state}`);
     console.log(`lastAction: ${record.lastAction} @ ${record.lastActionAt}`);
   }
+  printCapabilityGuidanceHuman(summary.capabilityGuidance);
   for (const note of summary.notes) {
     console.log(`note: ${note}`);
   }
@@ -73,6 +82,7 @@ function printPlanHuman(plan: ReturnType<typeof planManagedAppAction> | ReturnTy
   if (plan.manifest.capabilities.length > 0) {
     console.log(`capabilities: ${plan.manifest.capabilities.join(', ')}`);
   }
+  printCapabilityGuidanceHuman(plan.manifest.capabilityGuidance);
   console.log(`cwd: ${plan.cwd}`);
   console.log('paths:');
   console.log(`  appRoot: ${plan.paths.appRoot}`);
@@ -125,12 +135,21 @@ export async function handleAppsCommand(context: CliContext): Promise<boolean> {
 
   if (subcommand === 'list') {
     const registry = loadManagedAppRegistry(process.env);
-    const manifests = listManagedAppManifestRefs(process.env).map((ref) => ({
+    const catalog = inspectManagedAppCatalog(process.env);
+    const manifests = catalog.manifests.map((ref) => ({
       ...describeManagedAppManifest(ref),
       installedRecord: registry.apps.find((record) => record.id === ref.manifest.id),
     }));
     if (json) {
-      print({ manifests }, true);
+      print(
+        {
+          manifests,
+          manifestsDir: catalog.manifestsDir,
+          manifestErrors: catalog.errors,
+          capabilityCounts: catalog.capabilityCounts,
+        },
+        true,
+      );
     } else if (manifests.length === 0) {
       console.log('No managed app manifests found');
     } else {
@@ -140,11 +159,23 @@ export async function handleAppsCommand(context: CliContext): Promise<boolean> {
         if (manifest.capabilities.length > 0) {
           console.log(`  capabilities=${manifest.capabilities.join(',')}`);
         }
+        if (manifest.capabilityGuidance.length > 0) {
+          console.log(`  guidance=${manifest.capabilityGuidance.length} capability note(s); use 'memphis apps show ${manifest.id}' for details`);
+        }
         if (manifest.installedRecord) {
           console.log(
             `  installed=${String(manifest.installedRecord.installed)} state=${manifest.installedRecord.state} last=${manifest.installedRecord.lastAction}`,
           );
         }
+      }
+      const capabilitySummary =
+        Object.entries(catalog.capabilityCounts)
+          .filter(([, count]) => count > 0)
+          .map(([name, count]) => `${name}=${count}`)
+          .join(', ') || 'none';
+      console.log(`catalog: ${manifests.length} manifest(s), capabilities=${capabilitySummary}`);
+      if (catalog.errors.length > 0) {
+        console.log(`catalogErrors: ${catalog.errors.length}; inspect JSON/schema under ${catalog.manifestsDir}`);
       }
     }
     return true;

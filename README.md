@@ -144,11 +144,13 @@ Planning is the default. Add `--apply` to execute a lifecycle action.
 Concrete vendor integrations should live downstream from `main`; the core branch keeps only the generic app-management layer.
 If an action declares `vaultEnv`, MemphisOS can resolve the required runtime env var from the Memphis vault without printing the secret in plan output.
 Manifests can also declare coarse capability tags such as `workspace`, `memory`, `browser`, `mcp`, `secrets`, and `service`.
+`memphis apps show ...` and `memphis doctor` now surface operator guidance based on those capability tags.
 
 ```bash
 npm run -s cli -- vault init --passphrase 'strong-passphrase' --recovery-question 'pet' --recovery-answer 'nori'
 npm run -s cli -- vault add --key VENDOR_API_TOKEN --value 'token-value'
 npm run -s cli -- apps install vendor-app --file path/to/vendor.manifest.json --apply --json
+npm run -s cli -- apps show demo-mcp-adapter --file docs/templates/MANAGED_APP_MCP.example.json --json
 ```
 
 ## Setup For Anyone (Guided)

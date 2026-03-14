@@ -24,6 +24,7 @@ import {
   getVaultPath,
 } from '../../../config/paths.js';
 import { rebuildChainIndexes } from '../../../core/chain-index-rebuild.js';
+import { inspectManagedAppCatalog } from '../../../modules/apps/manifest.js';
 import { envSchema } from '../../config/schema.js';
 import { embedReset, embedSearch } from '../../storage/rust-embed-adapter.js';
 import { vaultDecrypt, vaultEncrypt } from '../../storage/rust-vault-adapter.js';
@@ -174,6 +175,23 @@ function inferDaemonRunning(memphisDir: string): { running: boolean; staleLocks:
 
 function msLabel(v: number): string {
   return `${Math.max(0, Math.round(v))}ms`;
+}
+
+function formatCapabilityCounts(counts: Record<string, number>): string {
+  const parts = Object.entries(counts)
+    .filter(([, value]) => value > 0)
+    .map(([name, value]) => `${name}=${value}`);
+  return parts.length > 0 ? parts.join(', ') : 'none';
+}
+
+function manifestIdsForCapability(
+  manifests: Array<{ manifest: { id: string; capabilities: string[] } }>,
+  capability: string,
+): string[] {
+  return manifests
+    .filter((ref) => ref.manifest.capabilities.includes(capability))
+    .map((ref) => ref.manifest.id)
+    .sort((left, right) => left.localeCompare(right));
 }
 
 async function autoRepair(opts: Required<Pick<DoctorOptions, 'fix' | 'force'>>): Promise<string[]> {
@@ -597,6 +615,10 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
   const multiAgentSync = Boolean(
     process.env.MEMPHIS_SYNC_REMOTE || process.env.MEMPHIS_AGENT_PEERS,
   );
+  const appCatalog = inspectManagedAppCatalog(process.env);
+  const capabilitySummary = formatCapabilityCounts(appCatalog.capabilityCounts);
+  const mcpManagedApps = manifestIdsForCapability(appCatalog.manifests, 'mcp');
+  const secretManagedApps = manifestIdsForCapability(appCatalog.manifests, 'secrets');
 
   checks.push({
     id: 't6-external-plugin',
@@ -625,6 +647,60 @@ export async function runDoctorChecksV2(options: DoctorOptions = {}): Promise<Do
     required: false,
     detail: multiAgentSync ? 'configured' : 'not configured',
   });
+  checks.push({
+    id: 't6-managed-app-catalog',
+    tier: 6,
+    title: 'Managed app catalog',
+    level: appCatalog.errors.length > 0 ? 'warn' : 'pass',
+    ok: appCatalog.errors.length === 0,
+    required: false,
+    detail:
+      appCatalog.manifests.length === 0 && appCatalog.errors.length === 0
+        ? `0 manifests discovered in ${appCatalog.manifestsDir}; add downstream manifests or use --file`
+        : `${appCatalog.manifests.length} valid manifest(s), ${appCatalog.errors.length} invalid manifest(s); capabilities: ${capabilitySummary}`,
+    fix:
+      appCatalog.errors.length > 0
+        ? `Fix invalid manifest JSON/schema under ${appCatalog.manifestsDir} or validate with memphis apps show --file <manifest.json>`
+        : 'Use memphis apps show <id> for capability-specific operator guidance',
+    meta: {
+      manifestsDir: appCatalog.manifestsDir,
+      manifestIds: appCatalog.manifests.map((ref) => ref.manifest.id),
+      capabilityCounts: appCatalog.capabilityCounts,
+      invalidManifests: appCatalog.errors,
+    },
+  });
+  if (mcpManagedApps.length > 0) {
+    checks.push({
+      id: 't6-managed-app-mcp-readiness',
+      tier: 6,
+      title: 'Managed app MCP readiness',
+      level: mcp.ok ? 'pass' : 'warn',
+      ok: mcp.ok,
+      required: false,
+      detail: `apps=${mcpManagedApps.join(', ')}; MCP server ${mcp.ok ? 'reachable' : 'unreachable'} on :${mcpPort}`,
+      fix: 'Run memphis mcp serve-status --json or start the downstream MCP bridge before applying MCP-tagged app actions',
+      meta: {
+        appIds: mcpManagedApps,
+        port: mcpPort,
+      },
+    });
+  }
+  if (secretManagedApps.length > 0) {
+    checks.push({
+      id: 't6-managed-app-secret-brokering',
+      tier: 6,
+      title: 'Managed app secret brokering',
+      level: vaultCycleOk ? 'pass' : 'warn',
+      ok: vaultCycleOk,
+      required: false,
+      detail: `apps=${secretManagedApps.join(', ')}; vault ${vaultCycleOk ? 'ready' : 'unavailable'}`,
+      fix: 'Run memphis vault init and re-run memphis apps plan <id> --action install --json to confirm secret bindings',
+      meta: {
+        appIds: secretManagedApps,
+        vaultCycleOk,
+      },
+    });
+  }
 
   if (options.deep) {
     const shellOk = ['bash', 'zsh', 'fish'].includes(process.env.SHELL?.split('/').pop() ?? '');

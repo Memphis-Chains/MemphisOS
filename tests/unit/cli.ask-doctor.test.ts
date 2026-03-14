@@ -77,6 +77,7 @@ describe('CLI ask + doctor', () => {
     expect(ids).toContain('t1-vault-cycle');
     expect(ids).toContain('t2-provider-latency');
     expect(ids).toContain('t6-mcp-server');
+    expect(ids).toContain('t6-managed-app-catalog');
   });
 
   it('doctor prints human-readable output with indicators', async () => {

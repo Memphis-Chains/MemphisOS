@@ -11,8 +11,8 @@ Updated: 2026-03-14
 
 ## Current Priorities
 
-1. Add local-first workspace scaffolding and context sync (`workspace init`, `context sync`).
-2. Extend managed-app manifests with capability metadata (`workspace`, `memory`, `browser`, `mcp`, `secrets`, `service`).
+1. Turn capability metadata into more actionable operator flows (`doctor`, `apps show`, `apps plan`).
+2. Add generic downstream patterns for MCP, memory, and browser-backed managed apps.
 3. Keep MemphisOS core as the control plane; move vendor integrations and memory/browser stacks downstream.
 4. Convert real operator friction into README, onboarding, and `doctor` improvements.
 
@@ -23,6 +23,7 @@ Updated: 2026-03-14
 - Ship workspace scaffolding and context sync.
 - Make `AGENTS.md` / `CLAUDE.md` a Memphis-managed projection from one local context source.
 - Make capability metadata visible in managed-app manifests and CLI output.
+- Add capability-aware doctor/app guidance plus reusable downstream manifest patterns.
 
 ### 2. Adoption
 

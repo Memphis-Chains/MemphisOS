@@ -11,7 +11,9 @@ import { getLatestVaultEntry, verifyVaultEntry } from '../../infra/storage/vault
 
 export type ManagedAppPlatform = 'linux' | 'darwin' | 'win32';
 export type ManagedAppActionName = string;
-export type ManagedAppCapability = 'workspace' | 'memory' | 'browser' | 'mcp' | 'secrets' | 'service';
+const MANAGED_APP_CAPABILITY_VALUES = ['workspace', 'memory', 'browser', 'mcp', 'secrets', 'service'] as const;
+export type ManagedAppCapability = (typeof MANAGED_APP_CAPABILITY_VALUES)[number];
+export type ManagedAppCapabilitySummary = Record<ManagedAppCapability, number>;
 
 type ManagedAppRuntimeCommand = {
   name: string;
@@ -92,6 +94,7 @@ export type ManagedAppPlan = {
     description: string;
     homepage?: string;
     capabilities: ManagedAppCapability[];
+    capabilityGuidance: string[];
   };
   source: ManagedAppManifestSource;
   action: string;
@@ -132,6 +135,18 @@ export type ManagedAppSecretBindingStatus = {
   detail: string;
 };
 
+export type ManagedAppCatalogError = {
+  path: string;
+  detail: string;
+};
+
+export type ManagedAppCatalogInspection = {
+  manifestsDir: string;
+  manifests: ManagedAppManifestRef[];
+  errors: ManagedAppCatalogError[];
+  capabilityCounts: ManagedAppCapabilitySummary;
+};
+
 const MANIFEST_FILE_SUFFIX = '.json';
 const MANIFEST_DIR_NAME = 'manifests';
 
@@ -165,7 +180,7 @@ const manifestSchema = z.object({
   description: z.string().min(1),
   homepage: z.string().url().optional(),
   capabilities: z
-    .array(z.enum(['workspace', 'memory', 'browser', 'mcp', 'secrets', 'service']))
+    .array(z.enum(MANAGED_APP_CAPABILITY_VALUES))
     .min(1)
     .optional(),
   platforms: z.array(z.enum(['linux', 'darwin', 'win32'])).min(1).optional(),
@@ -204,6 +219,27 @@ const manifestSchema = z.object({
 });
 
 const BUILTIN_MANIFESTS: ManagedAppManifestRef[] = [];
+
+function emptyManagedAppCapabilitySummary(): ManagedAppCapabilitySummary {
+  return {
+    workspace: 0,
+    memory: 0,
+    browser: 0,
+    mcp: 0,
+    secrets: 0,
+    service: 0,
+  };
+}
+
+function countManagedAppCapabilities(manifests: ManagedAppManifestRef[]): ManagedAppCapabilitySummary {
+  const counts = emptyManagedAppCapabilitySummary();
+  for (const ref of manifests) {
+    for (const capability of ref.manifest.capabilities) {
+      counts[capability] += 1;
+    }
+  }
+  return counts;
+}
 
 function normalizeManifest(input: unknown): ManagedAppManifest {
   const parsed = manifestSchema.parse(input);
@@ -267,23 +303,43 @@ function loadFileManifest(pathValue: string): ManagedAppManifestRef {
   };
 }
 
-function loadUserManifestRefs(rawEnv: NodeJS.ProcessEnv = process.env): ManagedAppManifestRef[] {
+export function inspectManagedAppCatalog(
+  rawEnv: NodeJS.ProcessEnv = process.env,
+): ManagedAppCatalogInspection {
+  const merged = new Map<string, ManagedAppManifestRef>();
+  const errors: ManagedAppCatalogError[] = [];
   const dir = manifestsDir(rawEnv);
-  if (!existsSync(dir)) return [];
 
-  return readdirSync(dir)
-    .filter((entry) => entry.endsWith(MANIFEST_FILE_SUFFIX))
-    .sort((left, right) => left.localeCompare(right))
-    .map((entry) => loadFileManifest(join(dir, entry)));
+  for (const ref of BUILTIN_MANIFESTS) merged.set(ref.manifest.id, ref);
+
+  if (existsSync(dir)) {
+    for (const entry of readdirSync(dir)
+      .filter((name) => name.endsWith(MANIFEST_FILE_SUFFIX))
+      .sort((left, right) => left.localeCompare(right))) {
+      const pathValue = join(dir, entry);
+      try {
+        const ref = loadFileManifest(pathValue);
+        merged.set(ref.manifest.id, ref);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : 'unknown manifest parse error';
+        errors.push({ path: pathValue, detail });
+      }
+    }
+  }
+
+  const manifests = [...merged.values()].sort((left, right) => left.manifest.id.localeCompare(right.manifest.id));
+  return {
+    manifestsDir: dir,
+    manifests,
+    errors,
+    capabilityCounts: countManagedAppCapabilities(manifests),
+  };
 }
 
 export function listManagedAppManifestRefs(
   rawEnv: NodeJS.ProcessEnv = process.env,
 ): ManagedAppManifestRef[] {
-  const merged = new Map<string, ManagedAppManifestRef>();
-  for (const ref of BUILTIN_MANIFESTS) merged.set(ref.manifest.id, ref);
-  for (const ref of loadUserManifestRefs(rawEnv)) merged.set(ref.manifest.id, ref);
-  return [...merged.values()].sort((left, right) => left.manifest.id.localeCompare(right.manifest.id));
+  return inspectManagedAppCatalog(rawEnv).manifests;
 }
 
 export function getManagedAppManifest(input: {
@@ -326,6 +382,44 @@ function compareVersions(left: string, right: string): number {
 
 function interpolateTemplate(template: string, vars: Record<string, string>): string {
   return template.replace(/\$\{([A-Z0-9_]+)\}/g, (_match, name: string) => vars[name] ?? '');
+}
+
+export function guidanceForManagedAppCapabilities(capabilities: ManagedAppCapability[]): string[] {
+  const set = new Set(capabilities);
+  const guidance: string[] = [];
+
+  if (set.has('workspace')) {
+    guidance.push(
+      'Workspace: initialize or sync a local project root with `memphis workspace init ./brain --json` and `memphis context sync ./brain --json`.',
+    );
+  }
+  if (set.has('memory')) {
+    guidance.push(
+      'Memory: keep vector stores or indexes downstream and prefer the workspace `memory/` directory for local state.',
+    );
+  }
+  if (set.has('browser')) {
+    guidance.push(
+      'Browser: keep browser adapters downstream and expose them through managed app actions instead of baking browser logic into MemphisOS core.',
+    );
+  }
+  if (set.has('mcp')) {
+    guidance.push(
+      'MCP: expose a clear `status` or `doctor` action for the downstream MCP endpoint; Memphis built-in MCP health is reported separately by `memphis doctor`.',
+    );
+  }
+  if (set.has('secrets')) {
+    guidance.push(
+      'Secrets: broker credentials through the Memphis vault and `vaultEnv`/`vaultFiles` bindings rather than committed env files.',
+    );
+  }
+  if (set.has('service')) {
+    guidance.push(
+      'Service: prefer a supervised long-running process such as a systemd --user service and verify it through explicit lifecycle actions.',
+    );
+  }
+
+  return guidance;
 }
 
 function resolveManagedAppPaths(
@@ -762,6 +856,7 @@ export function planManagedAppAction(
       description: manifest.description,
       homepage: manifest.homepage,
       capabilities: [...manifest.capabilities],
+      capabilityGuidance: guidanceForManagedAppCapabilities(manifest.capabilities),
     },
     source: ref.source,
     action: actionName,
@@ -885,6 +980,7 @@ export function describeManagedAppManifest(ref: ManagedAppManifestRef): {
   homepage?: string;
   source: ManagedAppManifestSource;
   capabilities: ManagedAppCapability[];
+  capabilityGuidance: string[];
   platforms: ManagedAppPlatform[];
   actions: string[];
   notes: string[];
@@ -896,6 +992,7 @@ export function describeManagedAppManifest(ref: ManagedAppManifestRef): {
     homepage: ref.manifest.homepage,
     source: ref.source,
     capabilities: [...ref.manifest.capabilities],
+    capabilityGuidance: guidanceForManagedAppCapabilities(ref.manifest.capabilities),
     platforms: [...ref.manifest.platforms],
     actions: Object.keys(ref.manifest.actions).sort(),
     notes: [...ref.manifest.notes],

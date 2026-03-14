@@ -1,3 +1,7 @@
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { printDoctorHumanV2, runDoctorChecksV2 } from '../src/infra/cli/utils/doctor-v2.js';
@@ -148,6 +152,58 @@ describe('doctor v2', () => {
       else process.env.MEMPHIS_ALERT_PAGERDUTY_ROUTING_KEY = prevPagerDuty;
       if (prevOpsGenie === undefined) delete process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY;
       else process.env.MEMPHIS_ALERT_OPSGENIE_API_KEY = prevOpsGenie;
+    }
+  });
+
+  it('summarizes managed app capabilities and invalid manifests without crashing', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-doctor-app-catalog-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    writeFileSync(
+      join(manifestsDir, 'good.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'demo-mcp-app',
+          name: 'Demo MCP App',
+          description: 'valid app for doctor catalog coverage',
+          capabilities: ['mcp', 'workspace'],
+          actions: {
+            status: {
+              summary: 'print status',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    writeFileSync(join(manifestsDir, 'broken.json'), '{"schemaVersion":1,"id":"broken"', 'utf8');
+
+    const prevDataDir = process.env.MEMPHIS_DATA_DIR;
+    process.env.MEMPHIS_DATA_DIR = dir;
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((item) => item.id === 't6-managed-app-catalog');
+
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('warn');
+      expect(check?.detail).toContain('1 valid manifest(s), 1 invalid manifest(s)');
+      expect(check?.detail).toContain('mcp=1');
+      expect(check?.detail).toContain('workspace=1');
+      expect(check?.meta).toEqual(
+        expect.objectContaining({
+          manifestsDir,
+          manifestIds: ['demo-mcp-app'],
+          capabilityCounts: expect.objectContaining({ mcp: 1, workspace: 1 }),
+          invalidManifests: [expect.objectContaining({ path: expect.stringContaining('broken.json') })],
+        }),
+      );
+    } finally {
+      if (prevDataDir === undefined) delete process.env.MEMPHIS_DATA_DIR;
+      else process.env.MEMPHIS_DATA_DIR = prevDataDir;
     }
   });
 });

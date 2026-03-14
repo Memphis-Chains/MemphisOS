@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "id": "demo-mcp-adapter",
+  "name": "Demo MCP Adapter",
+  "description": "Safe example manifest for an MCP-capable managed app.",
+  "capabilities": ["mcp", "service", "workspace"],
+  "platforms": ["linux", "darwin"],
+  "runtime": {
+    "commands": [
+      {
+        "name": "node",
+        "required": true,
+        "detail": "Common runtime for Node-based MCP adapters."
+      },
+      {
+        "name": "npm",
+        "required": true,
+        "detail": "Package manager for adapter installs and updates."
+      }
+    ],
+    "systemdUserService": true
+  },
+  "actions": {
+    "install": {
+      "summary": "Prepare the MCP adapter workspace and config directories.",
+      "steps": [
+        "printf install-demo-mcp-adapter"
+      ]
+    },
+    "start": {
+      "summary": "Start the MCP adapter under a supervised runtime.",
+      "steps": [
+        "printf start-demo-mcp-adapter"
+      ]
+    },
+    "status": {
+      "summary": "Probe the adapter transport or endpoint health.",
+      "steps": [
+        "printf status-demo-mcp-adapter"
+      ]
+    },
+    "doctor": {
+      "summary": "Run adapter diagnostics and dependency checks.",
+      "steps": [
+        "printf doctor-demo-mcp-adapter"
+      ]
+    },
+    "dashboard": {
+      "summary": "Print the downstream dashboard or operator URL hint.",
+      "steps": [
+        "printf dashboard-demo-mcp-adapter"
+      ]
+    },
+    "stop": {
+      "summary": "Stop the supervised MCP adapter process.",
+      "steps": [
+        "printf stop-demo-mcp-adapter"
+      ]
+    }
+  },
+  "notes": [
+    "Replace the printf steps with the real downstream install and lifecycle commands.",
+    "Keep vendor-specific onboarding, browser wiring, and transport assumptions in the downstream integration repo."
+  ]
+}

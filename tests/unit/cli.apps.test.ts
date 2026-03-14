@@ -40,13 +40,104 @@ describe('CLI apps', () => {
     });
 
     const data = JSON.parse(out) as {
-      manifests: Array<{ id: string; source: { kind: string }; actions: string[]; capabilities: string[] }>;
+      capabilityCounts: Record<string, number>;
+      manifestErrors: Array<{ path: string; detail: string }>;
+      manifests: Array<{
+        id: string;
+        source: { kind: string };
+        actions: string[];
+        capabilities: string[];
+        capabilityGuidance: string[];
+      }>;
     };
     expect(data.manifests.map((item) => item.id)).toContain('demo-app');
     expect(data.manifests.find((item) => item.id === 'demo-app')?.source.kind).toBe('file');
     expect(data.manifests.find((item) => item.id === 'demo-app')?.capabilities).toEqual([
       'mcp',
       'workspace',
+    ]);
+    expect(data.manifests.find((item) => item.id === 'demo-app')?.capabilityGuidance).toEqual([
+      expect.stringContaining('Workspace:'),
+      expect.stringContaining('MCP:'),
+    ]);
+    expect(data.capabilityCounts).toMatchObject({
+      mcp: 1,
+      workspace: 1,
+    });
+    expect(data.manifestErrors).toEqual([]);
+  });
+
+  it('prints capability guidance in human app show output', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-app-show-'));
+    const manifestPath = join(dir, 'demo.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'demo-app',
+          name: 'Demo App',
+          description: 'demo app',
+          capabilities: ['workspace', 'secrets'],
+          actions: {
+            status: {
+              summary: 'print status token',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const out = await runCli(['apps', 'show', 'demo-app', '--file', manifestPath], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    expect(out).toContain('capabilities: secrets, workspace');
+    expect(out).toContain('guidance:');
+    expect(out).toContain('Workspace:');
+    expect(out).toContain('Secrets:');
+  });
+
+  it('returns capability guidance in JSON app show output', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-app-show-json-'));
+    const manifestPath = join(dir, 'demo.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'demo-app',
+          name: 'Demo App',
+          description: 'demo app',
+          capabilities: ['mcp', 'secrets'],
+          actions: {
+            status: {
+              summary: 'print status token',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const out = await runCli(['apps', 'show', 'demo-app', '--file', manifestPath, '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    const data = JSON.parse(out) as {
+      manifest: { id: string; capabilityGuidance: string[] };
+    };
+    expect(data.manifest.id).toBe('demo-app');
+    expect(data.manifest.capabilityGuidance).toEqual([
+      expect.stringContaining('MCP:'),
+      expect.stringContaining('Secrets:'),
     ]);
   });
 
