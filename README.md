@@ -1,10 +1,32 @@
 # MemphisOS
 
-MemphisOS is a hybrid agent operating system:
+MemphisOS is a secure agent runtime and control plane.
 
-- Rust kernel crates for integrity, vault, and deterministic core primitives.
-- TypeScript orchestrator/runtime for HTTP, CLI, routing, and policy enforcement.
-- Safety-first execution model with safe mode, branch protection ops, queue durability, and dual-approval controls.
+It is built for running, supervising, and auditing agent-style workflows with:
+
+- Rust core crates for integrity, vault, and deterministic primitives
+- TypeScript runtime for CLI, HTTP, routing, orchestration, and policy enforcement
+- safety-first controls such as safe mode, dual approval, queue durability, and fail-closed operational checks
+
+## What MemphisOS Is
+
+MemphisOS is for:
+
+- local or server-hosted agent execution
+- operator-facing CLI and HTTP control surfaces
+- deterministic replay, auditable decisions, and incident/export workflows
+- policy-controlled integrations and managed third-party app lifecycles
+
+## What MemphisOS Is Not
+
+MemphisOS is not:
+
+- a bootable hardware operating system
+- a Linux replacement
+- a hobby kernel, bootloader, or device-driver project
+- a finished end-user desktop system
+
+Read “OS” here as agent operating system: a runtime layer for agents, controls, memory, policy, and operations.
 
 ## Repository Scope (Clean-Slate)
 
@@ -98,6 +120,13 @@ npm run -s cli -- apps run demo-shell --file docs/templates/MANAGED_APP_MANIFEST
 
 Planning is the default. Add `--apply` to execute a lifecycle action.
 Concrete vendor integrations should live downstream from `main`; the core branch keeps only the generic app-management layer.
+If an action declares `vaultEnv`, MemphisOS can resolve the required runtime env var from the Memphis vault without printing the secret in plan output.
+
+```bash
+npm run -s cli -- vault init --passphrase 'strong-passphrase' --recovery-question 'pet' --recovery-answer 'nori'
+npm run -s cli -- vault add --key VENDOR_API_TOKEN --value 'token-value'
+npm run -s cli -- apps install vendor-app --file path/to/vendor.manifest.json --apply --json
+```
 
 ## Setup For Anyone (Guided)
 

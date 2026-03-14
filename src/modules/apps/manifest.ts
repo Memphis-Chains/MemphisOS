@@ -1,11 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 import { z } from 'zod';
 
 import { getAppsPath, getDataDir } from '../../config/paths.js';
 import { AppError } from '../../core/errors.js';
+import { vaultDecrypt } from '../../infra/storage/rust-vault-adapter.js';
+import { getLatestVaultEntry, verifyVaultEntry } from '../../infra/storage/vault-entry-store.js';
 
 export type ManagedAppPlatform = 'linux' | 'darwin' | 'win32';
 export type ManagedAppActionName = string;
@@ -22,6 +24,8 @@ type ManagedAppAction = {
   steps: string[];
   env: Record<string, string>;
   requiresEnv: string[];
+  vaultEnv: Record<string, string>;
+  vaultFiles: Record<string, { key: string; mode?: string }>;
 };
 
 export type ManagedAppManifest = {
@@ -93,6 +97,7 @@ export type ManagedAppPlan = {
   willExecute: boolean;
   paths: ManagedAppResolvedPaths;
   exportedEnv: Record<string, string>;
+  secretBindings: ManagedAppSecretBindingStatus[];
   cwd: string;
   steps: string[];
   requirements: ManagedAppRequirementStatus[];
@@ -112,6 +117,18 @@ export type ManagedAppExecutionResult = ManagedAppPlan & {
   results: ManagedAppStepResult[];
 };
 
+export type ManagedAppSecretBindingStatus = {
+  target: 'env' | 'file';
+  envName: string;
+  path?: string;
+  source: 'env' | 'vault';
+  vaultKey?: string;
+  mode?: string;
+  status: 'pass' | 'fail';
+  ok: boolean;
+  detail: string;
+};
+
 const MANIFEST_FILE_SUFFIX = '.json';
 const MANIFEST_DIR_NAME = 'manifests';
 
@@ -121,6 +138,21 @@ const actionSchema = z.object({
   steps: z.array(z.string().min(1)).min(1),
   env: z.record(z.string(), z.string()).optional(),
   requiresEnv: z.array(z.string().regex(/^[A-Z][A-Z0-9_]*$/)).optional(),
+  vaultEnv: z
+    .record(z.string().regex(/^[A-Z][A-Z0-9_]*$/), z.string().regex(/^[A-Z][A-Z0-9_]*$/))
+    .optional(),
+  vaultFiles: z
+    .record(
+      z.string().min(1),
+      z.union([
+        z.string().regex(/^[A-Z][A-Z0-9_]*$/),
+        z.object({
+          key: z.string().regex(/^[A-Z][A-Z0-9_]*$/),
+          mode: z.string().regex(/^[0-7]{3,4}$/).optional(),
+        }),
+      ]),
+    )
+    .optional(),
 });
 
 const manifestSchema = z.object({
@@ -199,6 +231,13 @@ function normalizeManifest(input: unknown): ManagedAppManifest {
           steps: [...action.steps],
           env: action.env ?? {},
           requiresEnv: action.requiresEnv ?? [],
+          vaultEnv: action.vaultEnv ?? {},
+          vaultFiles: Object.fromEntries(
+            Object.entries(action.vaultFiles ?? {}).map(([path, binding]) => [
+              path,
+              typeof binding === 'string' ? { key: binding } : { key: binding.key, mode: binding.mode },
+            ]),
+          ),
         },
       ]),
     ),
@@ -455,6 +494,233 @@ function checkActionEnvRequirements(
   });
 }
 
+function resolveActionVaultEnv(
+  action: ManagedAppAction,
+  rawEnv: NodeJS.ProcessEnv,
+): {
+  injectedEnv: Record<string, string>;
+  secretBindings: ManagedAppSecretBindingStatus[];
+  requirements: ManagedAppRequirementStatus[];
+} {
+  const entries = Object.entries(action.vaultEnv).sort(([left], [right]) => left.localeCompare(right));
+  const injectedEnv: Record<string, string> = {};
+  const secretBindings: ManagedAppSecretBindingStatus[] = [];
+  const requirements: ManagedAppRequirementStatus[] = [];
+
+  for (const [envName, vaultKey] of entries) {
+    const directValue = rawEnv[envName];
+    if (typeof directValue === 'string' && directValue.trim().length > 0) {
+      injectedEnv[envName] = directValue;
+      secretBindings.push({
+        target: 'env',
+        envName,
+        source: 'env',
+        vaultKey,
+        status: 'pass',
+        ok: true,
+        detail: `${envName} provided directly via environment`,
+      });
+      requirements.push({
+        id: `secret-env:${envName}`,
+        status: 'pass',
+        ok: true,
+        required: true,
+        detail: `${envName} available directly; vault key ${vaultKey} not needed for this run`,
+      });
+      continue;
+    }
+
+    const latest = getLatestVaultEntry(vaultKey, rawEnv);
+    if (!latest) {
+      secretBindings.push({
+        target: 'env',
+        envName,
+        source: 'vault',
+        vaultKey,
+        status: 'fail',
+        ok: false,
+        detail: `${envName} missing; add vault key ${vaultKey} or export ${envName}`,
+      });
+      requirements.push({
+        id: `secret-env:${envName}`,
+        status: 'fail',
+        ok: false,
+        required: true,
+        detail: `${envName} unavailable; no vault entry found for ${vaultKey}`,
+      });
+      continue;
+    }
+
+    if (!verifyVaultEntry(latest)) {
+      secretBindings.push({
+        target: 'env',
+        envName,
+        source: 'vault',
+        vaultKey,
+        status: 'fail',
+        ok: false,
+        detail: `${envName} vault entry failed fingerprint verification`,
+      });
+      requirements.push({
+        id: `secret-env:${envName}`,
+        status: 'fail',
+        ok: false,
+        required: true,
+        detail: `${envName} unavailable; vault entry ${vaultKey} failed fingerprint verification`,
+      });
+      continue;
+    }
+
+    try {
+      injectedEnv[envName] = vaultDecrypt(latest, rawEnv);
+      secretBindings.push({
+        target: 'env',
+        envName,
+        source: 'vault',
+        vaultKey,
+        status: 'pass',
+        ok: true,
+        detail: `${envName} resolved from vault key ${vaultKey}`,
+      });
+      requirements.push({
+        id: `secret-env:${envName}`,
+        status: 'pass',
+        ok: true,
+        required: true,
+        detail: `${envName} resolved from vault key ${vaultKey}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'vault resolution failed';
+      secretBindings.push({
+        target: 'env',
+        envName,
+        source: 'vault',
+        vaultKey,
+        status: 'fail',
+        ok: false,
+        detail: `${envName} vault resolution failed: ${message}`,
+      });
+      requirements.push({
+        id: `secret-env:${envName}`,
+        status: 'fail',
+        ok: false,
+        required: true,
+        detail: `${envName} unavailable; vault key ${vaultKey} failed to decrypt (${message})`,
+      });
+    }
+  }
+
+  return { injectedEnv, secretBindings, requirements };
+}
+
+function resolveActionVaultFiles(
+  action: ManagedAppAction,
+  templateVars: Record<string, string>,
+  rawEnv: NodeJS.ProcessEnv,
+): {
+  files: Array<{ path: string; content: string; mode?: string }>;
+  secretBindings: ManagedAppSecretBindingStatus[];
+  requirements: ManagedAppRequirementStatus[];
+} {
+  const entries = Object.entries(action.vaultFiles).sort(([left], [right]) => left.localeCompare(right));
+  const files: Array<{ path: string; content: string; mode?: string }> = [];
+  const secretBindings: ManagedAppSecretBindingStatus[] = [];
+  const requirements: ManagedAppRequirementStatus[] = [];
+
+  for (const [pathTemplate, binding] of entries) {
+    const filePath = resolve(interpolateTemplate(pathTemplate, templateVars));
+    const latest = getLatestVaultEntry(binding.key, rawEnv);
+    if (!latest) {
+      secretBindings.push({
+        target: 'file',
+        envName: '',
+        path: filePath,
+        source: 'vault',
+        vaultKey: binding.key,
+        mode: binding.mode,
+        status: 'fail',
+        ok: false,
+        detail: `${filePath} missing; add vault key ${binding.key}`,
+      });
+      requirements.push({
+        id: `secret-file:${filePath}`,
+        status: 'fail',
+        ok: false,
+        required: true,
+        detail: `${filePath} unavailable; no vault entry found for ${binding.key}`,
+      });
+      continue;
+    }
+
+    if (!verifyVaultEntry(latest)) {
+      secretBindings.push({
+        target: 'file',
+        envName: '',
+        path: filePath,
+        source: 'vault',
+        vaultKey: binding.key,
+        mode: binding.mode,
+        status: 'fail',
+        ok: false,
+        detail: `${filePath} vault entry failed fingerprint verification`,
+      });
+      requirements.push({
+        id: `secret-file:${filePath}`,
+        status: 'fail',
+        ok: false,
+        required: true,
+        detail: `${filePath} unavailable; vault entry ${binding.key} failed fingerprint verification`,
+      });
+      continue;
+    }
+
+    try {
+      const content = vaultDecrypt(latest, rawEnv);
+      files.push({ path: filePath, content, mode: binding.mode });
+      secretBindings.push({
+        target: 'file',
+        envName: '',
+        path: filePath,
+        source: 'vault',
+        vaultKey: binding.key,
+        mode: binding.mode,
+        status: 'pass',
+        ok: true,
+        detail: `${filePath} resolved from vault key ${binding.key}`,
+      });
+      requirements.push({
+        id: `secret-file:${filePath}`,
+        status: 'pass',
+        ok: true,
+        required: true,
+        detail: `${filePath} resolved from vault key ${binding.key}`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'vault resolution failed';
+      secretBindings.push({
+        target: 'file',
+        envName: '',
+        path: filePath,
+        source: 'vault',
+        vaultKey: binding.key,
+        mode: binding.mode,
+        status: 'fail',
+        ok: false,
+        detail: `${filePath} vault resolution failed: ${message}`,
+      });
+      requirements.push({
+        id: `secret-file:${filePath}`,
+        status: 'fail',
+        ok: false,
+        required: true,
+        detail: `${filePath} unavailable; vault key ${binding.key} failed to decrypt (${message})`,
+      });
+    }
+  }
+
+  return { files, secretBindings, requirements };
+}
+
 export function planManagedAppAction(
   ref: ManagedAppManifestRef,
   actionName: string,
@@ -466,9 +732,17 @@ export function planManagedAppAction(
   const paths = resolveManagedAppPaths(manifest, rawEnv);
   const exportedEnv = exportedEnvForManifest(manifest, paths);
   const templateVars = { ...exportedEnv, MEMPHIS_MANIFESTS_DIR: paths.manifestsDir };
+  const secretResolution = resolveActionVaultEnv(action, rawEnv);
+  const effectiveEnv = { ...rawEnv, ...secretResolution.injectedEnv };
+  const secretFileResolution = resolveActionVaultFiles(action, templateVars, rawEnv);
   const cwd = resolve(interpolateTemplate(action.cwd ?? paths.home, templateVars));
   const steps = action.steps.map((step) => interpolateTemplate(step, templateVars));
-  const requirements = [...checkManagedAppRequirements(manifest, rawEnv), ...checkActionEnvRequirements(action, rawEnv)];
+  const requirements = [
+    ...checkManagedAppRequirements(manifest, rawEnv),
+    ...secretResolution.requirements,
+    ...secretFileResolution.requirements,
+    ...checkActionEnvRequirements(action, effectiveEnv),
+  ];
   const ok = requirements.every((status) => !status.required || status.ok);
 
   return {
@@ -492,6 +766,7 @@ export function planManagedAppAction(
         Object.entries(action.env).map(([key, value]) => [key, interpolateTemplate(value, templateVars)]),
       ),
     },
+    secretBindings: [...secretResolution.secretBindings, ...secretFileResolution.secretBindings],
     cwd,
     steps,
     requirements,
@@ -506,6 +781,20 @@ function ensureManagedAppLayout(paths: ManagedAppResolvedPaths): void {
   mkdirSync(paths.home, { recursive: true });
   mkdirSync(paths.state, { recursive: true });
   mkdirSync(dirname(paths.config), { recursive: true });
+}
+
+function materializeSecretFiles(
+  files: Array<{ path: string; content: string; mode?: string }>,
+): void {
+  for (const file of files) {
+    mkdirSync(dirname(file.path), { recursive: true });
+    writeFileSync(file.path, file.content, 'utf8');
+    try {
+      chmodSync(file.path, Number.parseInt(file.mode ?? '600', 8));
+    } catch {
+      // best-effort permission tightening for non-POSIX hosts
+    }
+  }
 }
 
 export function executeManagedAppAction(
@@ -534,7 +823,12 @@ export function executeManagedAppAction(
 
   const results: ManagedAppStepResult[] = [];
   const globalNpmBin = npmGlobalBin(options.rawEnv ?? process.env);
-  const mergedEnv = { ...process.env, ...(options.rawEnv ?? process.env), ...plan.exportedEnv };
+  const rawEnv = options.rawEnv ?? process.env;
+  const secretResolution = resolveActionVaultEnv(resolveAction(ref.manifest, actionName), rawEnv);
+  const templateVars = { ...plan.exportedEnv, MEMPHIS_MANIFESTS_DIR: plan.paths.manifestsDir };
+  const secretFileResolution = resolveActionVaultFiles(resolveAction(ref.manifest, actionName), templateVars, rawEnv);
+  materializeSecretFiles(secretFileResolution.files);
+  const mergedEnv = { ...process.env, ...rawEnv, ...plan.exportedEnv, ...secretResolution.injectedEnv };
   if (globalNpmBin) {
     mergedEnv.PATH = `${globalNpmBin}:${mergedEnv.PATH ?? process.env.PATH ?? ''}`;
   }

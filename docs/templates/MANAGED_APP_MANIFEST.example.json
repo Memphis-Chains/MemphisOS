@@ -14,6 +14,21 @@
     ]
   },
   "actions": {
+    "install": {
+      "summary": "Validate a vault-backed env var and managed secret file.",
+      "steps": [
+        "test -n \"$DEMO_API_TOKEN\" && test -s \"$APP_STATE_DIR/demo-license.key\" && printf 'demo-shell install-ready\\n'"
+      ],
+      "vaultEnv": {
+        "DEMO_API_TOKEN": "DEMO_API_TOKEN"
+      },
+      "vaultFiles": {
+        "${APP_STATE_DIR}/demo-license.key": {
+          "key": "DEMO_LICENSE_KEY",
+          "mode": "600"
+        }
+      }
+    },
     "doctor": {
       "summary": "Print a demo health message.",
       "steps": [
@@ -41,6 +56,7 @@
   },
   "notes": [
     "This manifest is intentionally generic and safe for local testing.",
-    "Replace the demo actions with real lifecycle commands in downstream integrations."
+    "Replace the demo actions with real lifecycle commands in downstream integrations.",
+    "Seed DEMO_API_TOKEN and DEMO_LICENSE_KEY through Memphis vault if you want to exercise vaultEnv and vaultFiles."
   ]
 }
