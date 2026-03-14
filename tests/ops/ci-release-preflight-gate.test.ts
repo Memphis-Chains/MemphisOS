@@ -48,12 +48,18 @@ function runCiPreflightGateWithOverride(
   writeFileSync(stepSummaryPath, '', 'utf8');
   writeFileSync(githubOutputPath, '', 'utf8');
 
+  const childEnv = { ...process.env };
+  delete childEnv.MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON;
+  delete childEnv.MEMPHIS_RELEASE_PREFLIGHT_ALLOW_TEST_OVERRIDE;
+  delete childEnv.MEMPHIS_RELEASE_PREFLIGHT_GATE_OUTPUT;
+  delete childEnv.MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT;
+
   const result = spawnSync('bash', ['./scripts/ci-release-preflight-gate.sh'], {
     cwd: repoRoot,
     encoding: 'utf8',
     timeout: 120_000,
     env: {
-      ...process.env,
+      ...childEnv,
       MEMPHIS_RELEASE_PREFLIGHT_GATE_OVERRIDE_JSON: overrideGatesRaw,
       RUNNER_TEMP: outDir,
       GITHUB_STEP_SUMMARY: stepSummaryPath,
