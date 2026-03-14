@@ -27,6 +27,7 @@ describe('managed app manifests', () => {
           id: 'demo-app',
           name: 'Demo App',
           description: 'demo app in managed manifests dir',
+          capabilities: ['workspace', 'secrets'],
           actions: {
             doctor: {
               summary: 'print readiness token',
@@ -44,6 +45,7 @@ describe('managed app manifests', () => {
     expect(manifests.map((item) => item.manifest.id)).toContain('demo-app');
     const demo = manifests.find((item) => item.manifest.id === 'demo-app');
     expect(describeManagedAppManifest(demo!).actions).toEqual(['doctor']);
+    expect(describeManagedAppManifest(demo!).capabilities).toEqual(['secrets', 'workspace']);
   });
 
   it('plans a file-backed install action with Memphis-managed paths', () => {
@@ -57,6 +59,7 @@ describe('managed app manifests', () => {
           id: 'demo-app',
           name: 'Demo App',
           description: 'demo app for path planning',
+          capabilities: ['workspace'],
           actions: {
             install: {
               summary: 'print install token',
@@ -81,6 +84,7 @@ describe('managed app manifests', () => {
     expect(plan.exportedEnv.APP_HOME).toBe('/tmp/memphis-apps/apps/demo-app/home');
     expect(plan.exportedEnv.APP_STATE_DIR).toBe('/tmp/memphis-apps/apps/demo-app/state');
     expect(plan.exportedEnv.APP_CONFIG_PATH).toBe('/tmp/memphis-apps/apps/demo-app/config/app.json');
+    expect(plan.manifest.capabilities).toEqual(['workspace']);
     expect(plan.steps).toEqual(['printf install-ready']);
   });
 

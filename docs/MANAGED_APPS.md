@@ -8,6 +8,7 @@ MemphisOS `main` keeps a generic managed-app framework. Vendor-specific integrat
 - lifecycle planning and execution
 - installed-app registry
 - Memphis-managed app paths
+- capability metadata for app surfaces such as `workspace`, `memory`, `browser`, `mcp`, `secrets`, and `service`
 - generic CLI commands under `memphis apps ...`
 
 ## What Does Not Belong In Core
@@ -27,6 +28,19 @@ MemphisOS can load manifests from:
 Registry state is stored at:
 
 - `~/.memphis/apps/registry.json`
+
+## Capability Metadata
+
+Manifests can declare coarse capability tags:
+
+- `workspace`
+- `memory`
+- `browser`
+- `mcp`
+- `secrets`
+- `service`
+
+These tags are descriptive. They help operators and future automation understand what kind of surface an app expects without baking vendor-specific behavior into MemphisOS core.
 
 ## CLI Surface
 
@@ -62,16 +76,19 @@ Example:
 
 ```json
 {
-  "install": {
-    "summary": "Run installer with a vault-backed token",
-    "steps": ["app install --token \"$APP_TOKEN\""],
-    "vaultEnv": {
-      "APP_TOKEN": "APP_TOKEN"
-    },
-    "vaultFiles": {
-      "${APP_STATE_DIR}/license.key": {
-        "key": "APP_LICENSE_KEY",
-        "mode": "600"
+  "capabilities": ["workspace", "secrets"],
+  "actions": {
+    "install": {
+      "summary": "Run installer with a vault-backed token",
+      "steps": ["app install --token \"$APP_TOKEN\""],
+      "vaultEnv": {
+        "APP_TOKEN": "APP_TOKEN"
+      },
+      "vaultFiles": {
+        "${APP_STATE_DIR}/license.key": {
+          "key": "APP_LICENSE_KEY",
+          "mode": "600"
+        }
       }
     }
   }

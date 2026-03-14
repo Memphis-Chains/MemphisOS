@@ -21,6 +21,7 @@ describe('CLI apps', () => {
           id: 'demo-app',
           name: 'Demo App',
           description: 'demo app',
+          capabilities: ['workspace', 'mcp'],
           actions: {
             status: {
               summary: 'print status token',
@@ -39,10 +40,14 @@ describe('CLI apps', () => {
     });
 
     const data = JSON.parse(out) as {
-      manifests: Array<{ id: string; source: { kind: string }; actions: string[] }>;
+      manifests: Array<{ id: string; source: { kind: string }; actions: string[]; capabilities: string[] }>;
     };
     expect(data.manifests.map((item) => item.id)).toContain('demo-app');
     expect(data.manifests.find((item) => item.id === 'demo-app')?.source.kind).toBe('file');
+    expect(data.manifests.find((item) => item.id === 'demo-app')?.capabilities).toEqual([
+      'mcp',
+      'workspace',
+    ]);
   });
 
   it('plans a file-backed install action without executing it', async () => {
