@@ -101,7 +101,7 @@
     "npm run -s typecheck"
   ],
   "requiredWorkflowPaths": [
-    ".github/workflows/release-draft.yml"
+    ".github/workflows/release-draft-dispatch.yml"
   ],
   "requiredChecksumPatterns": [
     "*.sha256"

@@ -306,7 +306,7 @@ npm run -s ops:rotate-key-bundle -- \
 ## Package And Release
 
 Preferred: run the guarded draft-release workflow in GitHub Actions (`release-draft`), then review and publish the generated draft release.
-- workflow file: `.github/workflows/release-draft.yml`
+- workflow file: `.github/workflows/release-draft-dispatch.yml`
 
 Preflight gate (single workflow step):
 

@@ -12,7 +12,7 @@ Use this runbook to produce and publish a MemphisOS release after sprint complet
 
 ## 2. Preferred Path: Automated Draft Release Workflow
 
-Use GitHub Actions workflow `.github/workflows/release-draft.yml`.
+Use GitHub Actions workflow `.github/workflows/release-draft-dispatch.yml`.
 
 Inputs:
 

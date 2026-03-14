@@ -1,5 +1,5 @@
 {
-  "workflowPath": ".github/workflows/release-draft.yml",
+  "workflowPath": ".github/workflows/release-draft-dispatch.yml",
   "packageJsonPath": "package.json",
   "expectedTagTemplate": "v{{packageVersion}}",
   "expectedAssetNameTemplate": "{{packageSlug}}-{{packageVersion}}.tgz",
