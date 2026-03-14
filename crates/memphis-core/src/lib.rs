@@ -5,4 +5,5 @@ pub mod harness;
 pub mod hash;
 pub mod loop_engine;
 pub mod memory;
+pub mod signature;
 pub mod soul;

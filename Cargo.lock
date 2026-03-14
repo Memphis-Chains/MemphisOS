@@ -536,6 +536,8 @@ name = "memphis-core"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "ed25519-dalek",
+ "hex",
  "serde",
  "serde_json",
  "sha2",
@@ -559,6 +561,7 @@ name = "memphis-napi"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "hex",
  "memphis-core",
  "memphis-embed",
  "memphis-vault",
