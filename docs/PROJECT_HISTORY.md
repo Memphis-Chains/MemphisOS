@@ -234,7 +234,7 @@ Updated: 2026-03-13
   - `ops:verify-incident-manifest --help` + `--completion-hints`
   - profile flag/env guidance is now exposed for shell tooling and runbook usage.
 - Added guarded draft-release workflow automation:
-  - `.github/workflows/release-draft.yml` (`workflow_dispatch`)
+  - `.github/workflows/release-draft-dispatch.yml` (`workflow_dispatch`)
   - validates release gates, builds package/checksum, and creates draft GitHub release artifacts.
   - requires explicit confirmation token (`draft-release`) and `target_ref=main`.
 - Replaced Memphis DID placeholder encoding with multibase `base58btc` + Ed25519 multicodec:
@@ -449,7 +449,7 @@ Updated: 2026-03-13
   - release workflow now fails fast with explicit expected/actual check-id ordering diagnostics on drift.
   - release and CI pipelines now enforce the same deterministic check ordering contract.
 - Added workflow contract regression coverage for strict-handoff validator gates:
-  - new ops regression test validates both `.github/workflows/ci.yml` and `.github/workflows/release-draft.yml` include `.ok` and check-id ordering assertions.
+  - new ops regression test validates both `.github/workflows/ci.yml` and `.github/workflows/release-draft-dispatch.yml` include `.ok` and check-id ordering assertions.
   - `test:ops-artifacts` now includes strict-handoff workflow contract coverage.
   - gate drift between CI and release workflows now fails regression tests before merge.
 - Updated release runbook with validator check-order gate guidance:
@@ -462,7 +462,7 @@ Updated: 2026-03-13
   - draft release notes and workflow summary now include validator check-id order metadata alongside schema-version status fields.
 - Deduplicated strict-handoff validator JSON gate logic across CI and release workflows:
   - new shared helper script: `scripts/strict-handoff-validator-json-gate.sh`.
-  - both `.github/workflows/ci.yml` and `.github/workflows/release-draft.yml` now call the shared helper.
+  - both `.github/workflows/ci.yml` and `.github/workflows/release-draft-dispatch.yml` now call the shared helper.
   - release-draft keeps machine-readable output emission via `MEMPHIS_STRICT_HANDOFF_GATE_OUTPUT=1`.
 - Extended ops regression coverage for shared workflow gate helper:
   - strict-handoff workflow contract test now asserts both workflows call the shared helper.
@@ -573,7 +573,7 @@ Updated: 2026-03-13
   - new ops test `tests/ops/ci-release-preflight-gate.test.ts` forces gate failures and asserts emitted remediation URLs for both gate-id and fallback triage-map anchors.
   - `test:ops-artifacts` now includes the CI preflight gate regression test.
 - Deduplicated release-draft preflight execution onto shared CI helper semantics:
-  - `.github/workflows/release-draft.yml` now calls `./scripts/ci-release-preflight-gate.sh` with release-specific output mode enabled.
+  - `.github/workflows/release-draft-dispatch.yml` now calls `./scripts/ci-release-preflight-gate.sh` with release-specific output mode enabled.
   - shared script now supports release output emission (`preflight_summary_json`, `preflight_gate_ids`) and strict output wiring checks (`check_order_status`, `check_ids`) when requested.
   - workflow/metadata contract coverage updated to enforce shared-helper usage in both CI and release-draft paths.
 - Added release-output strict key contract regression coverage for preflight helper:
@@ -585,7 +585,7 @@ Updated: 2026-03-13
   - validator metadata schema/example fixtures now include strict `preflightSummary` and nested gate key contracts.
   - release metadata contract tests now fail on drift in workflow wiring or preflight summary key shape.
 - Added fail-closed workflow marker contract coverage for preflight summary guardrails:
-  - release metadata contract fixture now pins both missing/invalid `preflight_summary_json` error markers from `.github/workflows/release-draft.yml`.
+  - release metadata contract fixture now pins both missing/invalid `preflight_summary_json` error markers from `.github/workflows/release-draft-dispatch.yml`.
   - contract regression now fails if workflow guardrails are removed or renamed.
 - Added negative-fixture validator regression for preflight summary gate shape:
   - new invalid fixture omits `preflightSummary.gates[0].exitCode` and is validated through `ops:validate-release-draft-validator-metadata --json`.
@@ -671,7 +671,7 @@ Updated: 2026-03-13
 - Added comprehensive fallback command + release guidance parity contracts:
   - release docs contract now enforces fallback `npm run -s test:ts`, `npm run -s lint`, and `npm run -s typecheck` command tokens.
   - fallback command completeness/order/scope is now enforced against manual fallback sections in both README and runbook.
-  - release docs contract now enforces workflow path (`.github/workflows/release-draft.yml`), checksum pattern (`*.sha256`), tag guidance (`vX.Y.Z`), and publish-step markers across both docs.
+  - release docs contract now enforces workflow path (`.github/workflows/release-draft-dispatch.yml`), checksum pattern (`*.sha256`), tag guidance (`vX.Y.Z`), and publish-step markers across both docs.
 - Added CI preflight rerun command alignment contract:
   - runbook `rerun gate:` commands are now parsed and compared against a pinned fixture list.
   - README release guidance must contain the same rerun command set, so drift between runbook mappings and README guidance now fails regression.
@@ -706,5 +706,5 @@ Updated: 2026-03-13
 ## Next Priority Tasks (Post v0.1.0)
 
 1. Product completion and optional release hardening are closed on `main`; next work is usage/release/adoption rather than missing product implementation.
-2. Optional next phase: cut and review the first guarded draft release from `.github/workflows/release-draft.yml`.
+2. Optional next phase: cut and review the first guarded draft release from `.github/workflows/release-draft-dispatch.yml`.
 3. Optional next phase: add user-facing examples/tutorials once real usage patterns are known.

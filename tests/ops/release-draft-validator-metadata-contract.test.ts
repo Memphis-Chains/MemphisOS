@@ -32,7 +32,7 @@ type ReleaseDraftValidatorMetadataContract = {
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..', '..');
-const workflowPath = path.join(repoRoot, '.github', 'workflows', 'release-draft.yml');
+const workflowPath = path.join(repoRoot, '.github', 'workflows', 'release-draft-dispatch.yml');
 const fixturePath = path.join(
   repoRoot,
   'tests',

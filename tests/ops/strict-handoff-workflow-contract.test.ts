@@ -23,7 +23,7 @@ const workflowContracts = [
     ],
   },
   {
-    workflowRelativePath: path.join('.github', 'workflows', 'release-draft.yml'),
+    workflowRelativePath: path.join('.github', 'workflows', 'release-draft-dispatch.yml'),
     requiredSnippets: ['./scripts/ci-release-preflight-gate.sh'],
     forbiddenSnippets: [],
   },
@@ -62,7 +62,7 @@ describe('strict-handoff workflow contracts', () => {
 
   it('release-draft emits machine-readable check-order outputs and summary fields', () => {
     const workflow = readFileSync(
-      path.join(repoRoot, '.github', 'workflows', 'release-draft.yml'),
+      path.join(repoRoot, '.github', 'workflows', 'release-draft-dispatch.yml'),
       'utf8',
     );
 
