@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
+import YAML from 'yaml';
 
 const thisDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(thisDir, '..', '..');
@@ -48,6 +49,12 @@ const gateScriptRequiredSnippets = [
 
 describe('strict-handoff workflow contracts', () => {
   for (const { workflowRelativePath, requiredSnippets, forbiddenSnippets } of workflowContracts) {
+    it(`${workflowRelativePath} stays valid YAML for GitHub Actions parsing`, () => {
+      const workflow = readFileSync(path.join(repoRoot, workflowRelativePath), 'utf8');
+
+      expect(() => YAML.parse(workflow)).not.toThrow();
+    });
+
     it(`${workflowRelativePath} keeps strict-handoff gate contract wiring`, () => {
       const workflow = readFileSync(path.join(repoRoot, workflowRelativePath), 'utf8');
 
