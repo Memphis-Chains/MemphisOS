@@ -2,6 +2,8 @@
 
 This guide is for a first local install from source.
 
+If you want the shortest verified path to one successful MemphisOS action first, start with [FIRST_SUCCESSFUL_RUN.md](FIRST_SUCCESSFUL_RUN.md).
+
 ## 1. Prerequisites
 
 Install these first:

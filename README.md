@@ -94,6 +94,7 @@ node bin/memphis.js health --json
 ```
 
 More detailed setup is in [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+If you want the shortest verified proof-of-life flow first, use [docs/FIRST_SUCCESSFUL_RUN.md](docs/FIRST_SUCCESSFUL_RUN.md).
 
 ## Quick Start
 
