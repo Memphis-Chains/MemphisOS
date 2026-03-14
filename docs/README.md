@@ -6,6 +6,7 @@ Minimal documentation set for the clean-slate MemphisOS repository.
 - `FIRST_SUCCESSFUL_RUN.md`: shortest verified clone-to-success path using an isolated Memphis data directory.
 - `WORKSPACES.md`: local-first workspace scaffolding and context sync for `AGENTS.md` / `CLAUDE.md`.
 - `V0_1_1_DIRECTION.md`: current product direction for the first post-release core slice.
+- `STATUS_HANDOFF_2026-03-14.md`: saved handoff with completed work, suggestions, and downstream integration options.
 - `CLEAN_SLATE_SCOPE.md`: what was removed/kept in cleanup.
 - `runbooks/SAFE_MODE.md`: safe-mode operations and recovery checklist.
 - `runbooks/QUEUE_RESUME_POLICY.md`: startup queue resume policy + mode guidance.
