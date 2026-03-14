@@ -51,6 +51,7 @@ describe('managed app manifests', () => {
       expect.stringContaining('Workspace:'),
       expect.stringContaining('Secrets:'),
     ]);
+    expect(describeManagedAppManifest(demo!).capabilityWarnings).toEqual([]);
   });
 
   it('plans a file-backed install action with Memphis-managed paths', () => {
@@ -130,6 +131,40 @@ describe('managed app manifests', () => {
       expect.objectContaining({
         path: expect.stringContaining('bad.json'),
       }),
+    ]);
+  });
+
+  it('describes capability warnings for structural pattern gaps', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-app-warning-hints-'));
+    const manifestPath = join(dir, 'demo.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'browser-memory-app',
+          name: 'Browser Memory App',
+          description: 'demo app for pattern warning coverage',
+          capabilities: ['browser', 'memory'],
+          actions: {
+            status: {
+              summary: 'print status',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const ref = getManagedAppManifest({ file: manifestPath, rawEnv: { MEMPHIS_DATA_DIR: dir } as NodeJS.ProcessEnv });
+    const summary = describeManagedAppManifest(ref);
+
+    expect(summary.capabilityWarnings).toEqual([
+      'memory tag without workspace/service scope',
+      'browser tag without mcp/service transport hint',
     ]);
   });
 
