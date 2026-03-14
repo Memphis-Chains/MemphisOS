@@ -206,4 +206,123 @@ describe('doctor v2', () => {
       else process.env.MEMPHIS_DATA_DIR = prevDataDir;
     }
   });
+
+  it('warns when memory-tagged apps do not declare workspace or service scope', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-doctor-memory-pattern-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    writeFileSync(
+      join(manifestsDir, 'memory-good.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'memory-good',
+          name: 'Memory Good',
+          description: 'memory app with workspace scope',
+          capabilities: ['memory', 'workspace'],
+          actions: {
+            status: {
+              summary: 'print status',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    writeFileSync(
+      join(manifestsDir, 'memory-bad.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'memory-bad',
+          name: 'Memory Bad',
+          description: 'memory app without operator scope',
+          capabilities: ['memory'],
+          actions: {
+            status: {
+              summary: 'print status',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const prevDataDir = process.env.MEMPHIS_DATA_DIR;
+    process.env.MEMPHIS_DATA_DIR = dir;
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((item) => item.id === 't6-managed-app-memory-pattern');
+
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('warn');
+      expect(check?.detail).toContain('aligned=memory-good');
+      expect(check?.detail).toContain('missing workspace/service=memory-bad');
+      expect(check?.meta).toEqual(
+        expect.objectContaining({
+          alignedAppIds: ['memory-good'],
+          missingPatternAppIds: ['memory-bad'],
+          expectedCapabilities: ['workspace', 'service'],
+        }),
+      );
+    } finally {
+      if (prevDataDir === undefined) delete process.env.MEMPHIS_DATA_DIR;
+      else process.env.MEMPHIS_DATA_DIR = prevDataDir;
+    }
+  });
+
+  it('passes when browser-tagged apps declare mcp or service transport', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-doctor-browser-pattern-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    writeFileSync(
+      join(manifestsDir, 'browser-good.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'browser-good',
+          name: 'Browser Good',
+          description: 'browser app with MCP transport',
+          capabilities: ['browser', 'mcp'],
+          actions: {
+            status: {
+              summary: 'print status',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const prevDataDir = process.env.MEMPHIS_DATA_DIR;
+    process.env.MEMPHIS_DATA_DIR = dir;
+    try {
+      const report = await runDoctorChecksV2();
+      const check = report.checks.find((item) => item.id === 't6-managed-app-browser-pattern');
+
+      expect(check).toBeDefined();
+      expect(check?.level).toBe('pass');
+      expect(check?.detail).toContain('apps=browser-good');
+      expect(check?.detail).toContain('MCP/service transport hints');
+      expect(check?.meta).toEqual(
+        expect.objectContaining({
+          alignedAppIds: ['browser-good'],
+          missingPatternAppIds: [],
+          expectedCapabilities: ['mcp', 'service'],
+        }),
+      );
+    } finally {
+      if (prevDataDir === undefined) delete process.env.MEMPHIS_DATA_DIR;
+      else process.env.MEMPHIS_DATA_DIR = prevDataDir;
+    }
+  });
 });
