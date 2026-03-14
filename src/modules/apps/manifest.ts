@@ -422,6 +422,20 @@ export function guidanceForManagedAppCapabilities(capabilities: ManagedAppCapabi
   return guidance;
 }
 
+export function warningHintsForManagedAppCapabilities(capabilities: ManagedAppCapability[]): string[] {
+  const set = new Set(capabilities);
+  const warnings: string[] = [];
+
+  if (set.has('memory') && !set.has('workspace') && !set.has('service')) {
+    warnings.push('memory tag without workspace/service scope');
+  }
+  if (set.has('browser') && !set.has('mcp') && !set.has('service')) {
+    warnings.push('browser tag without mcp/service transport hint');
+  }
+
+  return warnings;
+}
+
 function resolveManagedAppPaths(
   manifest: ManagedAppManifest,
   rawEnv: NodeJS.ProcessEnv = process.env,
@@ -981,6 +995,7 @@ export function describeManagedAppManifest(ref: ManagedAppManifestRef): {
   source: ManagedAppManifestSource;
   capabilities: ManagedAppCapability[];
   capabilityGuidance: string[];
+  capabilityWarnings: string[];
   platforms: ManagedAppPlatform[];
   actions: string[];
   notes: string[];
@@ -993,6 +1008,7 @@ export function describeManagedAppManifest(ref: ManagedAppManifestRef): {
     source: ref.source,
     capabilities: [...ref.manifest.capabilities],
     capabilityGuidance: guidanceForManagedAppCapabilities(ref.manifest.capabilities),
+    capabilityWarnings: warningHintsForManagedAppCapabilities(ref.manifest.capabilities),
     platforms: [...ref.manifest.platforms],
     actions: Object.keys(ref.manifest.actions).sort(),
     notes: [...ref.manifest.notes],
