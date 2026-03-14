@@ -4,7 +4,8 @@ use std::sync::{Mutex, OnceLock};
 use memphis_core::block::Block;
 use memphis_core::harness::replay;
 use memphis_core::loop_engine::{LoopAction, LoopLimits, LoopState};
-use memphis_core::soul::validate_block;
+use memphis_core::signature::sign_block;
+use memphis_core::soul::{validate_block, validate_block_strict};
 use memphis_embed::{EmbedConfig, EmbedMode, EmbedPersistenceConfig, EmbedPersistenceLoadState, EmbedPipeline};
 mod vault_bridge;
 
@@ -69,6 +70,42 @@ fn parse_bool_env(name: &str, default: bool) -> bool {
         .ok()
         .map(|v| v.trim().eq_ignore_ascii_case("true"))
         .unwrap_or(default)
+}
+
+fn require_signed_blocks() -> bool {
+    parse_bool_env("RUST_CHAIN_REQUIRE_SIGNATURES", false)
+}
+
+fn signer_key_from_env() -> Result<Option<[u8; 32]>, String> {
+    let raw = match std::env::var("RUST_CHAIN_SIGNER_KEY_HEX") {
+        Ok(v) => v,
+        Err(_) => return Ok(None),
+    };
+
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+
+    let bytes =
+        hex::decode(trimmed).map_err(|e| format!("invalid RUST_CHAIN_SIGNER_KEY_HEX: {e}"))?;
+    let key_bytes: [u8; 32] = bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| "invalid RUST_CHAIN_SIGNER_KEY_HEX: expected 32-byte hex".to_string())?;
+    Ok(Some(key_bytes))
+}
+
+fn maybe_sign_unsigned_block(block: &mut Block) -> Result<(), String> {
+    if block.signer.is_some() || block.signature.is_some() {
+        return Ok(());
+    }
+
+    let signer_key = signer_key_from_env()?;
+    if let Some(key) = signer_key {
+        sign_block(block, &key).map_err(|e| format!("block_sign_failed: {e}"))?;
+    }
+    Ok(())
 }
 
 fn parse_u64_env(name: &str, default: u64) -> u64 {
@@ -189,7 +226,13 @@ pub fn chain_validate(block_json: String, prev_json: Option<String>) -> String {
         None => None,
     };
 
-    match validate_block(&block, prev.as_ref()) {
+    let validation = if require_signed_blocks() {
+        validate_block_strict(&block, prev.as_ref())
+    } else {
+        validate_block(&block, prev.as_ref())
+    };
+
+    match validation {
         Ok(()) => ok(serde_json::json!({ "valid": true })),
         Err(errors) => ok(serde_json::json!({ "valid": false, "errors": errors })),
     }
@@ -202,13 +245,23 @@ pub fn chain_append(chain_json: String, block_json: String) -> String {
         Err(e) => return err(format!("invalid_chain_json: {e}")),
     };
 
-    let block: Block = match serde_json::from_str(&block_json) {
+    let mut block: Block = match serde_json::from_str(&block_json) {
         Ok(v) => v,
         Err(e) => return err(format!("invalid_block_json: {e}")),
     };
 
+    if let Err(e) = maybe_sign_unsigned_block(&mut block) {
+        return err(e);
+    }
+
     let prev = blocks.last();
-    if let Err(errors) = validate_block(&block, prev) {
+    let validation = if require_signed_blocks() {
+        validate_block_strict(&block, prev)
+    } else {
+        validate_block(&block, prev)
+    };
+
+    if let Err(errors) = validation {
         return ok(serde_json::json!({ "appended": false, "errors": errors }));
     }
 
@@ -452,7 +505,7 @@ mod tests {
 
     #[test]
     fn validate_returns_json_response() {
-        let block = Block {
+        let mut block = Block {
             index: 0,
             timestamp: "2026-03-08T21:00:00Z".to_string(),
             chain: "journal".to_string(),
@@ -462,8 +515,11 @@ mod tests {
                 tags: vec!["x".to_string()],
             },
             prev_hash: "0".repeat(64),
-            hash: "h0".to_string(),
+            hash: String::new(),
+            signer: None,
+            signature: None,
         };
+        block.hash = memphis_core::hash::compute_hash(&block);
 
         let payload = serde_json::to_string(&block).unwrap();
         let out = chain_validate(payload, None);
@@ -533,7 +589,7 @@ mod tests {
 
     #[test]
     fn soul_bridge_roundtrip_json() {
-        let block = Block {
+        let mut block = Block {
             index: 0,
             timestamp: "2026-03-12T12:00:00Z".to_string(),
             chain: "system".to_string(),
@@ -543,8 +599,11 @@ mod tests {
                 tags: vec!["boot".to_string()],
             },
             prev_hash: "0".repeat(64),
-            hash: "h0".to_string(),
+            hash: String::new(),
+            signer: None,
+            signature: None,
         };
+        block.hash = memphis_core::hash::compute_hash(&block);
         let replay = soul_replay("system".to_string(), serde_json::to_string(&vec![block]).unwrap());
         assert!(replay.contains("\"ok\":true"));
         assert!(replay.contains("\"accepted\":1"));

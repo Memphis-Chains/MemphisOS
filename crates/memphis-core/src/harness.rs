@@ -91,6 +91,8 @@ mod tests {
             },
             prev_hash,
             hash: String::new(),
+            signer: None,
+            signature: None,
         };
         block.hash = compute_hash(&block);
         block

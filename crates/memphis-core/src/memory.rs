@@ -39,6 +39,8 @@ impl MemoryStore {
             },
             prev_hash,
             hash: String::new(),
+            signer: None,
+            signature: None,
         };
         block.hash = compute_hash(&block);
         self.chain.append(block.clone())?;
