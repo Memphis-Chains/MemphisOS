@@ -48,6 +48,9 @@ function printManifestHuman(ref: ReturnType<typeof manifestRefFromContext>): voi
   console.log(chalk.cyan(`${summary.name} (${summary.id})`));
   console.log(summary.description);
   console.log(`source: ${summary.source.kind}${summary.source.path ? ` (${summary.source.path})` : ''}`);
+  if (summary.capabilities.length > 0) {
+    console.log(`capabilities: ${summary.capabilities.join(', ')}`);
+  }
   console.log(`platforms: ${summary.platforms.join(', ')}`);
   console.log(`actions: ${summary.actions.join(', ')}`);
   if (summary.homepage) console.log(`homepage: ${summary.homepage}`);
@@ -67,6 +70,9 @@ function printPlanHuman(plan: ReturnType<typeof planManagedAppAction> | ReturnTy
   console.log(`applyRequested: ${plan.applyRequested}`);
   console.log(`willExecute: ${plan.willExecute}`);
   console.log(`source: ${plan.source.kind}${plan.source.path ? ` (${plan.source.path})` : ''}`);
+  if (plan.manifest.capabilities.length > 0) {
+    console.log(`capabilities: ${plan.manifest.capabilities.join(', ')}`);
+  }
   console.log(`cwd: ${plan.cwd}`);
   console.log('paths:');
   console.log(`  appRoot: ${plan.paths.appRoot}`);
@@ -131,6 +137,9 @@ export async function handleAppsCommand(context: CliContext): Promise<boolean> {
       for (const manifest of manifests) {
         console.log(`${manifest.id} :: ${manifest.name} [${manifest.source.kind}]`);
         console.log(`  ${manifest.description}`);
+        if (manifest.capabilities.length > 0) {
+          console.log(`  capabilities=${manifest.capabilities.join(',')}`);
+        }
         if (manifest.installedRecord) {
           console.log(
             `  installed=${String(manifest.installedRecord.installed)} state=${manifest.installedRecord.state} last=${manifest.installedRecord.lastAction}`,

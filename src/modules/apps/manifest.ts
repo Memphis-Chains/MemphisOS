@@ -11,6 +11,7 @@ import { getLatestVaultEntry, verifyVaultEntry } from '../../infra/storage/vault
 
 export type ManagedAppPlatform = 'linux' | 'darwin' | 'win32';
 export type ManagedAppActionName = string;
+export type ManagedAppCapability = 'workspace' | 'memory' | 'browser' | 'mcp' | 'secrets' | 'service';
 
 type ManagedAppRuntimeCommand = {
   name: string;
@@ -34,6 +35,7 @@ export type ManagedAppManifest = {
   name: string;
   description: string;
   homepage?: string;
+  capabilities: ManagedAppCapability[];
   platforms: ManagedAppPlatform[];
   runtime: {
     node?: {
@@ -89,6 +91,7 @@ export type ManagedAppPlan = {
     name: string;
     description: string;
     homepage?: string;
+    capabilities: ManagedAppCapability[];
   };
   source: ManagedAppManifestSource;
   action: string;
@@ -161,6 +164,10 @@ const manifestSchema = z.object({
   name: z.string().min(1),
   description: z.string().min(1),
   homepage: z.string().url().optional(),
+  capabilities: z
+    .array(z.enum(['workspace', 'memory', 'browser', 'mcp', 'secrets', 'service']))
+    .min(1)
+    .optional(),
   platforms: z.array(z.enum(['linux', 'darwin', 'win32'])).min(1).optional(),
   runtime: z
     .object({
@@ -206,6 +213,7 @@ function normalizeManifest(input: unknown): ManagedAppManifest {
     name: parsed.name,
     description: parsed.description,
     homepage: parsed.homepage,
+    capabilities: [...(parsed.capabilities ?? [])].sort(),
     platforms: parsed.platforms ?? ['linux'],
     runtime: {
       node: parsed.runtime?.node,
@@ -753,6 +761,7 @@ export function planManagedAppAction(
       name: manifest.name,
       description: manifest.description,
       homepage: manifest.homepage,
+      capabilities: [...manifest.capabilities],
     },
     source: ref.source,
     action: actionName,
@@ -875,6 +884,7 @@ export function describeManagedAppManifest(ref: ManagedAppManifestRef): {
   description: string;
   homepage?: string;
   source: ManagedAppManifestSource;
+  capabilities: ManagedAppCapability[];
   platforms: ManagedAppPlatform[];
   actions: string[];
   notes: string[];
@@ -885,6 +895,7 @@ export function describeManagedAppManifest(ref: ManagedAppManifestRef): {
     description: ref.manifest.description,
     homepage: ref.manifest.homepage,
     source: ref.source,
+    capabilities: [...ref.manifest.capabilities],
     platforms: [...ref.manifest.platforms],
     actions: Object.keys(ref.manifest.actions).sort(),
     notes: [...ref.manifest.notes],

@@ -3,6 +3,7 @@
   "id": "demo-shell",
   "name": "Demo Shell App",
   "description": "Safe example manifest for MemphisOS managed-app workflows.",
+  "capabilities": ["workspace", "secrets"],
   "platforms": ["linux", "darwin"],
   "runtime": {
     "commands": [

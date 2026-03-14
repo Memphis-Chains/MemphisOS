@@ -95,6 +95,7 @@ node bin/memphis.js health --json
 
 More detailed setup is in [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
 If you want the shortest verified proof-of-life flow first, use [docs/FIRST_SUCCESSFUL_RUN.md](docs/FIRST_SUCCESSFUL_RUN.md).
+For local-first project scaffolding and agent context files, use [docs/WORKSPACES.md](docs/WORKSPACES.md).
 
 ## Quick Start
 
@@ -107,6 +108,26 @@ npm run test:ts
 npm run test:chaos
 npm run test:rust
 ```
+
+## Workspace Bootstrap
+
+MemphisOS can scaffold a local-first workspace that keeps one Memphis-managed context source and projects it into common agent files.
+
+```bash
+npm run -s cli -- workspace init ./brain --json
+npm run -s cli -- context sync ./brain --json
+```
+
+This creates:
+
+- `.memphis/context.json`
+- `AGENTS.md`
+- `CLAUDE.md`
+- `memory/`
+- `notes/`
+- `apps/`
+
+The managed files are updated through marked Memphis-managed blocks so local notes outside those blocks stay intact.
 
 ## Managed Apps Preview
 
@@ -122,6 +143,7 @@ npm run -s cli -- apps run demo-shell --file docs/templates/MANAGED_APP_MANIFEST
 Planning is the default. Add `--apply` to execute a lifecycle action.
 Concrete vendor integrations should live downstream from `main`; the core branch keeps only the generic app-management layer.
 If an action declares `vaultEnv`, MemphisOS can resolve the required runtime env var from the Memphis vault without printing the secret in plan output.
+Manifests can also declare coarse capability tags such as `workspace`, `memory`, `browser`, `mcp`, `secrets`, and `service`.
 
 ```bash
 npm run -s cli -- vault init --passphrase 'strong-passphrase' --recovery-question 'pet' --recovery-answer 'nori'
