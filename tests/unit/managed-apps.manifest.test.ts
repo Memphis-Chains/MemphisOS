@@ -10,9 +10,11 @@ import {
   describeManagedAppManifest,
   executeManagedAppAction,
   getManagedAppManifest,
+  importManagedAppManifestFile,
   inspectManagedAppCatalog,
   listManagedAppManifestRefs,
   planManagedAppAction,
+  validateManagedAppManifestFile,
 } from '../../src/modules/apps/manifest.js';
 
 describe('managed app manifests', () => {
@@ -395,5 +397,146 @@ describe('managed app manifests', () => {
     expect(result.executed).toBe(true);
     expect(result.results[0]?.stdout).toContain('file-ready');
     expect(readFileSync(secretFilePath, 'utf8')).toBe('secret-file-demo');
+  });
+});
+
+describe('validateManagedAppManifestFile', () => {
+  it('returns ok:true for a valid manifest file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-validate-ok-'));
+    const manifestPath = join(dir, 'demo.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'demo-app',
+        name: 'Demo App',
+        description: 'demo app for validate tests',
+        capabilities: ['workspace'],
+        actions: { install: { summary: 'install demo', steps: ['printf ok'] } },
+      }),
+      'utf8',
+    );
+
+    const result = validateManagedAppManifestFile(manifestPath);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.ref.manifest.id).toBe('demo-app');
+      expect(result.ref.source.kind).toBe('file');
+    }
+  });
+
+  it('returns ok:false with an error for a malformed manifest file', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-validate-bad-'));
+    const manifestPath = join(dir, 'bad.json');
+    writeFileSync(manifestPath, '{"schemaVersion":1,"id":"bad"', 'utf8');
+
+    const result = validateManagedAppManifestFile(manifestPath);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.path).toBe(manifestPath);
+      expect(result.error).toBeTruthy();
+    }
+  });
+
+  it('returns ok:false for a manifest that fails schema validation', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-validate-schema-'));
+    const manifestPath = join(dir, 'invalid.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({ schemaVersion: 1, id: 'Bad ID!', name: 'Bad', description: 'bad', actions: {} }),
+      'utf8',
+    );
+
+    const result = validateManagedAppManifestFile(manifestPath);
+
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe('importManagedAppManifestFile', () => {
+  it('copies a valid manifest into the managed manifests directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-import-ok-'));
+    const srcPath = join(dir, 'demo.json');
+    writeFileSync(
+      srcPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'demo-app',
+        name: 'Demo App',
+        description: 'demo app for import tests',
+        actions: { install: { summary: 'install demo', steps: ['printf ok'] } },
+      }),
+      'utf8',
+    );
+    const rawEnv = { MEMPHIS_DATA_DIR: dir } as NodeJS.ProcessEnv;
+
+    const result = importManagedAppManifestFile(srcPath, { rawEnv });
+
+    expect(result.ok).toBe(true);
+    expect(result.id).toBe('demo-app');
+    expect(result.dest).toContain('demo-app.json');
+    expect(result.conflict).toBe(false);
+    expect(result.overwritten).toBe(false);
+    expect(JSON.parse(readFileSync(result.dest, 'utf8'))).toMatchObject({ id: 'demo-app' });
+  });
+
+  it('refuses to overwrite an existing manifest without --force', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-import-conflict-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    const srcPath = join(dir, 'demo.json');
+    const manifest = {
+      schemaVersion: 1,
+      id: 'demo-app',
+      name: 'Demo App',
+      description: 'demo app for conflict test',
+      actions: { install: { summary: 'install demo', steps: ['printf ok'] } },
+    };
+    writeFileSync(srcPath, JSON.stringify(manifest), 'utf8');
+    writeFileSync(join(manifestsDir, 'demo-app.json'), JSON.stringify(manifest), 'utf8');
+    const rawEnv = { MEMPHIS_DATA_DIR: dir } as NodeJS.ProcessEnv;
+
+    const result = importManagedAppManifestFile(srcPath, { rawEnv });
+
+    expect(result.ok).toBe(false);
+    expect(result.conflict).toBe(true);
+    expect(result.error).toContain('--force');
+  });
+
+  it('overwrites an existing manifest when --force is set', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-import-force-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    const srcPath = join(dir, 'demo.json');
+    const manifest = {
+      schemaVersion: 1,
+      id: 'demo-app',
+      name: 'Demo App',
+      description: 'demo app for force-overwrite test',
+      actions: { install: { summary: 'install demo', steps: ['printf ok'] } },
+    };
+    writeFileSync(srcPath, JSON.stringify(manifest), 'utf8');
+    writeFileSync(join(manifestsDir, 'demo-app.json'), '{}', 'utf8');
+    const rawEnv = { MEMPHIS_DATA_DIR: dir } as NodeJS.ProcessEnv;
+
+    const result = importManagedAppManifestFile(srcPath, { force: true, rawEnv });
+
+    expect(result.ok).toBe(true);
+    expect(result.conflict).toBe(true);
+    expect(result.overwritten).toBe(true);
+  });
+
+  it('returns ok:false when the source file is invalid', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-import-bad-'));
+    const srcPath = join(dir, 'bad.json');
+    writeFileSync(srcPath, 'not json', 'utf8');
+    const rawEnv = { MEMPHIS_DATA_DIR: dir } as NodeJS.ProcessEnv;
+
+    const result = importManagedAppManifestFile(srcPath, { rawEnv });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeTruthy();
   });
 });

@@ -4,8 +4,10 @@ import {
   describeManagedAppManifest,
   executeManagedAppAction,
   getManagedAppManifest,
+  importManagedAppManifestFile,
   inspectManagedAppCatalog,
   planManagedAppAction,
+  validateManagedAppManifestFile,
 } from '../../../modules/apps/manifest.js';
 import {
   getManagedAppRegistryRecord,
@@ -19,7 +21,7 @@ function printAppsHelp(json: boolean): void {
   print(
     {
       usage:
-        'memphis apps list|show <id>|plan <id> [--action <name>] | run <id> --action <name> [--dry-run|--apply] [--file <manifest.json>] [--json]',
+        'memphis apps list|show <id>|plan <id> [--action <name>] | run <id> --action <name> [--dry-run|--apply] [--file <manifest.json>] | validate [--file <manifest.json>] | import --file <manifest.json> [--force] [--json]',
       notes:
         'Lifecycle aliases: install|start|stop|restart|status|doctor|dashboard <id> [--dry-run|--apply] [--file <manifest.json>] ; actions may resolve vault-backed env/file bindings via manifest vaultEnv and vaultFiles entries',
     },
@@ -230,6 +232,73 @@ export async function handleAppsCommand(context: CliContext): Promise<boolean> {
     } else {
       printPlanHuman(result);
     }
+    return true;
+  }
+
+  if (subcommand === 'validate') {
+    if (context.args.file) {
+      const result = validateManagedAppManifestFile(context.args.file);
+      if (json) {
+        print(
+          result.ok
+            ? { ok: true, manifest: describeManagedAppManifest(result.ref) }
+            : { ok: false, path: result.path, error: result.error },
+          true,
+        );
+      } else if (result.ok) {
+        console.log(`PASS ${result.ref.manifest.id} :: ${result.ref.manifest.name}`);
+      } else {
+        console.log(`FAIL ${result.path} :: ${result.error}`);
+      }
+      if (!result.ok) process.exitCode = 1;
+      return true;
+    }
+
+    const catalog = inspectManagedAppCatalog(process.env);
+    const allOk = catalog.errors.length === 0;
+    if (json) {
+      print(
+        {
+          ok: allOk,
+          manifestsDir: catalog.manifestsDir,
+          passed: catalog.manifests.map((ref) => describeManagedAppManifest(ref)),
+          errors: catalog.errors,
+        },
+        true,
+      );
+    } else {
+      for (const ref of catalog.manifests) {
+        console.log(`PASS ${ref.manifest.id} :: ${ref.manifest.name}`);
+      }
+      for (const err of catalog.errors) {
+        console.log(`FAIL ${err.path} :: ${err.detail}`);
+      }
+      if (catalog.manifests.length === 0 && allOk) {
+        console.log(`no manifests in ${catalog.manifestsDir}`);
+      } else if (!allOk) {
+        console.log(`${catalog.errors.length} error(s) in ${catalog.manifestsDir}`);
+      }
+    }
+    if (!allOk) process.exitCode = 1;
+    return true;
+  }
+
+  if (subcommand === 'import') {
+    if (!context.args.file) {
+      throw new Error('apps import requires --file <manifest.json>');
+    }
+    const result = importManagedAppManifestFile(context.args.file, {
+      force: context.args.force,
+      rawEnv: process.env,
+    });
+    if (json) {
+      print(result, true);
+    } else if (result.ok) {
+      console.log(`${result.overwritten ? 'overwritten' : 'imported'}: ${result.id} → ${result.dest}`);
+    } else {
+      console.log(`FAIL ${result.error}`);
+    }
+    if (!result.ok) process.exitCode = 1;
     return true;
   }
 

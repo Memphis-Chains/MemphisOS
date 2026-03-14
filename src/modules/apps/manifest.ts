@@ -987,6 +987,66 @@ export function executeManagedAppAction(
   };
 }
 
+export type ManagedAppValidationResult =
+  | { ok: true; ref: ManagedAppManifestRef }
+  | { ok: false; path: string; error: string };
+
+export function validateManagedAppManifestFile(pathValue: string): ManagedAppValidationResult {
+  const resolved = resolve(pathValue);
+  try {
+    const ref = loadFileManifest(pathValue);
+    return { ok: true, ref };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown manifest parse error';
+    return { ok: false, path: resolved, error: detail };
+  }
+}
+
+export type ManagedAppImportResult = {
+  ok: boolean;
+  id: string;
+  dest: string;
+  conflict: boolean;
+  overwritten: boolean;
+  error?: string;
+};
+
+export function importManagedAppManifestFile(
+  pathValue: string,
+  options: { force?: boolean; rawEnv?: NodeJS.ProcessEnv } = {},
+): ManagedAppImportResult {
+  const rawEnv = options.rawEnv ?? process.env;
+  const validation = validateManagedAppManifestFile(pathValue);
+  if (!validation.ok) {
+    return { ok: false, id: '', dest: '', conflict: false, overwritten: false, error: validation.error };
+  }
+
+  const { ref } = validation;
+  const dir = manifestsDir(rawEnv);
+  const dest = join(dir, `${ref.manifest.id}.json`);
+  const conflict = existsSync(dest);
+
+  if (conflict && !options.force) {
+    return {
+      ok: false,
+      id: ref.manifest.id,
+      dest,
+      conflict: true,
+      overwritten: false,
+      error: `manifest ${ref.manifest.id} already exists at ${dest}; use --force to overwrite`,
+    };
+  }
+
+  // Write the original file content after validation (not the normalized form) to avoid
+  // round-trip issues where normalizing optional fields like `capabilities: []` would
+  // fail schema validation when the file is re-read by inspectManagedAppCatalog.
+  const originalContent = readFileSync(resolve(pathValue), 'utf8');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(dest, originalContent, 'utf8');
+
+  return { ok: true, id: ref.manifest.id, dest, conflict, overwritten: conflict };
+}
+
 export function describeManagedAppManifest(ref: ManagedAppManifestRef): {
   id: string;
   name: string;
