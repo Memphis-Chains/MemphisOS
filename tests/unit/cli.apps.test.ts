@@ -48,6 +48,7 @@ describe('CLI apps', () => {
         actions: string[];
         capabilities: string[];
         capabilityGuidance: string[];
+        capabilityWarnings: string[];
       }>;
     };
     expect(data.manifests.map((item) => item.id)).toContain('demo-app');
@@ -60,11 +61,45 @@ describe('CLI apps', () => {
       expect.stringContaining('Workspace:'),
       expect.stringContaining('MCP:'),
     ]);
+    expect(data.manifests.find((item) => item.id === 'demo-app')?.capabilityWarnings).toEqual([]);
     expect(data.capabilityCounts).toMatchObject({
       mcp: 1,
       workspace: 1,
     });
     expect(data.manifestErrors).toEqual([]);
+  });
+
+  it('prints risk hints in human apps list output for pattern gaps', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-app-list-risk-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    writeFileSync(
+      join(manifestsDir, 'demo.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'browser-memory-app',
+          name: 'Browser Memory App',
+          description: 'app with intentional capability gaps',
+          capabilities: ['browser', 'memory'],
+          actions: {
+            status: {
+              summary: 'print status token',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+
+    const out = await runCli(['apps', 'list'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    expect(out).toContain('risk=memory tag without workspace/service scope; browser tag without mcp/service transport hint');
   });
 
   it('prints capability guidance in human app show output', async () => {
@@ -132,13 +167,14 @@ describe('CLI apps', () => {
     });
 
     const data = JSON.parse(out) as {
-      manifest: { id: string; capabilityGuidance: string[] };
+      manifest: { id: string; capabilityGuidance: string[]; capabilityWarnings: string[] };
     };
     expect(data.manifest.id).toBe('demo-app');
     expect(data.manifest.capabilityGuidance).toEqual([
       expect.stringContaining('MCP:'),
       expect.stringContaining('Secrets:'),
     ]);
+    expect(data.manifest.capabilityWarnings).toEqual([]);
   });
 
   it('plans a file-backed install action without executing it', async () => {
