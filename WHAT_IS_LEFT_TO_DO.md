@@ -7,23 +7,28 @@ Updated: 2026-03-14
 - `v0.1.0` is shipped.
 - Release-path hardening is complete on `main`.
 - New-user install guidance is in `docs/GETTING_STARTED.md`.
+- The first post-release control-plane foundation is now in `main`:
+  - `workspace init` / `context sync`
+  - managed-app capability metadata
+  - capability-aware `apps show` / `apps plan`
+  - capability-aware `doctor` catalog checks
+  - generic downstream MCP manifest template
 - Current work should stay small, control-plane-focused, and grounded in real operator usage.
 
 ## Current Priorities
 
-1. Turn capability metadata into more actionable operator flows (`doctor`, `apps show`, `apps plan`).
-2. Add generic downstream patterns for MCP, memory, and browser-backed managed apps.
-3. Keep MemphisOS core as the control plane; move vendor integrations and memory/browser stacks downstream.
-4. Convert real operator friction into README, onboarding, and `doctor` improvements.
+1. Add concise capability/risk hints to `apps list` so operators can spot pattern gaps without running `doctor`.
+2. Add managed-app catalog hygiene flows such as `apps import` and `apps validate` for `~/.memphis/apps/manifests`.
+3. Add one operator-grade tutorial for a downstream MCP-managed app using the new generic template.
+4. Keep MemphisOS core as the control plane; move vendor integrations and memory/browser stacks downstream.
 
 ## Near-Term Roadmap
 
-### 1. v0.1.1 Core Slice
+### 1. v0.1.1 Completion Slice
 
-- Ship workspace scaffolding and context sync.
-- Make `AGENTS.md` / `CLAUDE.md` a Memphis-managed projection from one local context source.
-- Make capability metadata visible in managed-app manifests and CLI output.
-- Add capability-aware doctor/app guidance plus reusable downstream manifest patterns.
+- Make `apps list` show lightweight capability-pattern warnings and guidance counts.
+- Add explicit catalog-management commands for importing and validating downstream manifests.
+- Ship one end-to-end tutorial that uses the generic MCP template as the downstream starting point.
 
 ### 2. Adoption
 

@@ -37,7 +37,7 @@ MemphisOS is strongest when it supplies the control layer around those systems, 
 
 ## v0.1.1 Core Slice
 
-The next useful slice is deliberately small:
+The next useful slice was deliberately small:
 
 1. `workspace init`
    - scaffold a shared workspace with `.memphis/context.json`, `AGENTS.md`, `CLAUDE.md`, and core directories
@@ -45,11 +45,27 @@ The next useful slice is deliberately small:
    - project the Memphis workspace context into common agent context files without rewriting unrelated local notes
 3. managed-app capability metadata
    - label manifests with capabilities such as `workspace`, `memory`, `browser`, `mcp`, `secrets`, and `service`
+4. capability-aware operator guidance
+   - surface capability guidance in `apps show` / `apps plan`
+   - summarize managed-app catalog patterns in `memphis doctor`
+5. generic downstream MCP template
+   - provide a reusable, non-vendor-specific starting point for downstream MCP integrations
+
+## What Is Already Landed
+
+These foundations are now in `main`:
+
+1. local-first workspace scaffolding and sync
+2. capability-tagged managed-app manifests
+3. capability-aware app guidance in CLI output
+4. capability-aware `doctor` checks for catalog, MCP, secrets, memory, and browser patterns
+5. a generic MCP managed-app manifest template for downstream repos
 
 ## Immediate Follow-On Work
 
 After this slice, the next decisions should stay narrow:
 
-1. add capability-aware app discovery and doctor output
-2. add a generic MCP-managed-app pattern for browser and memory integrations
-3. keep concrete integrations downstream and upstream only reusable framework improvements
+1. add `apps list` summary hints for capability-pattern mismatches
+2. add `apps import` / `apps validate` for managed-app catalog hygiene
+3. write one operator-grade tutorial for a downstream MCP-managed app
+4. keep concrete integrations downstream and upstream only reusable framework improvements
