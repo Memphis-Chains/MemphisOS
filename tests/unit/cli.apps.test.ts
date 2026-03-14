@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { vaultEncrypt } from '../../src/infra/storage/rust-vault-adapter.js';
 import { saveVaultEntry } from '../../src/infra/storage/vault-entry-store.js';
-import { runCli } from '../helpers/cli.js';
+import { runCli, runCliResult } from '../helpers/cli.js';
 
 describe('CLI apps', () => {
   it('lists user-managed manifests as JSON', async () => {
@@ -409,5 +409,205 @@ describe('CLI apps', () => {
     ]);
     expect(data.results[0]?.stdout).toContain('cli-vault-file-ready');
     expect(readFileSync(join(data.paths.state, 'token.txt'), 'utf8')).toBe('secret-file-demo');
+  });
+});
+
+describe('CLI apps validate', () => {
+  it('validates a valid manifest file and returns ok:true in JSON', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-validate-ok-'));
+    const manifestPath = join(dir, 'demo.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'demo-app',
+        name: 'Demo App',
+        description: 'demo app for cli validate',
+        capabilities: ['workspace'],
+        actions: { install: { summary: 'install demo', steps: ['printf ok'] } },
+      }),
+      'utf8',
+    );
+
+    const out = await runCli(['apps', 'validate', '--file', manifestPath, '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    const data = JSON.parse(out) as { ok: boolean; manifest: { id: string } };
+    expect(data.ok).toBe(true);
+    expect(data.manifest.id).toBe('demo-app');
+  });
+
+  it('returns ok:false and exits with code 1 for an invalid manifest file', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-validate-bad-'));
+    const manifestPath = join(dir, 'bad.json');
+    writeFileSync(manifestPath, '{"schemaVersion":1,"id":"bad"', 'utf8');
+
+    const result = await runCliResult(['apps', 'validate', '--file', manifestPath, '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    expect(result.status).toBe(1);
+    const data = JSON.parse(result.stdout) as { ok: boolean; error: string };
+    expect(data.ok).toBe(false);
+    expect(data.error).toBeTruthy();
+  });
+
+  it('validates the full catalog and reports passed and errored manifests in JSON', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-validate-catalog-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    writeFileSync(
+      join(manifestsDir, 'good.json'),
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'good-app',
+        name: 'Good App',
+        description: 'valid app',
+        actions: { install: { summary: 'install', steps: ['printf ok'] } },
+      }),
+      'utf8',
+    );
+    writeFileSync(join(manifestsDir, 'bad.json'), '{"schemaVersion":1,"id":"broken"', 'utf8');
+
+    const result = await runCliResult(['apps', 'validate', '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    expect(result.status).toBe(1);
+    const data = JSON.parse(result.stdout) as {
+      ok: boolean;
+      passed: Array<{ id: string }>;
+      errors: Array<{ path: string; detail: string }>;
+    };
+    expect(data.ok).toBe(false);
+    expect(data.passed.map((item) => item.id)).toContain('good-app');
+    expect(data.errors).toHaveLength(1);
+    expect(data.errors[0]?.path).toContain('bad.json');
+  });
+
+  it('prints PASS/FAIL lines in human output', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-validate-human-'));
+    const manifestPath = join(dir, 'demo.json');
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'demo-app',
+        name: 'Demo App',
+        description: 'demo',
+        actions: { install: { summary: 'install', steps: ['printf ok'] } },
+      }),
+      'utf8',
+    );
+
+    const out = await runCli(['apps', 'validate', '--file', manifestPath], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    expect(out).toContain('PASS demo-app');
+  });
+});
+
+describe('CLI apps import', () => {
+  it('copies a valid manifest into the manifests directory', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-import-ok-'));
+    const srcPath = join(dir, 'demo.json');
+    writeFileSync(
+      srcPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'demo-app',
+        name: 'Demo App',
+        description: 'demo app for cli import',
+        actions: { install: { summary: 'install demo', steps: ['printf ok'] } },
+      }),
+      'utf8',
+    );
+
+    const out = await runCli(['apps', 'import', '--file', srcPath, '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    const data = JSON.parse(out) as { ok: boolean; id: string; dest: string; overwritten: boolean };
+    expect(data.ok).toBe(true);
+    expect(data.id).toBe('demo-app');
+    expect(data.dest).toContain('demo-app.json');
+    expect(data.overwritten).toBe(false);
+    expect(JSON.parse(readFileSync(data.dest, 'utf8'))).toMatchObject({ id: 'demo-app' });
+  });
+
+  it('imported manifest is then listed by apps list', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-import-list-'));
+    const srcPath = join(dir, 'demo.json');
+    writeFileSync(
+      srcPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'imported-app',
+        name: 'Imported App',
+        description: 'imported app',
+        actions: { status: { summary: 'status', steps: ['printf ok'] } },
+      }),
+      'utf8',
+    );
+
+    const importOut = await runCli(['apps', 'import', '--file', srcPath, '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+    expect(JSON.parse(importOut)).toMatchObject({ ok: true, id: 'imported-app' });
+
+    const out = await runCli(['apps', 'list', '--json'], { env: { MEMPHIS_DATA_DIR: dir } });
+    const data = JSON.parse(out) as { manifests: Array<{ id: string }> };
+    expect(data.manifests.map((item) => item.id)).toContain('imported-app');
+  });
+
+  it('refuses to overwrite without --force and exits with code 1', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-import-conflict-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    const manifest = {
+      schemaVersion: 1,
+      id: 'demo-app',
+      name: 'Demo App',
+      description: 'demo',
+      actions: { install: { summary: 'install', steps: ['printf ok'] } },
+    };
+    const srcPath = join(dir, 'demo.json');
+    writeFileSync(srcPath, JSON.stringify(manifest), 'utf8');
+    writeFileSync(join(manifestsDir, 'demo-app.json'), JSON.stringify(manifest), 'utf8');
+
+    const result = await runCliResult(['apps', 'import', '--file', srcPath, '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    expect(result.status).toBe(1);
+    const data = JSON.parse(result.stdout) as { ok: boolean; conflict: boolean };
+    expect(data.ok).toBe(false);
+    expect(data.conflict).toBe(true);
+  });
+
+  it('overwrites an existing manifest when --force is passed', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-cli-import-force-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    const manifest = {
+      schemaVersion: 1,
+      id: 'demo-app',
+      name: 'Demo App',
+      description: 'demo',
+      actions: { install: { summary: 'install', steps: ['printf ok'] } },
+    };
+    const srcPath = join(dir, 'demo.json');
+    writeFileSync(srcPath, JSON.stringify(manifest), 'utf8');
+    writeFileSync(join(manifestsDir, 'demo-app.json'), '{}', 'utf8');
+
+    const out = await runCli(['apps', 'import', '--file', srcPath, '--force', '--json'], {
+      env: { MEMPHIS_DATA_DIR: dir },
+    });
+
+    const data = JSON.parse(out) as { ok: boolean; overwritten: boolean };
+    expect(data.ok).toBe(true);
+    expect(data.overwritten).toBe(true);
   });
 });
