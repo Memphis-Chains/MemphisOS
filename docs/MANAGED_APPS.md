@@ -42,6 +42,11 @@ Manifests can declare coarse capability tags:
 
 These tags are descriptive. They help operators and future automation understand what kind of surface an app expects without baking vendor-specific behavior into MemphisOS core.
 
+MemphisOS uses them in two places today:
+
+- `memphis apps show ...` and `memphis apps plan ...` print capability-aware operator guidance
+- `memphis doctor` summarizes the managed app catalog and the capability mix discovered under `~/.memphis/apps/manifests`
+
 ## CLI Surface
 
 ```bash
@@ -115,13 +120,26 @@ Behavior:
 A safe example manifest is included at:
 
 - `docs/templates/MANAGED_APP_MANIFEST.example.json`
+- `docs/templates/MANAGED_APP_MCP.example.json`
 
 Use it like this:
 
 ```bash
 npm run -s cli -- apps show demo-shell --file docs/templates/MANAGED_APP_MANIFEST.example.json --json
 npm run -s cli -- apps run demo-shell --file docs/templates/MANAGED_APP_MANIFEST.example.json --action doctor --apply --json
+npm run -s cli -- apps show demo-mcp-adapter --file docs/templates/MANAGED_APP_MCP.example.json --json
 ```
+
+## Generic MCP Pattern
+
+For downstream MCP adapters, keep the pattern generic:
+
+- tag the manifest with `mcp` and usually `service`
+- make `status` and `doctor` actions probe the downstream endpoint or transport
+- if the adapter is workspace-bound, also tag it with `workspace`
+- keep browser- or vendor-specific assumptions in the downstream repo
+
+The safe template at `docs/templates/MANAGED_APP_MCP.example.json` demonstrates that shape without baking any vendor runtime into MemphisOS core.
 
 ## Downstream Policy
 

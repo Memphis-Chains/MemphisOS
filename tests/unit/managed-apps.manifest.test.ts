@@ -10,6 +10,7 @@ import {
   describeManagedAppManifest,
   executeManagedAppAction,
   getManagedAppManifest,
+  inspectManagedAppCatalog,
   listManagedAppManifestRefs,
   planManagedAppAction,
 } from '../../src/modules/apps/manifest.js';
@@ -46,6 +47,10 @@ describe('managed app manifests', () => {
     const demo = manifests.find((item) => item.manifest.id === 'demo-app');
     expect(describeManagedAppManifest(demo!).actions).toEqual(['doctor']);
     expect(describeManagedAppManifest(demo!).capabilities).toEqual(['secrets', 'workspace']);
+    expect(describeManagedAppManifest(demo!).capabilityGuidance).toEqual([
+      expect.stringContaining('Workspace:'),
+      expect.stringContaining('Secrets:'),
+    ]);
   });
 
   it('plans a file-backed install action with Memphis-managed paths', () => {
@@ -85,7 +90,47 @@ describe('managed app manifests', () => {
     expect(plan.exportedEnv.APP_STATE_DIR).toBe('/tmp/memphis-apps/apps/demo-app/state');
     expect(plan.exportedEnv.APP_CONFIG_PATH).toBe('/tmp/memphis-apps/apps/demo-app/config/app.json');
     expect(plan.manifest.capabilities).toEqual(['workspace']);
+    expect(plan.manifest.capabilityGuidance).toEqual([expect.stringContaining('Workspace:')]);
     expect(plan.steps).toEqual(['printf install-ready']);
+  });
+
+  it('inspects managed app catalogs without crashing on invalid manifests', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'memphis-app-catalog-'));
+    const manifestsDir = join(dir, 'apps', 'manifests');
+    mkdirSync(manifestsDir, { recursive: true });
+    writeFileSync(
+      join(manifestsDir, 'good.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          id: 'demo-mcp-app',
+          name: 'Demo MCP App',
+          description: 'valid app for catalog inspection',
+          capabilities: ['mcp', 'workspace'],
+          actions: {
+            status: {
+              summary: 'print status',
+              steps: ['printf status-ready'],
+            },
+          },
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    );
+    writeFileSync(join(manifestsDir, 'bad.json'), '{"schemaVersion":1,"id":"broken"', 'utf8');
+
+    const catalog = inspectManagedAppCatalog({ MEMPHIS_DATA_DIR: dir } as NodeJS.ProcessEnv);
+
+    expect(catalog.manifests.map((item) => item.manifest.id)).toEqual(['demo-mcp-app']);
+    expect(catalog.capabilityCounts.mcp).toBe(1);
+    expect(catalog.capabilityCounts.workspace).toBe(1);
+    expect(catalog.errors).toEqual([
+      expect.objectContaining({
+        path: expect.stringContaining('bad.json'),
+      }),
+    ]);
   });
 
   it('executes a file-backed managed app action when apply is requested', () => {
