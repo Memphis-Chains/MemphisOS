@@ -50,6 +50,14 @@ function printCapabilityGuidanceHuman(guidance: string[], indent = ''): void {
   }
 }
 
+function printCapabilityWarningsHuman(warnings: string[], indent = ''): void {
+  if (warnings.length === 0) return;
+  console.log(`${indent}warnings:`);
+  for (const item of warnings) {
+    console.log(`${indent}  - ${item}`);
+  }
+}
+
 function printManifestHuman(ref: ReturnType<typeof manifestRefFromContext>): void {
   const summary = describeManagedAppManifest(ref);
   const record = getManagedAppRegistryRecord(summary.id, process.env);
@@ -67,6 +75,7 @@ function printManifestHuman(ref: ReturnType<typeof manifestRefFromContext>): voi
     console.log(`state: ${record.state}`);
     console.log(`lastAction: ${record.lastAction} @ ${record.lastActionAt}`);
   }
+  printCapabilityWarningsHuman(summary.capabilityWarnings);
   printCapabilityGuidanceHuman(summary.capabilityGuidance);
   for (const note of summary.notes) {
     console.log(`note: ${note}`);
@@ -161,6 +170,9 @@ export async function handleAppsCommand(context: CliContext): Promise<boolean> {
         }
         if (manifest.capabilityGuidance.length > 0) {
           console.log(`  guidance=${manifest.capabilityGuidance.length} capability note(s); use 'memphis apps show ${manifest.id}' for details`);
+        }
+        if (manifest.capabilityWarnings.length > 0) {
+          console.log(`  risk=${manifest.capabilityWarnings.join('; ')}`);
         }
         if (manifest.installedRecord) {
           console.log(
