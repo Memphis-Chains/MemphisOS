@@ -7,5 +7,8 @@ export default defineConfig({
     hookTimeout: 15_000,
     include: ['tests/**/*.test.ts'],
     exclude: ['.memphis-intake/**', 'reference/**', 'node_modules/**', 'dist/**'],
+    env: {
+      MEMPHIS_API_TOKEN: '',
+    },
   },
 });
